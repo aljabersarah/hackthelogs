@@ -4,7 +4,7 @@
 
 Welcome to **Hack The Logs**, a documentation platform and central hub for anyone looking to understand and manage log data across various systems and platforms.
 
-This project is built to simplify logging — from deciding what to log, to understanding log formats, and ultimately improving detection and response capabilities.
+This project is built to simplify logging from deciding what to log, to understanding log formats, and ultimately improving detection and response capabilities.
 
 Whether you're a SOC analyst, security engineer, or student, this resource offers:
 
@@ -16,7 +16,7 @@ Whether you're a SOC analyst, security engineer, or student, this resource offer
 
 ## Coming Soon
 
-A dedicated page on **log baselining** — what to send to SIEMs and how to configure it effectively — is in the works. Stay tuned!
+A dedicated page on **log baselining** what to send to SIEMs and how to configure it effectively is in the works. Stay tuned!
 
 ---
 
