@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Apache Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Apache Logs</div>
+      <a href="#" class="nav-item active"> Apache Log Overview </a>
+      <a href="#" class="nav-item"> Key Apache Log Locations</a>
+      <a href="#" class="nav-item"> Apache Access Log Format</a>
+      <a href="#" class="nav-item"> Apache Response Code Reference</a>
+      <a href="#" class="nav-item"> Apache Log Analysis Commands</a>
+      <a href="#" class="nav-item">Best Practices for Apache Log Management </a>
+      <a href="#" class="nav-item"> OWASP Top 10 Web Application Security Risks </a>
+    </div>
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Apache Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+      <div class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Apache Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Apache HTTP Server logs are vital for tracking web server activity and analyzing client interactions. These logs provide detailed information such as IP addresses, request methods, requested resources, HTTP status codes, referrers, and user agents, enabling administrators and security teams to monitor traffic and investigate potential threats.</p>
+            <p>Apache uses two primary log types: the <code>access.log</code> and the <code>error.log</code>. The access log records each request processed by the server, while the error log captures diagnostic information, such as startup/shutdown events, configuration errors, and runtime exceptions. Logs are typically stored in a customizable text format defined by the <code>LogFormat</code> directive. </p>
+            <p>To get the most value from Apache logs, it’s important to configure detailed log formats, implement log rotation, and forward logs to centralized analysis platforms like ELK or SIEM systems. Apache logs play a crucial role in detecting and investigating common web threats such as directory traversal, SQL injection, unauthorized access, and brute-force login attempts. They also support performance tuning and help ensure compliance with audit and security standards.</p>
+          </div>
+        </div>
+      </div>
+      <!-- Key Apache Log Locations -->
+      <div class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Apache Log Locations</h2>
+        </div>
+        <p>Apache stores logs based on the server configuration. Below are common default paths and locations for Apache access and error logs:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Default Path</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Access Log</td>
+                <td>
+                  <code>/var/log/apache2/access.log</code>
+                </td>
+                <td>Records all incoming HTTP requests to the server</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Error Log</td>
+                <td>
+                  <code>/var/log/apache2/error.log</code>
+                </td>
+                <td>Contains server errors, diagnostic messages, and crash information</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Virtual Host Logs</td>
+                <td>
+                  <code>Defined in <code>&lt;VirtualHost&gt;</code> config block </code>
+                </td>
+                <td>Each virtual host can define its own access and error log files</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Custom Log Paths</td>
+                <td>
+                  <code>Defined in apache2.conf or httpd.conf via CustomLog and ErrorLog</code>
+                </td>
+                <td>Paths can be changed depending on environment or OS</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Use <code>apachectl -V</code> or <code>httpd -S</code> to check configuration paths and log directives for Apache on your system.
+          </div>
+        </div>
+      </div>
+      <!-- Apache Access Log Format-->
+      <div class="card">
+        <h2>Apache Access Log Format</h2>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ip</td>
+                <td>Client IP address</td>
+                <td>Source</td>
+                <td>192.168.1.55</td>
+              </tr>
+              <tr>
+                <td>ident</td>
+                <td>RFC 1413 identity of the client (usually "-")</td>
+                <td>Source</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>authuser</td>
+                <td>Username for authenticated requests</td>
+                <td>Source</td>
+                <td>john.doe</td>
+              </tr>
+              <tr>
+                <td>date</td>
+                <td>Date and time of the request</td>
+                <td>Timestamp</td>
+                <td>[23/Apr/2025:10:25:17 +0300]</td>
+              </tr>
+              <tr>
+                <td>request</td>
+                <td>Full request line from the client</td>
+                <td>Request</td>
+                <td>GET /admin/login.php?user=admin HTTP/1.1</td>
+              </tr>
+              <tr>
+                <td>status</td>
+                <td>HTTP response code</td>
+                <td>Response</td>
+                <td>403</td>
+              </tr>
+              <tr>
+                <td>bytes</td>
+                <td>Size of the response in bytes</td>
+                <td>Response</td>
+                <td>728</td>
+              </tr>
+              <tr>
+                <td>referer</td>
+                <td>Previous page (Referer header)</td>
+                <td>Source</td>
+                <td>https://example.com/home</td>
+              </tr>
+              <tr>
+                <td>user-agent</td>
+                <td>Client software or tool (User-Agent header)</td>
+                <td>Source</td>
+                <td>sqlmap/1.5.2</td>
+              </tr>
+              <tr>
+                <td>response-time</td>
+                <td>Time taken to serve the request (if enabled)</td>
+                <td>Performance</td>
+                <td>382</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- HTTP Response Codes in Apache Logs -->
+<div class="card">
+  <h2>Apache Response Code Reference</h2>
+  <p>This table lists common HTTP status codes as seen in Apache access logs.</p>
+  <table class="log-table">
+    <thead>
+      <tr>
+        <th>Status Code</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>200</td>
+        <td>OK – Request succeeded</td>
+      </tr>
+      <tr>
+        <td>301 / 302</td>
+        <td>Redirect – Resource moved</td>
+      </tr>
+      <tr>
+        <td>400</td>
+        <td>Bad Request – Malformed syntax</td>
+      </tr>
+      <tr>
+        <td>401</td>
+        <td>Unauthorized – Authentication required</td>
+      </tr>
+      <tr>
+        <td>403</td>
+        <td>Forbidden – Access denied</td>
+      </tr>
+      <tr>
+        <td>404</td>
+        <td>Not Found – Resource not found</td>
+      </tr>
+      <tr>
+        <td>405</td>
+        <td>Method Not Allowed – HTTP method not permitted</td>
+      </tr>
+      <tr>
+        <td>429</td>
+        <td>Too Many Requests – Rate limited</td>
+      </tr>
+      <tr>
+        <td>500</td>
+        <td>Internal Server Error – Server issue</td>
+      </tr>
+      <tr>
+        <td>503</td>
+        <td>Service Unavailable – Server overloaded or down</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+      <!-- Apache Log Analysis Commands -->
+      <div class="card">
+        <h2>Apache Log Analysis Commands</h2>
+        <p>Use these Linux CLI commands to analyze Apache access logs, detect abuse, and uncover suspicious patterns in web traffic.</p>
+        <div class="cmd-grid">
+          <!-- List All User Agents -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">List All User Agents</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk -F'"' '{print $6}' access.log | sort | uniq -c | sort -nr</span>
+              </div>
+              <div class="cmd-output">Detect bots or scripts by listing and counting unique User-Agent headers.</div>
+            </div>
+          </div>
+          <!-- Most Visited Destination IPs -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Top Destination IPs</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk '{print $1}' access.log | sort | uniq -c | sort -nr</span>
+              </div>
+              <div class="cmd-output">Shows which client IPs are making the most requests — helpful for detecting scanning or spikes.</div>
+            </div>
+          </div>
+          <!-- POST Requests with 200 Response -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-envelope-open-text"></i>
+              <span class="cmd-title">POST with 200</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk '$6 ~ /POST/ &amp;&amp; $9 == 200 {print $1, $7}' access.log | sort | uniq -c | sort -nr</span>
+              </div>
+              <div class="cmd-output">Finds successful POST request patterns — useful for detecting suspicious uploads or interactions.</div>
+            </div>
+          </div>
+          <!-- Suspicious POST Requests -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-robot"></i>
+              <span class="cmd-title">Automated POST Requests</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk '$6 ~ /POST/ &amp;&amp; $0 !~ /Mozilla|Chrome|Safari/' access.log</span>
+              </div>
+              <div class="cmd-output">Detects automated tools and non-browser clients sending POST requests — potentially exploit attempts.</div>
+            </div>
+          </div>
+          <!-- Detect URI with Executables -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-bug"></i>
+              <span class="cmd-title">Requests for EXE Files</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">grep ".exe" access.log</span>
+              </div>
+              <div class="cmd-output">Highlights access to `.exe` files, which could signal malware delivery or reconnaissance.</div>
+            </div>
+          </div>
+          <!-- Repeated Failed Requests from Same IP -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-times-circle"></i>
+              <span class="cmd-title">IPs with Multiple Failed Requests</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk '$9 ~ /403|401/ {print $1}' access.log | sort | uniq -c | awk '$1 &gt; 5' | sort -nr</span>
+              </div>
+              <div class="cmd-output">Identifies clients repeatedly denied access — possible brute-force or path probing behavior.</div>
+            </div>
+          </div>
+          <!-- Top 5 Accessed URIs -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-route"></i>
+              <span class="cmd-title">Most Accessed Endpoints</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk '{print $7}' access.log | sort | uniq -c | sort -nr | head -n 5</span>
+              </div>
+              <div class="cmd-output">Lists the most requested URIs — great for identifying popular or targeted content.</div>
+            </div>
+          </div>
+          <!-- User Agent Frequency per IP -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-user-cog"></i>
+              <span class="cmd-title">User Agent Diversity per IP</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">BASH></span>
+                <span class="cmd-line-content">awk '{print $1 "|" $12}' access.log | sort | uniq | cut -d'|' -f1 | sort | uniq -c | sort -nr</span>
+              </div>
+              <div class="cmd-output">Detects IPs switching User-Agents — common in bots or evasive crawlers.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Best Practices for Apache Log Management -->
+      <div class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Apache Log Management</h2>
+        </div>
+        <p class="intro-text">Follow these practices to enhance visibility, improve security detection, and support forensic investigations using Apache access and error logs:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable Combined Log Format</h3>
+              <p>Use the <code>combined</code> log format to capture critical fields like client IP, request method, referrer, and User-Agent for each HTTP request. </p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Rotate Logs Daily</h3>
+              <p>Use <code>logrotate</code> or built-in Apache rotation tools to rotate logs daily, improving manageability and preventing file bloating. </p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Archive Logs Securely</h3>
+              <p>Compress and store archived logs in a secure, centralized location with retention policies of at least 90 days for compliance and investigations.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Monitor Access and Error Logs</h3>
+              <p>Regularly review both <code>access.log</code> and <code>error.log</code> to detect abnormal request patterns, server errors, or exploitation attempts. </p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Filter Malicious Indicators</h3>
+              <p>Use grep or custom scripts to flag suspicious URIs, high frequency 404s, non-browser User-Agents, and known attack signatures.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Integrate with SIEM</h3>
+              <p>Forward logs to your SIEM (e.g., Splunk, ELK) using syslog or filebeat to enable real-time alerting and cross-log correlation.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Restrict Log Access</h3>
+              <p>Limit file access using Linux permissions ( <code>chmod</code>, <code>chown</code>) and monitor for unauthorized changes or deletions. </p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Automate Threat Hunting</h3>
+              <p>Automate log analysis using tools like <code>awk</code>, <code>grep</code>, <code>goaccess</code>, or Python to reduce time-to-detection and improve scalability. </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- OWASP Top 10 Navigator -->
+      <div class="card owasp-overview">
+        <div class="card-header">
+          <!-- <div class="header-icon">
+            <i class="fas fa-shield-alt"></i>
+          </div> -->
+          <h2>OWASP Top 10 Web Application Security Risks</h2>
+        </div>
+        <p class="description"> The OWASP Top 10 is a standard awareness document for developers and web application security practitioners. It represents a broad consensus about the most critical security risks to web applications based on frequency of discovery, severity, and potential impact. </p>
+        <div class="audit-categories-grid">
+          <!-- A01:2021 Broken Access Control -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-lock-open"></i>
+              <h4>A01:2021 - Broken Access Control</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Restrictions on authenticated users aren't properly enforced. Attackers can exploit flaws to access unauthorized functionality or data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">Critical Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A02:2021 Cryptographic Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>A02:2021 - Cryptographic Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Failures related to cryptography that often lead to sensitive data exposure. Includes weak encryption, improper certificate validation, or using deprecated functions.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A03:2021 Injection -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-code"></i>
+              <h4>A03:2021 - Injection</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>User-supplied data is not validated, filtered, or sanitized. SQL, NoSQL, OS, and LDAP injection flaws can result in data exfiltration or system compromise.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A04:2021 Insecure Design -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-drafting-compass"></i>
+              <h4>A04:2021 - Insecure Design</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Flaws related to design and architectural security failures. Represents a shift from remediation to designing with security in mind from the start.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A05:2021 Security Misconfiguration -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sliders-h"></i>
+              <h4>A05:2021 - Security Misconfiguration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Missing security hardening, improper permissions, unnecessary features enabled, default accounts/passwords, and overly informative error messages.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A06:2021 Vulnerable Components -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-puzzle-piece"></i>
+              <h4>A06:2021 - Vulnerable Components</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Using outdated libraries, frameworks, or components with known vulnerabilities. Includes failure to track vulnerable dependencies and patch management.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A07:2021 Auth Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-lock"></i>
+              <h4>A07:2021 - Auth Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Incorrect implementation of authentication and session management. Includes weak passwords, improper session handling, and credential exposure.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A08:2021 Software Integrity Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-check-circle"></i>
+              <h4>A08:2021 - Software Integrity Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Failures to verify integrity of software updates, critical data, CI/CD pipelines, or unsigned libraries. Includes auto-update functionality without integrity checks.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A09:2021 Logging Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-clipboard-list"></i>
+              <h4>A09:2021 - Logging Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Insufficient logging, monitoring, and alerting. Inadequate detection, escalation, and response to active breaches. Logs missing critical details or improperly stored.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A10:2021 SSRF -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-random"></i>
+              <h4>A10:2021 - Server-Side Request Forgery</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Web application fetches remote resources without validating user-supplied URLs. Attackers can force the server to connect to internal services or read unauthorized data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The OWASP Top 10 should be viewed as a starting point, not a comprehensive security program. Organizations should develop additional security measures based on their specific threat landscape and risk profile.
+          </div>
+        </div>
+      </div>
+      <div class="back-button-container">
+        <a href="Web.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

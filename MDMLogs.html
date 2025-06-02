@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - PAM Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">MDM Logs</div>
+      <a href="#" class="nav-item active">MDM Solution Overview</a>
+      <a href="#" class="nav-item">Key MDM Solution Components</a>
+      <a href="#" class="nav-item">MDM Event Logs</a>
+      <a href="#" class="nav-item">MDM Vendor Log Differences</a>
+      <a href="#" class="nav-item">MDM Log Analysis Queries</a>
+ 
+    </div>
+   <!-- Main Content -->
+<div class="main-content">
+  <div class="header">
+    <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Mobile Device Management</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search documentation...">
+    </div>
+  </div>
+  <div class="card event-log-overview">
+    <div class="card-header">
+      <div></div>
+      <h2>MDM Solution Overview</h2>
+    </div>
+    <div class="content-wrapper">
+      <div class="overview-content">
+        <p>Mobile Device Management (MDM) solutions are comprehensive security and management frameworks that enable organizations to secure, control, and monitor mobile devices accessing corporate resources. These solutions protect enterprise data across smartphones, tablets, laptops, and other endpoints regardless of ownership model (corporate-issued or BYOD). By implementing robust MDM systems, organizations can enforce security policies, manage applications, protect sensitive data, and maintain visibility across their mobile fleet.</p>
+        <p>Most enterprise MDM platforms offer several key capabilities: <code>device enrollment</code> for secure onboarding, <code>policy enforcement</code> that implements security controls, <code>app management</code> that controls software distribution, and <code>remote actions</code> that enable administrative control of devices. Implementation approaches vary by vendor but typically include cloud-based services, on-premises deployments, or hybrid solutions integrated with existing identity and access management systems.</p>
+        <p>To effectively utilize MDM solutions, organizations should develop comprehensive mobile security policies, implement risk-based controls, and balance security with user experience. MDM solutions are invaluable for preventing data leakage, ensuring regulatory compliance, managing operating system updates, and enabling secure remote work. They also provide crucial capabilities for device lifecycle management, help segregate personal and corporate data, and support incident response through remote lock, wipe, and location tracking features.</p>
+      </div>
+    </div>
+  </div>
+  <!-- Key MDM Solution Components -->
+<div class="card event-log-locations">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>Key MDM Solution Components</h2>
+  </div>
+  <p>Enterprise MDM solutions incorporate several essential components that work together to secure and manage mobile devices across the organization. Understanding these components is crucial for implementing comprehensive mobile device security controls:</p>
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="log-type site-log">Device Enrollment</td>
+          <td>Facilitates the secure onboarding of devices into the MDM ecosystem. Includes automated enrollment methods like QR codes, enrollment profiles, and integration with device ownership programs (Apple DEP, Android Zero-touch). Ensures immediate policy application and security control implementation from first device activation.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Policy Management</td>
+          <td>Creates, deploys, and enforces security configurations and restrictions on managed devices. Includes password requirements, encryption settings, network controls, feature restrictions, and compliance rules. Enables granular policy application based on user roles, device types, ownership models, and risk profiles.</td>
+        </tr>
+        <tr>
+          <td class="log-type virtualhost-log">Application Management</td>
+          <td>Controls the distribution, configuration, and lifecycle of mobile applications. Includes enterprise app catalogs, mandatory app deployment, app whitelisting/blacklisting, and in-app VPN tunneling. Supports volume purchasing programs and enables selective wipe of corporate applications while preserving personal data.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-log">Content Management</td>
+          <td>Secures corporate documents and data on mobile devices. Implements secure containers, encrypted storage areas, and controlled document sharing capabilities. Prevents data leakage through features like copy/paste restrictions, open-in management, and digital rights management for sensitive files.</td>
+        </tr>
+        <tr>
+          <td class="log-type site-log">Identity & Access Integration</td>
+          <td>Connects mobile devices with enterprise identity systems for seamless authentication. Supports certificate-based authentication, single sign-on, multi-factor authentication, and conditional access policies. Integrates with identity providers to enforce risk-based access controls for corporate resources.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Compliance Monitoring</td>
+          <td>Continuously evaluates device security posture against defined policies. Detects jailbroken/rooted devices, missing security patches, malware indicators, and policy violations. Triggers automated remediation actions including user notifications, access restrictions, or quarantine procedures for non-compliant devices.</td>
+        </tr>
+        <tr>
+          <td class="log-type virtualhost-log">Remote Management</td>
+          <td>Provides administrative control capabilities for the device fleet. Enables remote lock, wipe, reset, locate, and message functions for lost or stolen devices. Supports remote troubleshooting through device information gathering, diagnostic logs, and screen sharing for user assistance.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-log">Reporting & Analytics</td>
+          <td>Delivers insights into the mobile device landscape through dashboards and reports. Tracks inventory details, compliance status, policy effectiveness, and security incidents. Supports audit requirements with comprehensive logs of administrative actions and device events for compliance verification.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <div class="tip-content">
+      <strong>Pro Tip:</strong> When implementing an MDM solution, consider a phased approach that starts with basic device enrollment and essential security policies before progressing to more advanced features like application management and content controls. This allows users to adapt gradually while steadily improving your security posture.
+    </div>
+  </div>
+</div>
+ <!-- MDM Event Logs -->
+<div class="card">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>MDM Event Logs</h2>
+  </div>
+  <p>Events are records of administrative and device actions that the MDM console stores in logs. Export event logs as CSV files. You can also configure the MDM console to send the event logs to your Security Information and Event Management tools or Business Intelligence systems.</p>
+  
+  <p>The event logs show both device events and console events. Device events show the commands sent from the console to devices, device responses, and device user actions. Console events show actions taken from the MDM console including login sessions, failed login attempts, admin actions, system settings changes, and user preferences.</p>
+  
+  <p>You can filter the date range, severity level, category, or module.</p>
+  
+  <div class="card">
+    <h3>Console Event Severity Levels</h3>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Severity Level</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Critical</td>
+          <td>Indicates a failure in a primary console system.</td>
+        </tr>
+        <tr>
+          <td>Error</td>
+          <td>Indicates a failure in a non-primary console system.</td>
+        </tr>
+        <tr>
+          <td>Warning</td>
+          <td>Indicates an issue in the future if action is not taken.</td>
+        </tr>
+        <tr>
+          <td>Notice</td>
+          <td>Indicates unusual conditions.</td>
+        </tr>
+        <tr>
+          <td>Information</td>
+          <td>Indicates normal operational data.</td>
+        </tr>
+        <tr>
+          <td>Debug</td>
+          <td>Indicates useful information for troubleshooting.</td>
+        </tr>
+      </tbody>
+    </table>
+    
+   
+  </div>
+  
+  <div class="card">
+    <h3>Device Event Severity Levels</h3>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Severity Level</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Emergency</td>
+          <td>Indicates a catastrophic MDM failure requiring immediate attention.</td>
+        </tr>
+        <tr>
+          <td>Alert</td>
+          <td>Indicates a failure of a foundational MDM system requiring attention.</td>
+        </tr>
+        <tr>
+          <td>Critical</td>
+          <td>Indicates a failure in a primary MDM system.</td>
+        </tr>
+        <tr>
+          <td>Error</td>
+          <td>Indicates a failure in a non-primary MDM system.</td>
+        </tr>
+        <tr>
+          <td>Warning</td>
+          <td>Indicates an issue in the future if action is not taken.</td>
+        </tr>
+        <tr>
+          <td>Notice</td>
+          <td>Indicates unusual conditions.</td>
+        </tr>
+        <tr>
+          <td>Information</td>
+          <td>Indicates normal operational data.</td>
+        </tr>
+        <tr>
+          <td>Debug</td>
+          <td>Indicates useful information for troubleshooting.</td>
+        </tr>
+      </tbody>
+    </table>
+    
+ 
+  </div>
+  
+  <div class="card">
+    <h3>Event Types</h3>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Event Type</th>
+            <th>Description</th>
+            <th>Management Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Console Events</td>
+            <td>Actions taken from the MDM console including login sessions, failed login attempts, admin actions, system settings changes, and user preferences.</td>
+            <td>Monitor > Reports and Analytics > Events > Console Events</td>
+          </tr>
+          <tr>
+            <td>Device Events</td>
+            <td>Commands sent from the console to devices, device responses, and device user actions.</td>
+            <td>Monitor > Reports and Analytics > Events > Device Events</td>
+          </tr>
+          <tr>
+            <td>Syslog</td>
+            <td>Integration with external logging systems.</td>
+            <td>Monitor > Reports and Analytics > Events > Syslog<br>or<br>Groups & Settings > All Settings > System > Enterprise Integration > Syslog</td>
+          </tr>
+          <tr>
+            <td>Event Settings</td>
+            <td>Minimum logging level configuration for events.</td>
+            <td>Groups & Settings > All Settings > Admin > Events</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+   <div class="tip-content">
+      <strong>Pro Tip:</strong> You can change the minimum logging level for events. 
+    </div>
+  
+
+</div>
+<!-- MDM Vendor Log Differences -->
+<div class="card">
+  <h2>MDM Vendor Log Differences</h2>
+  <p>Different MDM vendors implement logging in unique ways, creating challenges when normalizing logs for security monitoring. Understanding these differences is essential for effective SIEM integration.</p>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>What Varies</th>
+          <th>Examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Log Format</td>
+          <td>Each vendor uses its own log structure (JSON, CSV, Syslog, proprietary formats).</td>
+          <td>MobileIron may use JSON, Jamf Pro may use XML, VMware Workspace ONE may use Syslog.</td>
+        </tr>
+        <tr>
+          <td>Field Names</td>
+          <td>Field names (like <code>device</code>, <code>user</code>, <code>action</code>) may differ.</td>
+          <td>One may use <code>deviceId</code>, another <code>udid</code> or <code>serialNumber</code>.</td>
+        </tr>
+        <tr>
+          <td>Event Names/Types</td>
+          <td>Events might be labeled differently.</td>
+          <td>AirWatch: <code>DeviceCompliant</code>; Jamf: <code>DeviceCheckedIn</code>; MobileIron: <code>ComplianceCheckSuccess</code>.</td>
+        </tr>
+        <tr>
+          <td>Delivery Method</td>
+          <td>Some support native SIEM connectors, others rely on API exports or webhooks.</td>
+          <td>VMware Workspace ONE offers direct SIEM integration; others require API polling or log exports.</td>
+        </tr>
+        <tr>
+          <td>Data Granularity</td>
+          <td>Some provide detailed device telemetry; others only basic status changes.</td>
+          <td>Jamf may log detailed app inventory changes; others only major configuration changes.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="subsection">
+    <h3>Common (Standard) Elements</h3>
+    <p>Despite the vendor-specific differences, most MDM logs will include:</p>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Common Element</th>
+            <th>Description</th>
+            <th>Normalization Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Timestamp</strong></td>
+            <td>When the event occurred</td>
+            <td>Enables timeline correlation across security events</td>
+          </tr>
+          <tr>
+            <td><strong>Device Identifier</strong></td>
+            <td>Which device the event involves</td>
+            <td>Provides consistent tracking across different event types</td>
+          </tr>
+          <tr>
+            <td><strong>User Identity</strong></td>
+            <td>Who owns or triggered the event</td>
+            <td>Associates activities with specific users for accountability</td>
+          </tr>
+          <tr>
+            <td><strong>Event Type</strong></td>
+            <td>What mobile management operation occurred</td>
+            <td>Categorizes events for analysis and alerting</td>
+          </tr>
+          <tr>
+            <td><strong>Status/Result</strong></td>
+            <td>Whether the operation succeeded</td>
+            <td>Distinguishes between completed actions and failed attempts</td>
+          </tr>
+          <tr>
+            <td><strong>Device OS/Type</strong></td>
+            <td>Platform information about the device</td>
+            <td>Enables platform-specific analysis and categorization</td>
+          </tr>
+          <tr>
+            <td><strong>Source/Initiator</strong></td>
+            <td>Origin of the management action</td>
+            <td>Helps identify whether action was administrative, automated, or user-initiated</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>These shared elements help you <strong>normalize logs</strong> into a consistent format for analysis in tools like <strong>SIEMs</strong> or <strong>log management platforms</strong>.</p>
+  </div>
+  
+  <div class="subsection">
+    <h3>Example: Same Event from Three Vendors</h3>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Vendor</th>
+            <th>Format</th>
+            <th>Log Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>MobileIron Core</strong></td>
+            <td>JSON</td>
+            <td><code>{ "dateTime": "2025-04-23T15:45:00Z", "operationType": "RemoteLock", "deviceId": "a1b2c3d4e5f6", "userId": "jsmith@company.com", "deviceType": "iOS", "status": "Success" }</code></td>
+          </tr>
+          <tr>
+            <td><strong>Jamf Pro</strong></td>
+            <td>XML / API</td>
+            <td><code>&lt;event&gt;&lt;timestamp&gt;2025-04-23T15:45:00Z&lt;/timestamp&gt;&lt;type&gt;DEVICE_LOCK&lt;/type&gt;&lt;serialnumber&gt;DNFGQ5WZGQM2&lt;/serialnumber&gt;&lt;username&gt;jsmith&lt;/username&gt;&lt;platform&gt;iOS&lt;/platform&gt;&lt;result&gt;SUCCESS&lt;/result&gt;&lt;/event&gt;</code></td>
+          </tr>
+          <tr>
+            <td><strong>VMware Workspace ONE</strong></td>
+            <td>Syslog</td>
+            <td><code>Apr 23 15:45:00 mdm-server Workspace[12345]: device=DNFGQ5WZGQM2 user=jsmith@company.com action=LockDevice status=SUCCESS platform=iOS initiator=admin_user remote_addr=10.0.1.45</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Note:</strong> The examples above show the same mobile device event (remote locking a device) as logged by different MDM vendors. Notice how field names and formats differ while the core information remains consistent.</p>
+  </div>
+</div>
+ <!-- MDM Log Analysis Queries -->
+<div class="card">
+  <h2>MDM Log Analysis Queries</h2>
+  <p>Use these generic SIEM query patterns to analyze MDM logs, detect suspicious mobile device activities, and monitor mobile security compliance across any MDM solution. Field names will vary by vendor - adapt queries by substituting your system's specific field names.</p>
+  <div class="cmd-grid">
+    <!-- Non-Compliant Devices -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="cmd-title">Non-Compliant Devices</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" (event_category="*compliance*" OR event_category="*security*") status="*fail*" OR status="*non-compliant*" | stats count by device_id, user, compliance_reason | sort -count</span>
+        </div>
+        <div class="cmd-output">Identifies devices failing security compliance checks — prioritizes remediation efforts based on frequency and severity of compliance failures.</div>
+      </div>
+    </div>
+    <!-- Jailbroken/Rooted Devices -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-unlock"></i>
+        <span class="cmd-title">Compromised Device Detection</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" (event_message="*jailbreak*" OR event_message="*root*" OR event_type="*tamper*" OR compliance_reason="*system integrity*") | dedup device_id | table device_id, user, os_version, last_check_in</span>
+        </div>
+        <div class="cmd-output">Detects potentially compromised devices with bypassed security controls — critical for identifying high-risk devices requiring immediate action.</div>
+      </div>
+    </div>
+    <!-- Suspicious Device Enrollment -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-mobile-alt"></i>
+        <span class="cmd-title">Suspicious Enrollment Patterns</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" event_category="*enroll*" | bucket span=1h | stats count by user, _time | where count > 3</span>
+        </div>
+        <div class="cmd-output">Identifies users enrolling multiple devices in short timeframes — helps detect potential unauthorized bulk enrollments or account compromise.</div>
+      </div>
+    </div>
+    <!-- Unmanaged Applications -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-puzzle-piece"></i>
+        <span class="cmd-title">Unauthorized Applications</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" event_category="*app*" (event_type="*install*" OR event_type="*detected*") NOT app_name IN (approved_app_list) | stats count by app_name, device_id, user | sort -count</span>
+        </div>
+        <div class="cmd-output">Tracks installation of unapproved applications — helps identify policy violations and potential shadow IT on mobile devices.</div>
+      </div>
+    </div>
+    <!-- Remote Wipe Events -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-trash-alt"></i>
+        <span class="cmd-title">Remote Wipe Activities</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" (action="*wipe*" OR action="*reset*" OR action="*erase*") | stats count by admin_user, device_id, reason, status | sort -_time</span>
+        </div>
+        <div class="cmd-output">Monitors device wipe commands — provides audit trail of critical data destruction actions for lost/stolen device scenarios.</div>
+      </div>
+    </div>
+    <!-- Administrative Configuration Changes -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-cogs"></i>
+        <span class="cmd-title">Policy Configuration Changes</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" (event_category="*policy*" OR event_category="*profile*" OR event_category="*config*") (action="*create*" OR action="*modify*" OR action="*delete*" OR action="*update*") | stats count by admin_user, policy_name, action | sort -_time</span>
+        </div>
+        <div class="cmd-output">Tracks policy and configuration changes — maintains audit trail of security policy modifications for compliance and troubleshooting.</div>
+      </div>
+    </div>
+    <!-- Unusual Geographic Access -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-globe"></i>
+        <span class="cmd-title">Unusual Geographic Access</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" | lookup geoip device_ip | where NOT Country IN ("United States") | stats count by Country, user, device_id</span>
+        </div>
+        <div class="cmd-output">Identifies devices connecting from unusual locations — helps detect potential device theft or unauthorized use in restricted regions.</div>
+      </div>
+    </div>
+    <!-- Device Connectivity Patterns -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-signal"></i>
+        <span class="cmd-title">Device Connectivity Gaps</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="mdm*" event_category="*checkin*" | stats latest(_time) as last_seen by device_id | eval time_diff=now()-last_seen | where time_diff > 604800</span>
+        </div>
+        <div class="cmd-output">Finds devices that haven't checked in recently — identifies potentially lost devices or those avoiding security policies.</div>
+      </div>
+    </div>
+  
+  </div>
+</div>
+
+ 
+ 
+      <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html> 
+ 

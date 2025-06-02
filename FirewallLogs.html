@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - ISS Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Firewall Logs</div>
+      <a href="#firewall-overview" class="nav-item active">Firewall Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Firewall Log Types</a>
+      <a href="#log-format" class="nav-item">Firewall Log Format</a>
+      <a href="#log-severity" class="nav-item">Log Severity Levels</a>
+      <a href="#analysis-queries" class="nav-item">Firewall Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Firewall Log Management</a>
+      <a href="#log-examples" class="nav-item">Common Firewall Log Examples</a>
+      
+    </div>
+   
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Firewall Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Firewall Log Overview -->
+      <div class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Firewall Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Firewall logs are critical security artifacts that document network traffic decisions made by the firewall. These logs capture essential data including source and destination IP addresses, ports, protocols, traffic direction, timestamp information, and the action taken (allow, deny, drop). This detailed record enables security teams to monitor network boundaries and investigate potential security incidents.</p>
+            <p>Most enterprise firewalls generate several log types: <code>traffic logs</code> that record connection attempts, <code>threat logs</code> that document detected threats and attacks, and <code>system logs</code> that track firewall operational events such as configuration changes, administrator logins, and system status. Log formats vary by vendor but typically include CSV, Syslog, or proprietary formats that can be exported to SIEM systems.</p>
+            <p>To effectively utilize firewall logs, organizations should implement proper log retention policies, configure detailed logging parameters, and integrate logs with security analytics platforms. Firewall logs are invaluable for detecting malicious activities such as port scanning, connection attempts to prohibited services, data exfiltration, and botnet command-and-control traffic. They also provide crucial evidence for incident response investigations, help demonstrate regulatory compliance, and support network troubleshooting efforts.</p>
+            <p>Different firewall vendors may use slightly different terminology, but the core log components generally serve the same security monitoring functions. These logs can be stored locally on the firewall or forwarded to centralized logging systems such as SIEMs, log servers, or cloud-based analytics platforms for long-term storage and advanced correlation analysis.</p>
+          </div>
+        </div>
+      </div>
+
+      
+ 
+      <!-- Key Firewall Log Types -->
+       <div class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Firewall Log Types</h2>
+        </div>
+        <p>Enterprise firewalls generate several types of logs that serve different security monitoring and analysis purposes. Understanding these log types is essential for effective security operations:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Traffic Logs</td>
+                <td>Records all connection attempts through the firewall, including source/destination IP addresses, ports, protocols, bytes transferred, and the action taken (allow, drop, reject). These logs form the foundation of network traffic analysis and policy enforcement verification.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Threat Logs</td>
+                <td>Documents detected threats, attacks, and security violations identified by threat prevention features. Includes malware detection, intrusion prevention alerts, vulnerability exploits, command-and-control traffic, and other malicious activities with threat severity ratings.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">System Logs</td>
+                <td>Tracks firewall operational events such as system startup/shutdown, configuration changes, administrator logins/logouts, hardware status, high availability events, and system resource utilization. Critical for troubleshooting and maintaining audit trails of administrative actions.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Data Filtering Logs</td>
+                <td>Records content inspection events such as file blocking, data pattern matches, URL filtering, and application control actions. These logs help monitor data exfiltration attempts, policy violations, and potentially dangerous file transfers.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Authentication Logs</td>
+                <td>Documents authentication events for VPN connections, captive portals, and administrative access. Contains usernames, authentication methods used, success/failure status, and session information for user activity tracking and access control monitoring.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">VPN Logs</td>
+                <td>Tracks virtual private network connections, including tunnel establishment, termination, encryption negotiation, and client connectivity issues. Essential for monitoring remote access security and troubleshooting connection problems.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Debug Logs</td>
+                <td>Provides detailed diagnostic information for troubleshooting firewall issues. Contains verbose information about packet processing, policy evaluation, and system operations. Typically only enabled temporarily during problem resolution due to high volume.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Audit Logs</td>
+                <td>Records administrator activities and configuration changes made to the firewall, including policy modifications, object changes, and administrative logins. Essential for compliance requirements and for tracking unauthorized administrative actions.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Modern Next-Generation Firewalls (NGFW) combine traditional packet filtering with deep packet inspection, application awareness, and integrated threat intelligence
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Firewall Log Format-->
+      <div id="log-format" class="card">
+        <h2>Firewall Log Format</h2>
+        <p>Firewall logs typically contain structured fields that provide detailed information about network traffic and security events. Understanding these fields is crucial for effective log analysis:</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>Date and time when the event occurred</td>
+                <td>Timestamp</td>
+                <td>2025-04-23 14:32:15</td>
+              </tr>
+              <tr>
+                <td>src_ip</td>
+                <td>Source IP address of the connection</td>
+                <td>Source</td>
+                <td>203.0.113.45</td>
+              </tr>
+              <tr>
+                <td>src_port</td>
+                <td>Source port number of the connection</td>
+                <td>Source</td>
+                <td>52437</td>
+              </tr>
+              <tr>
+                <td>dst_ip</td>
+                <td>Destination IP address of the connection</td>
+                <td>Destination</td>
+                <td>192.168.10.25</td>
+              </tr>
+              <tr>
+                <td>dst_port</td>
+                <td>Destination port number of the connection</td>
+                <td>Destination</td>
+                <td>443</td>
+              </tr>
+              <tr>
+                <td>protocol</td>
+                <td>Network protocol used in the connection</td>
+                <td>Protocol</td>
+                <td>TCP</td>
+              </tr>
+              <tr>
+                <td>action</td>
+                <td>Action taken by the firewall</td>
+                <td>Response</td>
+                <td>DENY</td>
+              </tr>
+              <tr>
+                <td>rule_id</td>
+                <td>Identifier of the firewall rule that matched</td>
+                <td>Policy</td>
+                <td>rule-156</td>
+              </tr>
+              <tr>
+                <td>bytes_sent</td>
+                <td>Number of bytes sent in the connection</td>
+                <td>Traffic</td>
+                <td>2348</td>
+              </tr>
+              <tr>
+                <td>bytes_received</td>
+                <td>Number of bytes received in the connection</td>
+                <td>Traffic</td>
+                <td>14852</td>
+              </tr>
+              <tr>
+                <td>session_duration</td>
+                <td>Duration of the connection in seconds</td>
+                <td>Performance</td>
+                <td>34</td>
+              </tr>
+              <tr>
+                <td>app_category</td>
+                <td>Application category identified by the firewall</td>
+                <td>Application</td>
+                <td>File-sharing</td>
+              </tr>
+              <tr>
+                <td>threat_name</td>
+                <td>Name of detected threat (if applicable)</td>
+                <td>Security</td>
+                <td>Nmap-ScanDetected</td>
+              </tr>
+              <tr>
+                <td>severity</td>
+                <td>Severity level of the event</td>
+                <td>Security</td>
+                <td>High</td>
+              </tr>
+              <tr>
+                <td>interface</td>
+                <td>Network interface where traffic was observed</td>
+                <td>Network</td>
+                <td>eth0/outside</td>
+              </tr>
+              <tr>
+                <td>session_id</td>
+                <td>Unique identifier for the traffic session</td>
+                <td>Session</td>
+                <td>12345678</td>
+              </tr>
+              <tr>
+                <td>nat_src_ip</td>
+                <td>Source IP after NAT translation</td>
+                <td>NAT</td>
+                <td>198.51.100.2</td>
+              </tr>
+              <tr>
+                <td>nat_dst_ip</td>
+                <td>Destination IP after NAT translation</td>
+                <td>NAT</td>
+                <td>10.0.0.15</td>
+              </tr>
+              <tr>
+                <td>country</td>
+                <td>Country associated with the source IP</td>
+                <td>Geolocation</td>
+                <td>United States</td>
+              </tr>
+              <tr>
+                <td>user</td>
+                <td>Username associated with the connection</td>
+                <td>Identity</td>
+                <td>john.doe</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tip-content">
+          <strong>Note:</strong> The exact fields available may vary by firewall vendor and model. Some enterprise firewalls offer hundreds of potential log fields that can be enabled or disabled based on monitoring requirements.
+        </div>
+      </div>
+
+      <!-- Log Severity Levels -->
+      <div id="log-severity" class="card">
+        <h2>Log Severity Levels</h2>
+        <p>Firewall logs are typically categorized by severity levels to help prioritize security events and filter logs for analysis. Understanding these severity levels is crucial for effective incident response:</p>
+        
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Severity Level</th>
+                <th>Description</th>
+                <th>Example Events</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Critical</td>
+                <td>The most severe level, indicating events that require immediate attention. These events often represent active attacks or severe system issues that could compromise the security or functionality of the network.</td>
+                <td>Successful exploitation attempts, malware infections, firewall system failures, bypass attacks, critical policy violations</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">High</td>
+                <td>Significant security events that should be investigated promptly. These events indicate potentially malicious activity but may not be as immediately threatening as critical events.</td>
+                <td>Multiple failed login attempts, vulnerability exploitation attempts, detection of known malicious IP addresses, botnet command and control traffic</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Medium</td>
+                <td>Security events of moderate concern that should be reviewed but may not require immediate action. These events often indicate suspicious activity that needs investigation.</td>
+                <td>Port scans, access attempts to restricted services, policy violations, connections to suspicious domains</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Low</td>
+                <td>Minor security events that may be benign but could be part of a larger pattern of malicious activity. These events should be monitored for pattern analysis.</td>
+                <td>Single failed login attempts, connections to non-standard ports, minor policy violations, anomalous but not clearly malicious traffic patterns</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Informational</td>
+                <td>Normal operational events that do not indicate security issues. These logs provide context for network activity and are useful for auditing and troubleshooting.</td>
+                <td>Successful authentication events, normal connection establishments, policy rule matches, system status messages</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Debug/Verbose</td>
+                <td>Detailed technical information used primarily for troubleshooting. These logs provide maximum visibility but generate high volumes of data that can be overwhelming.</td>
+                <td>Packet processing details, protocol negotiations, detailed system operations, configuration parameter information</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="tip-content">
+          <strong>Best Practice:</strong> Configure your SIEM or log management system to trigger alerts for Critical and High severity events, schedule regular reviews for Medium severity events, and use Low and Informational events for contextual analysis during investigations.
+        </div>
+      </div>
+
+      <!-- Firewall Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Firewall Log Analysis Queries</h2>
+        <p>Use these generic SIEM queries to analyze firewall logs, detect threats, and uncover suspicious network activity patterns.</p>
+        <div class="cmd-grid">
+          <!-- Top Source IPs by Denied Connections -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <span class="cmd-title">Top Blocked Source IPs</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" action="deny" OR action="block" | stats count by src_ip | sort -count</span>
+              </div>
+              <div class="cmd-output">Identifies source IPs with the most blocked connection attempts — helpful for detecting scanning or brute force attacks.</div>
+            </div>
+          </div>
+          <!-- Unusual Destination Ports -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <span class="cmd-title">Unusual Destination Ports</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" NOT dst_port IN (80, 443, 22, 53, 25, 21) | stats count by dst_port, dst_ip | sort -count</span>
+              </div>
+              <div class="cmd-output">Shows connections to uncommon ports — useful for detecting backdoor communications or unusual services.</div>
+            </div>
+          </div>
+          <!-- Potential Port Scanning -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <span class="cmd-title">Port Scanning Detection</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" | stats dc(dst_port) as unique_ports by src_ip | where unique_ports > 15</span>
+              </div>
+              <div class="cmd-output">Identifies IPs connecting to a large number of different ports — classic sign of port scanning activity.</div>
+            </div>
+          </div>
+          <!-- Outbound Connection Spikes -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <span class="cmd-title">Outbound Connection Spikes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" direction="outbound" | bucket span=1h | stats count by src_ip, _time | where count > 1000</span>
+              </div>
+              <div class="cmd-output">Detects internal IPs initiating unusually high numbers of outbound connections — potential data exfiltration or C2 traffic.</div>
+            </div>
+          </div>
+          <!-- High-Risk Connection Attempts -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <span class="cmd-title">High-Risk Connections</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" severity="high" OR severity="critical" | stats count by src_ip, threat_name | sort -count</span>
+              </div>
+              <div class="cmd-output">Highlights connections flagged with high-severity threat indicators — prioritizes critical security events.</div>
+            </div>
+          </div>
+          <!-- After-Hours VPN Access -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <span class="cmd-title">After-Hours VPN Connections</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" app_category="vpn" | where _time.hour() >= 22 OR _time.hour() <= 5 | stats count by src_ip, user</span>
+              </div>
+              <div class="cmd-output">Identifies VPN connections outside business hours — potential account compromise or unauthorized access.</div>
+            </div>
+          </div>
+          <!-- Geographically Unusual Access -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <span class="cmd-title">Geographically Unusual Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" action="allow" | lookup geoip src_ip | where NOT Country IN ("Saudi Arabia") | stats count by Country, src_ip</span>
+              </div>
+              <div class="cmd-output">Lists connections from unusual countries — helps detect geographic anomalies based on your organization's normal traffic patterns.</div>
+            </div>
+          </div>
+          <!-- Repeated Authentication Failures -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <span class="cmd-title">Authentication Failure Patterns</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" event_type="authentication" status="failure" | stats count by src_ip, user | where count > 5</span>
+              </div>
+              <div class="cmd-output">Detects repeated authentication failures — potential brute force attempts against VPN or administrative interfaces.</div>
+            </div>
+          </div>
+          <!-- Traffic to Known Malicious Domains -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <span class="cmd-title">Traffic to Malicious Domains</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" | lookup threat_intelligence domain as dst_hostname | where threat_category="malware" OR threat_category="c2" | stats count by src_ip, dst_hostname, threat_category</span>
+              </div>
+              <div class="cmd-output">Identifies connections to known malicious domains by cross-referencing with threat intelligence feeds.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices for Firewall Log Management -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Firewall Log Management</h2>
+        </div>
+        <p class="intro-text">Follow these practices to enhance visibility, improve threat detection, and support security investigations using firewall logs:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable Comprehensive Logging</h3>
+              <p>Configure your firewall to log all critical event types including traffic flows, threats, administrative actions, and authentication attempts for complete visibility.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Centralize Log Collection</h3>
+              <p>Implement centralized log collection using syslog, SIEM connectors, or dedicated log servers to ensure all firewall logs are aggregated for unified analysis.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Synchronize Timestamps</h3>
+              <p>Configure all firewalls and network devices to use NTP for time synchronization, ensuring accurate event correlation and timeline reconstruction during investigations.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Implement Log Rotation</h3>
+              <p>Set up log rotation policies based on size and time thresholds to prevent storage issues while maintaining sufficient historical data for trend analysis.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Establish Baseline Patterns</h3>
+              <p>Document normal network traffic patterns and create baseline profiles for different times of day, enabling faster anomaly detection and reducing false positives.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Configure Alerting Rules</h3>
+              <p>Develop and implement alerting rules for high-risk events such as multiple connection denials, unusual geographic access, and suspicious outbound connections.</p>
+            </div>
+          </div>
+         
+        
+        </div>
+      </div>
+
+      <!-- Common Firewall Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Firewall Log Examples</h2>
+        <p>Understanding how different security events appear in firewall logs helps analysts identify and investigate potential threats. Below are examples of common firewall log entries in different formats:</p>
+
+        <div class="implementation-steps">
+          <h3>Traffic Denied by Access Control Rule</h3>
+          <div class="config-snippet">
+Apr 25 15:23:46 firewall-01 CEF:0|FortiNet|FortiGate|7.0.0|traffic|Traffic Denied|6|deviceExternalId=FGT60F4Q16000000 rt=1714152226000 src=198.51.100.45 dst=10.0.3.25 srcport=49832 dstport=22 proto=TCP deviceInboundInterface="port1" deviceOutboundInterface="port3" type=deny rule="Block SSH" msg="Connection blocked by firewall policy" act=deny</div>
+          <div class="cmd-output">This log shows a blocked SSH connection attempt (TCP port 22) from an external IP (198.51.100.45) to an internal server (10.0.3.25), denied by a rule named "Block SSH".</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Suspicious Port Scanning Detection</h3>
+          <div class="config-snippet">
+Apr 25 14:05:37 paloalto-fw1 1,2025/04/25 14:05:37,007200001234,THREAT,scan,1,2025/04/25 14:05:37,203.0.113.88,192.168.1.0/24,0.0.0.0,0.0.0.0,PortScan,nmap,any,1,2025/04/25 14:05:30,2025/04/25 14:05:37,tcp,alert,"Port scanning detected",0,0x0,Russia,192.168.1.0-192.168.1.255,(null),high,critical-threat-category,0,0,0,0,,panos</div>
+          <div class="cmd-output">This Palo Alto Networks log entry shows a detected port scan from a Russian IP address (203.0.113.88) targeting an internal subnet (192.168.1.0/24), identified as an Nmap scan with high severity.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Malware Detection in HTTP Traffic</h3>
+          <div class="config-snippet">
+Apr 25 16:42:18 cisco-asa-fw %ASA-3-430003: FilterDesc: Malware detected from 172.16.5.12:54932 to 93.184.216.34:80, Malicious File: "invoice_april2025.doc" Action: blocked, ThreatID: Win.Trojan.AgentTesla, ThreatCategory: Trojan, severity: high</div>
+          <div class="cmd-output">This log entry from a Cisco ASA firewall shows the detection and blocking of a malicious Word document ("invoice_april2025.doc") containing the AgentTesla trojan during an HTTP download.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Successful VPN Authentication</h3>
+          <div class="config-snippet">
+Apr 25 08:15:33 checkpoint-fw 2025-04-25T08:15:33.456Z CORPORATE-FW VPN [INFO] Authentication succeeded for user john.doe from 198.51.100.89 using certificate authentication. Session ID: VPN12345678, Tunnel established: ESP, Encryption: AES-256, Integrity: SHA-256</div>
+          <div class="cmd-output">This Check Point firewall log shows a successful VPN authentication using certificate-based authentication for user john.doe connecting from 198.51.100.89.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Administrator Configuration Change</h3>
+          <div class="config-snippet">
+Apr 25 11:32:45 fortinet-fw1 date=2025-04-25 time=11:32:45 devname="FG100E" devid="FG100E0000000001" logid="0100044546" type="event" subtype="system" level="notice" vd="root" logdesc="Object attribute configured" user="admin" ui="Web" action="Edit" cfgtid=1234567890 cfgpath="firewall policy" cfgobj="Rule-42" cfgattr="action" cfgval="deny" msg="User admin changed firewall policy Rule-42 attribute 'action' to 'deny'"</div>
+          <div class="cmd-output">This FortiGate firewall log entry shows an administrator (admin) modifying a firewall rule (Rule-42) through the web interface, changing the action from allow to deny.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Data Loss Prevention (DLP) Alert</h3>
+          <div class="config-snippet">
+Apr 25 13:47:22 pan-fw1 1,2025/04/25 13:47:22,015100005678,THREAT,file,1,2025/04/25 13:47:22,10.5.2.18,203.0.113.100,10.5.2.18,203.0.113.100,DLP-Alert,email-attachment,smtp,vsys1,internal,external,2025/04/25 13:47:22,62548,1,53048,25,0,0,0x0,tcp,alert,"Credit card numbers detected in attachment",SensitiveData.xlsx,medium,client-to-server,567392,0x80000000,United States,United States,0,,1,,,"palo-alto"</div>
+          <div class="cmd-output">This Palo Alto Networks log shows a Data Loss Prevention (DLP) alert triggered when an employee (10.5.2.18) attempted to send an Excel file containing credit card numbers via email to an external recipient (203.0.113.100).</div>
+        </div>
+      </div>
+
+ 
+ 
+
+    <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - ISS Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">IIS Logs</div>
+      <a href="#" class="nav-item active"> IIS Log Overview </a>
+      <a href="#" class="nav-item"> Key IIS Log Locations </a>
+      <a href="#" class="nav-item"> IIS Log Format</a>
+      <a href="#" class="nav-item"> IIS Response Code Reference</a>
+      <a href="#" class="nav-item"> IIS Log Parser Commands </a>
+      <a href="#" class="nav-item"> Best Practices for IIS Log Management </a>
+      <a href="#" class="nav-item"> OWASP Top 10 Web Application Security Risks </a>
+    </div>
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> IIS Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+      <div class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>IIS Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Internet Information Services (IIS) logs are essential for monitoring web server activity, capturing detailed records of client requests to the server. These logs include information such as client IP addresses, request methods, URLs accessed, user agents, status codes, and response times making them a critical tool for web administrators and security analysts.</p>
+            <p>IIS logging is a built-in feature that stores activity data in text-based log files. These logs help detect performance issues, track user behavior, identify malicious access patterns, and support incident response by providing a timeline of HTTP interactions. Logs are typically stored in the W3C extended log file format and can be customized to capture specific fields depending on your operational needs.</p>
+            <p>Effective use of IIS logs involves enabling comprehensive logging settings, regularly rotating and archiving logs, and integrating them with centralized logging platforms or SIEMs. Properly configured logs are invaluable for investigating web-based attacks such as SQL injection, cross-site scripting, unauthorized file access, and brute-force attempts. Analyzing IIS logs also contributes to optimizing web application performance and ensuring compliance with security policies.</p>
+          </div>
+        </div>
+      </div>
+      <!-- Key IIS Log Locations -->
+      <div class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key IIS Log Locations</h2>
+        </div>
+        <p>IIS stores log files based on the site and configuration. Below are the default paths and common directories where you can find IIS logs:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Scope</th>
+                <th>Default Path</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Default Website</td>
+                <td>
+                  <code>%SystemDrive%\inetpub\logs\LogFiles\W3SVC1</code>
+                </td>
+                <td>Logs for the default IIS website (site ID 1)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Additional Websites</td>
+                <td>
+                  <code>%SystemDrive%\inetpub\logs\LogFiles\W3SVC&lt;SiteID&gt;</code>
+                </td>
+                <td>Each website has its own folder based on Site ID</td>
+              </tr>
+              <tr>
+                <td class="log-type ftp-log">FTP Site Logs</td>
+                <td>
+                  <code>%SystemDrive%\inetpub\logs\LogFiles\FTPSVC1</code>
+                </td>
+                <td>FTP traffic logs (if FTP is enabled)</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Custom Log Path</td>
+                <td>
+                  <code>Defined in IIS Manager &gt; Site &gt; Logging settings</code>
+                </td>
+                <td>Log path can be customized per site or application</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Use the IIS Manager GUI or PowerShell ( <code>Get-Website</code>, <code>Get-WebConfigurationProperty</code>) to identify log settings and paths for each hosted site.
+          </div>
+        </div>
+      </div>
+      <!-- IIS Log Format -->
+      <div class="card">
+        <h2>IIS Log Format</h2>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>date</td>
+                <td>Date of the request</td>
+                <td>Timestamp</td>
+                <td>2025-04-23</td>
+              </tr>
+              <tr>
+                <td>time</td>
+                <td>Time of the request</td>
+                <td>Timestamp</td>
+                <td>10:25:17</td>
+              </tr>
+              <tr>
+                <td>c-ip</td>
+                <td>Client IP address</td>
+                <td>Source</td>
+                <td>192.168.1.55</td>
+              </tr>
+              <tr>
+                <td>cs-method</td>
+                <td>HTTP method used</td>
+                <td>Request Type</td>
+                <td>GET</td>
+              </tr>
+              <tr>
+                <td>cs-uri-stem</td>
+                <td>Requested resource path</td>
+                <td>Request</td>
+                <td>/admin/login.aspx</td>
+              </tr>
+              <tr>
+                <td>cs-uri-query</td>
+                <td>Query string from the URL</td>
+                <td>Request</td>
+                <td>user=admin'--</td>
+              </tr>
+              <tr>
+                <td>sc-status</td>
+                <td>HTTP response code</td>
+                <td>Response</td>
+                <td>403</td>
+              </tr>
+              <tr>
+                <td>sc-substatus</td>
+                <td>Detailed status code</td>
+                <td>Response</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>sc-win32-status</td>
+                <td>Windows system-level status</td>
+                <td>Response</td>
+                <td>2147942405</td>
+              </tr>
+              <tr>
+                <td>cs(User-Agent)</td>
+                <td>Client software or tool</td>
+                <td>Source</td>
+                <td>sqlmap/1.5.2</td>
+              </tr>
+              <tr>
+                <td>cs(Referer)</td>
+                <td>Previous page the user came from</td>
+                <td>Source</td>
+                <td>https://example.com/home</td>
+              </tr>
+              <tr>
+                <td>time-taken</td>
+                <td>Processing time (ms)</td>
+                <td>Performance</td>
+                <td>382</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- HTTP Response Codes in IIS Logs -->
+<div class="card">
+  <h2>IIS Response Code Reference</h2>
+  <p>This table lists common HTTP response codes as seen in IIS logs (fields like <code>sc-status</code>).</p>
+  <table class="log-table">
+    <thead>
+      <tr>
+        <th>sc-status</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>200</td>
+        <td>OK – Request succeeded</td>
+      </tr>
+      <tr>
+        <td>301 / 302</td>
+        <td>Redirect – Resource moved</td>
+      </tr>
+      <tr>
+        <td>400</td>
+        <td>Bad Request – Malformed request</td>
+      </tr>
+      <tr>
+        <td>401</td>
+        <td>Unauthorized – Authentication required</td>
+      </tr>
+      <tr>
+        <td>403</td>
+        <td>Forbidden – Access denied</td>
+      </tr>
+      <tr>
+        <td>404</td>
+        <td>Not Found – Resource unavailable</td>
+      </tr>
+      <tr>
+        <td>405</td>
+        <td>Method Not Allowed – Disallowed HTTP verb</td>
+      </tr>
+      <tr>
+        <td>500</td>
+        <td>Internal Server Error – Server-side failure</td>
+      </tr>
+      <tr>
+        <td>502 / 503</td>
+        <td>Bad Gateway / Service Unavailable</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+      <!-- IIS Log Parser Commands -->
+      <div class="card">
+        <h2>IIS Log Parser Commands </h2>
+        <p>Use these Log Parser commands to uncover hidden threats, misuse of HTTP methods, abnormal behavior patterns, and attacker-controlled user agents in IIS logs.</p>
+        <div class="cmd-grid">
+          <!-- List All User Agents -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">List All User Agents</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT cs(User-Agent), COUNT(*) AS Hits FROM u_ex*.log GROUP BY cs(User-Agent) ORDER BY Hits DESC" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Detect bots or suspicious scripts by listing and counting user agents.</div>
+            </div>
+          </div>
+          <!-- Most Visited Destination IPs -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Top Destination IPs</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT s-ip, COUNT(*) AS Hits FROM u_ex*.log GROUP BY s-ip ORDER BY Hits DESC" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Shows which server IPs are receiving the most traffic — useful in load-balanced or cloud-hosted environments.</div>
+            </div>
+          </div>
+          <!-- POST Requests with 200 Response -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-envelope-open-text"></i>
+              <span class="cmd-title">POST with 200 </span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT c-ip, cs-uri-stem, COUNT(*) AS Total FROM u_ex*.log WHERE cs-method='POST' AND sc-status=200 GROUP BY c-ip, cs-uri-stem ORDER BY Total DESC" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Finds IPs that performed successful POST requests — useful for finding form submission abuse or C2 callbacks.</div>
+            </div>
+          </div>
+          <!-- Suspicious POST Requests -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-robot"></i>
+              <span class="cmd-title">Automated POST Requests</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT date, time, c-ip, cs(User-Agent), cs-uri-stem FROM u_ex*.log WHERE cs-method='POST' AND (cs(User-Agent) NOT LIKE '%%Mozilla%%' AND cs(User-Agent) NOT LIKE '%%Chrome%%' AND cs(User-Agent) NOT LIKE '%%Safari%%')" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Detects POST requests made by suspicious or non-browser clients such as scripts, bots, or exploit tools — useful to identify automation abuse or early attack stages.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Detect URI with Executables -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-bug"></i>
+              <span class="cmd-title">Requests for EXE Files</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT date, time, c-ip, cs-uri-stem FROM u_ex*.log WHERE cs-uri-stem LIKE '%%.exe'" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Flags potential malware downloads or attempts to access executables hosted on the server.</div>
+            </div>
+          </div>
+          <!-- Repeated Failed Requests from Same IP -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-times-circle"></i>
+              <span class="cmd-title">IPs with Multiple Failed Requests</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT c-ip, COUNT(*) AS Failures FROM u_ex*.log WHERE sc-status = 403 OR sc-status = 401 GROUP BY c-ip HAVING Failures > 5 ORDER BY Failures DESC" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Identifies brute force attempts or enumeration from clients repeatedly denied access.</div>
+            </div>
+          </div>
+          <!-- Top 5 Accessed URIs -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-route"></i>
+              <span class="cmd-title">Most Accessed Endpoints</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT TOP 5 cs-uri-stem, COUNT(*) AS Hits FROM u_ex*.log GROUP BY cs-uri-stem ORDER BY Hits DESC" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Lists the top 5 most frequently accessed resources — a quick view into what attackers or users target.</div>
+            </div>
+          </div>
+          <!-- User Agent Frequency per IP -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-user-cog"></i>
+              <span class="cmd-title">User Agent Diversity per IP</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">CMD></span>
+                <span class="cmd-line-content">logparser "SELECT c-ip, COUNT(DISTINCT cs(User-Agent)) AS UniqueAgents FROM u_ex*.log GROUP BY c-ip ORDER BY UniqueAgents DESC" -i:IISW3C</span>
+              </div>
+              <div class="cmd-output">Highlights IPs rotating User Agents — often a sign of obfuscation or botnets.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Best Practices for IIS Log Management -->
+      <div class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for IIS Log Management</h2>
+        </div>
+        <p class="intro-text">Follow these practices to maximize the forensic value, performance insights, and detection capabilities of your IIS log data:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable All Critical Fields</h3>
+              <p>Ensure fields like <code>cs-uri-stem</code>, <code>cs-uri-query</code>, <code>c-ip</code>, <code>cs(User-Agent)</code>, and <code>time-taken</code> are enabled to capture essential request context. </p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Use W3C Extended Log Format</h3>
+              <p>The W3C format is flexible, widely supported, and optimal for correlation in SIEMs and Log Parser tools.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Rotate Logs Daily</h3>
+              <p>Configure daily log file rotation to improve searchability and reduce the risk of log corruption or size overflows.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Centralize & Archive Logs</h3>
+              <p>Forward IIS logs to a SIEM or central log server and retain them for at least 90 days to ensure full incident coverage.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Monitor Anomalies</h3>
+              <p>Look for patterns like repeated 404s, spikes in POST requests, or new User-Agents to detect potential attacks or scanning activity.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Correlate with Other Logs</h3>
+              <p>Correlate IIS data with Windows Event Logs, firewall logs, and endpoint telemetry to uncover multi-stage intrusions.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Secure the Logs</h3>
+              <p>Restrict access to log files and monitor for changes or deletions, which may indicate tampering or evasion attempts.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Automate Analysis</h3>
+              <p>Use tools like <code>LogParser</code>, PowerShell, or Python to automate detection of suspicious patterns and reduce manual effort. </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- OWASP Top 10 Navigator -->
+      <div class="card owasp-overview">
+        <div class="card-header">
+          <div >
+            
+          </div>
+          <h2>OWASP Top 10 Web Application Security Risks</h2>
+        </div>
+        <p class="description"> The OWASP Top 10 is a standard awareness document for developers and web application security practitioners. It represents a broad consensus about the most critical security risks to web applications based on frequency of discovery, severity, and potential impact. </p>
+        <div class="audit-categories-grid">
+          <!-- A01:2021 Broken Access Control -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-lock-open"></i>
+              <h4>A01:2021 - Broken Access Control</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Restrictions on authenticated users aren't properly enforced. Attackers can exploit flaws to access unauthorized functionality or data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">Critical Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A02:2021 Cryptographic Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>A02:2021 - Cryptographic Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Failures related to cryptography that often lead to sensitive data exposure. Includes weak encryption, improper certificate validation, or using deprecated functions.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A03:2021 Injection -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-code"></i>
+              <h4>A03:2021 - Injection</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>User-supplied data is not validated, filtered, or sanitized. SQL, NoSQL, OS, and LDAP injection flaws can result in data exfiltration or system compromise.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A04:2021 Insecure Design -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-drafting-compass"></i>
+              <h4>A04:2021 - Insecure Design</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Flaws related to design and architectural security failures. Represents a shift from remediation to designing with security in mind from the start.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A05:2021 Security Misconfiguration -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sliders-h"></i>
+              <h4>A05:2021 - Security Misconfiguration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Missing security hardening, improper permissions, unnecessary features enabled, default accounts/passwords, and overly informative error messages.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A06:2021 Vulnerable Components -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-puzzle-piece"></i>
+              <h4>A06:2021 - Vulnerable Components</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Using outdated libraries, frameworks, or components with known vulnerabilities. Includes failure to track vulnerable dependencies and patch management.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A07:2021 Auth Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-lock"></i>
+              <h4>A07:2021 - Auth Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Incorrect implementation of authentication and session management. Includes weak passwords, improper session handling, and credential exposure.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A08:2021 Software Integrity Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-check-circle"></i>
+              <h4>A08:2021 - Software Integrity Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Failures to verify integrity of software updates, critical data, CI/CD pipelines, or unsigned libraries. Includes auto-update functionality without integrity checks.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A09:2021 Logging Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-clipboard-list"></i>
+              <h4>A09:2021 - Logging Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Insufficient logging, monitoring, and alerting. Inadequate detection, escalation, and response to active breaches. Logs missing critical details or improperly stored.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A10:2021 SSRF -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-random"></i>
+              <h4>A10:2021 - Server-Side Request Forgery</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Web application fetches remote resources without validating user-supplied URLs. Attackers can force the server to connect to internal services or read unauthorized data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+  
+    <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The OWASP Top 10 should be viewed as a starting point, not a comprehensive security program. Organizations should develop additional security measures based on their specific threat landscape and risk profile.
+          </div>
+        </div>
+      </div>
+      <div class="back-button-container">
+        <a href="Web.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

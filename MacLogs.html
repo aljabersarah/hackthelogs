@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - macOS Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      
+      <a href="#" class="nav-item"> macOS System Logs</a>
+      <a href="#" class="nav-item"> macOS in the Enterprise Ecosystem</a>
+      <a href="#" class="nav-item"> Apple File System (APFS)</a>
+      <a href="#" class="nav-item"> macOS File System Extensions</a>
+      <a href="#" class="nav-item"> macOS File-System Domains </a>
+      <a href="#" class="nav-item"> macOS Logging Systems </a>
+      <a href="#" class="nav-item"> Common Log Locations</a>
+      <a href="#" class="nav-item"> macOS Property List Files</a>
+      <a href="#" class="nav-item"> macOS Log Analysis Tools</a>
+
+     
+
+    </div>
+   <!-- Main Content -->
+<div class="main-content">
+  <div class="header">
+    <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> macOS Logs</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search documentation...">
+    </div>
+  </div>
+  
+  <div class="card event-log-overview">
+    <div class="card-header">
+      <div></div>
+      <h2>macOS System Logs</h2>
+    </div>
+    <div class="content-wrapper">
+      <div class="overview-content">
+        <p>Logs play a critical role in macOS systems, serving as a primary source of information for understanding system behavior, diagnosing application issues, and investigating security events. macOS uses a sophisticated logging framework known as the Unified Logging System, which collects detailed log data from across the operating system and applications in a structured and centralized manner.</p>
+        <p>The Unified Logging System replaces traditional text-based logs with a high-performance binary log format. It categorizes log messages by subsystem and category, making it easier to filter and analyze relevant data. Tools like the <code>log</code> command-line utility and the Console app allow users to search, stream, and explore logs in real-time or historically, providing flexibility for developers, system administrators, and security analysts.</p>
+        <p>As shown in Apple's evolution from macOS X 10 Cheetah (2001) to macOS 13 Ventura (2022), logging capabilities have significantly improved. A major shift occurred with macOS Sierra (10.12) and High Sierra (10.13), which introduced the Apple File System (APFS) and enhanced logging infrastructure. With Big Sur (macOS 11), Apple dropped the "10." prefix from version numbers, though some components maintained 10.16 designations internally.</p>
+        <p>For enterprise environments, it's worth noting that Mac users typically run macOS versions 2-3 years behind the latest release. When investigating logs across a fleet of machines, be mindful of the different logging systems that may be in place depending on the macOS version.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card event-log-overview">
+  <div class="card-header">
+    <div class="header-icon">
+    </div>
+    <h2>macOS in the Enterprise Ecosystem</h2>
+  </div>
+  <div class="content-wrapper">
+    <div class="overview-content">
+      <p>The two main areas where we encounter macOS in the enterprise are in desktop devices and laptops. Both categories share common features in the OS, with the most significant variation being in performance and user configurations.</p>
+      
+            
+      
+      <div class="ecosystem-note">
+        iOS devices (iPhone, iPad Mini, iPad Air, iPad Pro) share features with macOS in a scaled-down form, though specific iOS incident response is outside the scope of this documentation.
+      </div>
+      
+      <div class="ecosystem-role">
+        <h3><i class="fa fa-server"></i> Servers</h3>
+        <p>Although macOS devices are generally high performance, it is very uncommon to see macOS devices acting as servers in an enterprise. Finding a macOS system in a DMZ hosting a web server or application server would be unexpected. This function is heavily dominated by Linux and Windows devices. The macOS server range was discontinued in April 2022.</p>
+      </div>
+      
+      <div class="ecosystem-role">
+        <h3><i class="fa fa-desktop"></i> Workstations</h3>
+        <p>One of the more common places to see macOS in the enterprise is as end-user computing workstations. Often, they are used by developers, graphical designers/AV teams, marketing, and R&D departments.</p>
+      </div>
+      
+      <div class="ecosystem-role">
+        <h3><i class="fa fa-mobile"></i> Mobile Users</h3>
+        <p>Probably the most common deployment of enterprise Macs are with the mobile workforce. MacBooks (Pro or Air) can be found in every role in most large organizations. The drive toward "Bring Your Own Devices" (BYOD) in the early 2010s played a significant part in increasing the Mac presence in corporate environments.</p>
+      </div>
+      
+      <p>When analyzing logs in an enterprise context, understanding the device's role and usage pattern is crucial for effective incident response and threat hunting.</p>
+    </div>
+  </div>
+</div>
+<!-- 
+  Section 1: macOS Fundamentals - Apple File System (APFS)
+  This section covers the core characteristics and features of APFS,
+  including its modern design, technical specifications, and key features
+  like Atomic Safe Save and disk encryption capabilities.
+-->
+<div class="card event-log-overview">
+  <div class="card-header">
+    <div class="header-icon">
+      <i class="fa fa-hdd-o"></i>
+    </div>
+    <h2>Apple File System (APFS)</h2>
+  </div>
+  <div class="content-wrapper">
+    <div class="overview-content">
+      <!-- Introduction to APFS -->
+      <p>APFS is one of the more "modern" filesystems, having been developed around 2016. As a result, it includes lots of features found in other filesystems without some of the legacy challenges they have. The filesystem also brought in several improvements of HFS+ in areas such as timestamps/dates, snapshots, and links.</p>
+      
+      <!-- Key features displayed as interactive badges -->
+      <div class="feature-badges-container">
+        <div class="feature-badge">
+          <i class="fa fa-calendar"></i>
+          Modern (2016)
+        </div>
+        <div class="feature-badge">
+          <i class="fa fa-sitemap"></i>
+          B-Tree Indexing
+        </div>
+        <div class="feature-badge">
+          <i class="fa fa-shield"></i>
+          Native Encryption
+        </div>
+        <div class="feature-badge">
+          <i class="fa fa-camera"></i>
+          Snapshots
+        </div>
+        <div class="feature-badge">
+          <i class="fa fa-clock-o"></i>
+          64-bit Timestamps
+        </div>
+        <div class="feature-badge">
+          <i class="fa fa-save"></i>
+          Atomic Safe Save
+        </div>
+      </div>
+      
+      <!-- Technical specifications and characteristics section -->
+      <div class="fs-section">
+        <h3><i class="fa fa-database"></i> Key Characteristics</h3>
+        
+        <div class="tech-spec">
+          <div class="tech-spec-label">Filesystem Type:</div>
+          <div class="tech-spec-value">Modern filesystem using B-Tree indexing introduced in 2016</div>
+        </div>
+        
+        <div class="tech-spec">
+          <div class="tech-spec-label">File Capacity:</div>
+          <div class="tech-spec-value">64-bit inodes supporting 9 × 2⁶³ files on a volume (limited by blocks to ~2⁵⁶)</div>
+        </div>
+        
+        <div class="tech-spec">
+          <div class="tech-spec-label">File Size Limit:</div>
+          <div class="tech-spec-value">File names up to 255 UTF-8 characters, maximum single file size—8 exabytes</div>
+        </div>
+        
+        <div class="tech-spec">
+          <div class="tech-spec-label">Timestamps:</div>
+          <div class="tech-spec-value">64-bit with nanosecond accuracy (HFS+ had 1 second accuracy)</div>
+        </div>
+        
+        <!-- Important note about timestamp implementation -->
+        <div class="fs-note">
+          <strong>Note:</strong> APFS timestamps record the number of nanoseconds since 1970-01-01. System times are recorded in UTC. Current version of APFS appears to be able to support dates between 1970-01-01 00:00:00 and 2554-07-21 23:34:33.
+        </div>
+      </div>
+      
+      <!-- Section explaining the Atomic Safe Save feature -->
+      <div class="fs-section">
+        <h3>Atomic Safe Save</h3>
+        <p>APFS is not a journaled filesystem in the way of HFS+ (or NTFS/EXT4, etc). Instead, Apple has implemented a technique called Atomic Safe Save (ASS) to avoid metadata corruption in the event of a crash.</p>
+        <p>In this, rather than overwrite metadata and update journals, a write event creates an entirely new record, changes any pointers to the new record, and then releases the old record. This is sometimes referred to as redirect-on-write.</p>
+      </div>
+      
+      <!-- Section covering encryption capabilities -->
+      <div class="fs-section">
+        <h3>Disk Encryption</h3>
+        <p>Support for full disk encryption is built into the filesystem! This allows for different options and for some devices will include hardware encryption (internal storage on devices that support it, such as iOS and macOS devices with T2 security chips).</p>
+        <p>Software encryption uses a volume encryption key (VEK) which is secured by a key encryption key (KEK). The KEK is unlocked by a user's password, personal recovery key, institutional recovery key, or an iCloud recovery key.</p>
+        <p>The disk encryption can be applied to the entire disk, specific volumes, or individual files. If a volume is encrypted, the filesystem tree and the file contents are encrypted.</p>
+        
+        <!-- Warning about encryption implications for enterprise -->
+        <div class="warning-box">
+          <i class="fa fa-exclamation-triangle"></i>
+          <strong>Important:</strong> Apple encryption is challenging to bypass without specialist tools and support. Your best option in enterprise IR is to capture data from a live system or rely on the institutional recovery key if it is a managed device.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--macOS File System Extensions-->
+<div class="card event-log-overview">
+  <div class="card-header">
+    <div class="header-icon">
+      <i class="fa fa-files-o"></i>
+    </div>
+    <h2>macOS File System Extensions</h2>
+  </div>
+  <div class="content-wrapper">
+    <div class="overview-content">
+      <!-- Introduction to macOS file extensions -->
+      <p>macOS uses specific file extensions and formats that differ from other operating systems. These extensions are critical for system functionality, forensic analysis, and understanding how macOS organizes data.</p>
+      
+      <!-- Enhanced table-style display for file extensions -->
+      <div class="log-locations-table-container">
+        <table class="log-locations-table">
+          <thead>
+            <tr>
+              <th width="10%">Extension</th>
+              <th width="25%">Description</th>
+              <th width="65%">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>.dmg</strong></td>
+              <td>Apple Disk Image Files</td>
+              <td>These are Apple disk image files, often seen as part of software installers. They can be mounted and accessed as if they were physical disks, and can be formatted in different file systems (often FAT or HFS+). DMG files can be encrypted, compressed, and may contain multiple partitions.</td>
+            </tr>
+            <tr>
+              <td><strong>.kext</strong></td>
+              <td>Kernel Extension Bundles</td>
+              <td>These act as the macOS version of a driver. The kext bundle isn't a single file but a directory containing files making up the driver. Kext files have been deprecated in macOS and third-party kernel extensions can no longer be loaded on demand since macOS 11 Big Sur. They now require user interaction and a restart to load.</td>
+            </tr>
+            <tr>
+              <td><strong>.plist</strong></td>
+              <td>Property List Files</td>
+              <td>Configuration files that can be in plain text (XML) or binary format. These store settings and properties for applications, system services, and user preferences. They function similar to registry entries in Windows. Binary plists use <code>bplist00</code> as a header signature, while XML plists begin with <code>&lt;?xml version=</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>.app</strong></td>
+              <td>Application Bundles</td>
+              <td>Rather than being single files, these are formally structured directories containing all files and folders making up the application. This bundle structure contains the executable code, resources, metadata, and support files. Inside each .app is a standard structure including a Contents folder with Info.plist, MacOS (containing the binary), and Resources folders.</td>
+            </tr>
+            <tr>
+              <td><strong>.dylib</strong></td>
+              <td>Dynamic Libraries</td>
+              <td>Dynamic library files containing code to be imported into applications. This is similar to DLLs (dynamic linked libraries) in Windows or SO (shared object) files in Linux. These can be loaded at runtime and shared between multiple applications to reduce memory usage and improve modularity.</td>
+            </tr>
+            <tr>
+              <td><strong>.pkg</strong></td>
+              <td>Installer Packages</td>
+              <td>Installer package files for software distribution. This format evolved with macOS 10.5 Leopard to use the XAR archive format. PKG files are archive files that contain installation scripts, payload files, and metadata that guide the macOS Installer through the installation process.</td>
+            </tr>
+            <tr>
+              <td><strong>.xar</strong></td>
+              <td>Extensible Archive</td>
+              <td>The extensible archive format files used for software installers and browser extensions. XAR provides better security features and hash verification compared to older formats. It allows for random access to archive contents and better compression options.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+    
+      
+      <div class="fs-note">
+        <strong>Forensic Importance:</strong> Understanding macOS file extensions and bundle structures is critical for digital forensics. Many artifacts are stored within these structures, and the file extension often indicates the expected internal format and potential value to investigations.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- macOS File-System Domains -->
+<div class="card event-log-locations">
+  <div class="card-header">
+    <div class="header-icon"><i class="fas fa-folder-tree"></i></div>
+    <h2>macOS File-System Domains</h2>
+  </div>
+  <p class="description">The macOS filesystem organizes resources into four distinct "domains" - User, Local, Network, and System. This structure helps separate files based on their purpose, accessibility, and management requirements, improving both security and organization.</p>
+  
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Description</th>
+          <th>Path Location</th>
+          <th>Access Level</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="log-type"><strong>User</strong></td>
+          <td>Contains user-specific files, pictures, music, etc.</td>
+          <td><code>/Users/&lt;username&gt;/</code></td>
+          <td>Full access for the specific user</td>
+        </tr>
+        <tr>
+          <td class="log-type"><strong>Local</strong></td>
+          <td>Applications and resources shared among all users</td>
+          <td><code>/Applications</code>, <code>/Library</code></td>
+          <td>Managed by admin users and System</td>
+        </tr>
+        <tr>
+          <td class="log-type"><strong>Network</strong></td>
+          <td>Resources on local network (Time Capsules, NAS, printers)</td>
+          <td><code>/Network</code></td>
+          <td>Managed by network administrator</td>
+        </tr>
+        <tr>
+          <td class="log-type"><strong>System</strong></td>
+          <td>Software installed by Apple, critical OS applications</td>
+          <td><code>/System</code>, <code>/System/Library</code></td>
+          <td>Managed by System</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fs-section">
+    <h3><i class="fas fa-user"></i>User Domain Details</h3>
+    <p>The User Domain holds items related to a specific user account. Each account logs into the system with its own user domain that reflects the home directory of the current logged-in user.</p>
+    
+    <div class="file-extensions-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;">
+      <div class="file-extension" style="padding: 15px; min-height: 90px;">
+        <div class="ext-name">~/Applications</div>
+        <div class="ext-desc">User-specific applications</div>
+      </div>
+      <div class="file-extension" style="padding: 15px; min-height: 90px;">
+        <div class="ext-name">~/Library</div>
+        <div class="ext-desc">Application configurations</div>
+      </div>
+      <div class="file-extension" style="padding: 15px; min-height: 90px;">
+        <div class="ext-name">~/Developer</div>
+        <div class="ext-desc">Developer tools</div>
+      </div>
+      <div class="file-extension" style="padding: 15px; min-height: 90px;">
+        <div class="ext-name">~/Public</div>
+        <div class="ext-desc">Files shared with others</div>
+      </div>
+    </div>
+    
+    <div class="fs-note">
+      <strong>Security Note:</strong> The User Library (<code>~/Library</code>) contains application sandboxes, preferences files (in .plist format), and cached data - all valuable for forensic investigations.
+    </div>
+  </div>
+  
+  <div class="fs-section">
+    <h3><i class="fas fa-desktop"></i>Local Domain Details</h3>
+    <p>The Local Domain stores items that are local to the current computer and shared among all users. This domain is not a single physical directory but instead consists of multiple locations on the local boot volume.</p>
+    
+    <div class="tech-spec">
+      <div class="tech-spec-label">Primary Locations:</div>
+      <div class="tech-spec-value"><code>/Applications</code>, <code>/Library</code></div>
+    </div>
+  </div>
+  
+  <div class="fs-section">
+    <h3><i class="fas fa-network-wired"></i>Network Domain Details</h3>
+    <p>Stores network resources such as apps and documents shared among all users of a local area network. Can include Time Capsules, network printers, file shares, and other systems.</p>
+  </div>
+  
+  <div class="fs-section">
+    <h3><i class="fas fa-cog"></i>System Domain Details</h3>
+    <p>This is where Apple-installed software resides. Contains critical OS applications and configuration items required by the operating system to function. User accounts cannot add, remove, or modify items in this domain.</p>
+    
+    <div class="warning-box">
+      <i class="fas fa-exclamation-triangle"></i>
+      <strong>Important:</strong> Only Apple-developed applications should have any access to the System Domain.
+    </div>
+  </div>
+  
+  <div class="tip-content">
+    <strong>Pro Tip:</strong> In incident response, the User Domain often holds the main evidence of both malicious insider activity and initial signs of compromise. An attack which exploits a user process or runs in a user-sandboxed app will be largely constrained to this domain unless privilege escalation is possible.
+  </div>
+</div>
+
+<!-- macOS Logging Systems Overview -->
+<div class="card audit-policies-card">
+  <div class="card-header">
+    <div></i></div>
+    <h2>macOS Logging Systems</h2>
+  </div>
+  <p class="intro-text">
+    macOS logging has evolved from traditional Unix text logs to sophisticated binary formats. Modern macOS versions leverage Apple Unified Logging (AUL) for comprehensive system and application event tracking with structured data and rich metadata.
+  </p>
+  
+  <div class="audit-categories-grid">
+    <!-- Unified Logging System -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-layer-group"></i>
+        <h4>Unified Logging System</h4>
+      </div>
+      <div class="config-file-content">
+        <p>
+          The Apple Unified Log (AUL) captures events across all layers of macOS, including kernel, user-space applications, daemons, and services.
+        </p>
+        <ul class="config-list">
+          <li><span class="config-item">Format</span> Binary with structured metadata</li>
+          <li><span class="config-item">Location</span> /var/db/diagnostics/</li>
+          <li><span class="config-item">Since</span> macOS Sierra (10.12)</li>
+          <li><span class="config-item">Access</span> Console app or <code>log</code> command</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Legacy Logs -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-archive"></i>
+        <h4>Legacy System Logs</h4>
+      </div>
+      <div class="config-file-content">
+        <p>
+          Older plain text logs (some still present in modern macOS) stored in the traditional Unix format.
+        </p>
+        <ul class="config-list">
+          <li><span class="config-item">Format</span> Plain text (Unix log format)</li>
+          <li><span class="config-item">Location</span> /var/log/ directory</li>
+          <li><span class="config-item">Deprecated</span> Mostly phased out since macOS Sierra</li>
+          <li><span class="config-item">Note</span> Often compressed with gzip or bzip2</li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Crash Reports -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-bug"></i>
+        <h4>Crash Reports</h4>
+      </div>
+      <div class="config-file-content">
+        <p>
+          Generated when applications or system processes terminate abnormally. Useful for detecting exploitation attempts.
+        </p>
+        <ul class="config-list">
+          <li><span class="config-item">Location</span> ~/Library/Logs/DiagnosticReports/</li>
+          <li><span class="config-item">Format</span> Plain text with stack traces</li>
+          <li><span class="config-item">Use Case</span> Malware crash detection</li>
+          <li><span class="config-item">Content</span> Process ID, thread states, crash context</li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Diagnostic Reports -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-microscope"></i>
+        <h4>Diagnostic Reports</h4>
+      </div>
+      <div class="config-file-content">
+        <p>
+          Generated when apps misbehave (hang, high resource usage). Useful for detecting stealthy malware.
+        </p>
+        <ul class="config-list">
+          <li><span class="config-item">Location</span> /Library/Logs/DiagnosticReports/</li>
+          <li><span class="config-item">Format</span> Text logs with app state data</li>
+          <li><span class="config-item">Use Case</span> Identify resource abuse</li>
+          <li><span class="config-item">Features</span> Performance metrics, thread details</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- macOS Log Severity Levels -->
+  <div class="fs-section">
+    <h3><i class="fas fa-tags"></i> macOS Log Severity Levels</h3>
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Description</th>
+          <th>Usage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Default</td><td>Standard system and application events</td><td>Normal operations</td></tr>
+        <tr><td>Info</td><td>Informational logs, basic activity</td><td>Successful operations</td></tr>
+        <tr><td>Debug</td><td>Verbose technical details</td><td>Troubleshooting and development</td></tr>
+        <tr><td>Error</td><td>Recoverable failures</td><td>Operation failed but process continues</td></tr>
+        <tr><td>Fault</td><td>Critical errors or crashes</td><td>System integrity issues</td></tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="warning-box">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>Important:</strong> Most logs have moved to the Apple Unified Logging format since macOS Sierra (10.12). Analysis on a macOS device is the best option for incident response.
+  </div>
+</div>
+
+<!-- Common Log Locations -->
+<div class="card audit-policies-card">
+  <div>
+    <div></i></div>
+    <h2>Common Log Locations</h2>
+  </div>
+  <p class="intro-text">
+    macOS stores logs in various locations throughout the filesystem. Understanding these locations is crucial for effective incident response and threat hunting.
+  </p>
+  
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Path</th>
+          <th>Description</th>
+          <th>Content Type</th>
+          <th>IR Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/var/log</code></td>
+          <td>Traditional system logs directory</td>
+          <td>Text logs (system.log, install.log, etc.)</td>
+          <td>Medium (legacy)</td>
+        </tr>
+        <tr>
+          <td><code>/var/db/diagnostics</code></td>
+          <td>System logs in Unified Log format</td>
+          <td>Binary logs (.tracev3 files)</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><code>/var/db/uuidtext</code></td>
+          <td>Unified logs message text storage</td>
+          <td>Binary data for AUL</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><code>/Library/Logs</code></td>
+          <td>System-wide application logs</td>
+          <td>Mixed formats</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><code>~/Library/Logs</code></td>
+          <td>User-specific application logs</td>
+          <td>Text & binary formats</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><code>~/Library/Logs/DiagnosticReports</code></td>
+          <td>Application crash reports</td>
+          <td>Text files with crash details</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><code>/Library/Application Support/(App name)</code></td>
+          <td>Application-specific logs</td>
+          <td>Varies by application</td>
+          <td>Medium</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Important Plaintext Logs -->
+<h3> Important Legacy Plaintext Logs</h3>
+<div class="file-extensions-grid legacy-logs">
+  <div class="file-extension">
+    <div class="ext-name">/var/log/system.log</div>
+    <div class="ext-desc">System diagnostics and general messages</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/wifi.log</div>
+    <div class="ext-desc">Wi-Fi connections and known hotspots</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/install.log</div>
+    <div class="ext-desc">Software installation history</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/appfirewall.log</div>
+    <div class="ext-desc">Network firewall events</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/fsck_apfs.log</div>
+    <div class="ext-desc">Events related to the filesystem</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/DiagnosticMessages</div>
+    <div class="ext-desc">System diagnostic messages</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/asl/*.asl</div>
+    <div class="ext-desc">Apple System Log (deprecated)</div>
+  </div>
+  <div class="file-extension">
+    <div class="ext-name">/var/log/DiskUtility.log</div>
+    <div class="ext-desc">Disk mounting and management</div>
+  </div>
+</div>
+</div>
+<!-- macOS Property List Files Overview -->
+<div class="card audit-policies-card">
+  <div>
+    <div></i></div>
+    <h2>macOS Property List Files</h2>
+  </div>
+  <p class="intro-text">
+    Property list (plist) files contain configuration information about the system, applications, and user preferences. They function similarly to the Registry in Microsoft Windows and are found throughout the macOS filesystem.
+  </p>
+  
+  <div class="audit-categories-grid">
+    <!-- XML Format -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-file-code"></i>
+        <h4>XML Format</h4>
+      </div>
+      <div class="config-file-content">
+        <p>
+          This is an older format where the file is a human-readable XML document that can be viewed in any text editor.
+        </p>
+        <ul class="config-list">
+          <li><span class="config-item">File Signature</span> <code>&lt;?xml version="</code></li>
+          <li><span class="config-item">Format</span> Plain text XML</li>
+          <li><span class="config-item">Tools</span> Any text editor</li>
+          <li><span class="config-item">Usage</span> Still found on latest macOS versions</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Binary Format -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-file-binary"></i>
+        <h4>Binary Format</h4>
+      </div>
+      <div class="config-file-content">
+        <p>
+          Newer plist files use a binary format that saves disk space and supports binary large object (BLOB) data.
+        </p>
+        <ul class="config-list">
+          <li><span class="config-item">File Signature</span> <code>bplist00</code></li>
+          <li><span class="config-item">Format</span> Binary data structure</li>
+          <li><span class="config-item">Advantages</span> Less disk space, BLOB support</li>
+          <li><span class="config-item">Challenges</span> Requires specialized tools to read</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Analysis Tools -->
+  <div class="fs-section">
+    <h3><i class="fas fa-tools"></i> Plist Analysis Tools</h3>
+    
+    <div class="tool-cards">
+      <!-- macOS Tools -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-apple"></i>
+          <h4>macOS Tools</h4>
+        </div>
+        <div class="tool-content">
+          <p>Native tools for viewing and editing plist files on macOS systems.</p>
+          <ul class="tool-list">
+            <li><strong>Xcode:</strong> Shows plists in a GUI with property editor</li>
+            <li><strong>plutil:</strong> Command line utility for converting formats
+              <div class="command-examples">
+                <div class="command">$ plutil -p file.plist</div>
+                <div class="command">$ plutil -convert xml1 file.plist</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Windows Tools -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-windows"></i>
+          <h4>Windows Tools</h4>
+        </div>
+        <div class="tool-content">
+          <p>Tools for analyzing plist files on Windows systems.</p>
+          <ul class="tool-list">
+            <li><strong>iBackupBot Plist Editor:</strong> Commercial tool with plist parsing</li>
+            <li><strong>Notepad++:</strong> With the bplist plugin for binary plists</li>
+            <li><strong>Commercial forensic suites:</strong> Most include plist parsers</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Linux Tools -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-linux"></i>
+          <h4>Linux Tools</h4>
+        </div>
+        <div class="tool-content">
+          <p>Tools for analyzing plist files on Linux systems.</p>
+          <ul class="tool-list">
+            <li><strong>libplist-utils:</strong> Command line tools for plist analysis</li>
+            <li><div class="command-examples">
+              <div class="command">$ sudo apt update && sudo apt install libplist-utils</div>
+              <div class="command">$ plistutil -i info.plist -o info.plist.xml -f xml</div>
+            </div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <div class="warning-box">
+      <i class="fas fa-exclamation-triangle"></i>
+      <strong>Important:</strong> Starting with macOS Catalina (10.15), BLOB data in binary plists can be truncated when viewed in Xcode or plutil. With macOS Big Sur (11.0), Xcode became able to read the BLOB again, but they remain truncated in plutil.
+    </div>
+  </div>
+  
+  <!-- Common Plist Locations -->
+  <div class="fs-section">
+    <h3><i class="fas fa-folder-open"></i> Forensically Significant Plist Locations</h3>
+    
+    <div class="file-extensions-grid plist-locations">
+      <div class="file-extension">
+        <div class="ext-name">/System/Library/CoreServices/SystemVersion.plist</div>
+        <div class="ext-desc">OS version and build information</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist</div>
+        <div class="ext-desc">Network interface hardware data and MAC addresses</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/Library/Preferences/SystemConfiguration/preferences.plist</div>
+        <div class="ext-desc">Network configuration and hostname information</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/Library/Preferences/.GlobalPreferences.plist</div>
+        <div class="ext-desc">Device time zone and regional settings</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/Library/Preferences/com.apple.timezone.auto.plist</div>
+        <div class="ext-desc">Automatic time zone update settings</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/private/var/db/dhcpclient/leases/</div>
+        <div class="ext-desc">DHCP lease information with router data and SSIDs</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/private/var/db/dslocal/nodes/Default/users</div>
+        <div class="ext-desc">User account information and configuration</div>
+      </div>
+      <div class="file-extension">
+        <div class="ext-name">/Users/(username)/Library/Preferences/</div>
+        <div class="ext-desc">User-specific application preferences</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- System Startup and Launch -->
+  <div class="fs-section">
+    <h3><i class="fas fa-power-off"></i> Launch and Startup Plists</h3>
+    
+    <div class="audit-categories-grid">
+      <!-- System Startup -->
+      <div class="audit-category-box">
+        <div class="category-box-header">
+          <i class="fas fa-server"></i>
+          <h4>System Startup</h4>
+        </div>
+        <div class="config-file-content">
+          <p>
+            These locations contain plists that execute during system boot.
+          </p>
+          <ul class="config-list">
+            <li><span class="config-item">/Library/LaunchAgents</span> Run as root when any user logs in</li>
+            <li><span class="config-item">/Library/LaunchDaemons</span> System-wide daemons run as root</li>
+            <li><span class="config-item">/System/Library/LaunchAgents</span> Apple-provided launch agents</li>
+            <li><span class="config-item">/System/Library/LaunchDaemons</span> Apple-provided system daemons</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- User Login -->
+      <div class="audit-category-box">
+        <div class="category-box-header">
+          <i class="fas fa-user-check"></i>
+          <h4>User Login</h4>
+        </div>
+        <div class="config-file-content">
+          <p>
+            These locations contain plists that execute when a specific user logs in.
+          </p>
+          <ul class="config-list">
+            <li><span class="config-item">/Users/(username)/Library/LaunchAgents</span> User-specific startup items</li>
+            <li><span class="config-item">Execution</span> Run as the logged-in user</li>
+            <li><span class="config-item">Purpose</span> User-specific background processes</li>
+            <li><span class="config-item">IR Value</span> High (potential persistence mechanisms)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <div>
+      <h4>Example Plist Structure (OneDrive Updater)</h4>
+      <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;
+&lt;plist version="1.0"&gt;
+&lt;dict&gt;
+    &lt;key&gt;Label&lt;/key&gt;
+    &lt;string&gt;com.microsoft.OneDriveUpdaterDaemon&lt;/string&gt;
+    &lt;key&gt;Program&lt;/key&gt;
+    &lt;string&gt;/Applications/OneDrive.app/Contents/MacOS/OneDriveUpdaterDaemon&lt;/string&gt;
+&lt;/dict&gt;
+&lt;/plist&gt;</code></pre>
+      
+      <div class="fs-note">
+        <p><strong>Key elements in launch plists:</strong></p>
+        <ol>
+          <li><strong>Label:</strong> The name of the task shown when <code>launchctl list</code> is used</li>
+          <li><strong>Program:</strong> Path to the executable that will be launched</li>
+          <li><strong>ProgramArguments:</strong> Alternative to Program, includes arguments for execution</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  
+  <!-- IR and Forensic Value -->
+  <div class="fs-section">
+    <h3><i class="fas fa-search"></i> Incident Response and Forensic Value</h3>
+    
+    <div class="tip-content">
+      <p>Property list files are highly valuable for forensic investigators and incident responders for several reasons:</p>
+      <ul>
+        <strong>System Configuration:</strong> Provides insight into system settings, time zones, and network interfaces
+        <strong>User Activity:</strong> Contains application preferences and user-specific settings
+        <strong>Network History:</strong> DHCP leases reveal previously connected networks and router information
+        <strong>Persistence Mechanisms:</strong> Launch plists are common locations for malware persistence
+        <strong>Account Information:</strong> User details including IDs and potentially deleted accounts
+      </ul>
+    </div>
+    
+    <div class="implementation-steps">
+      <h4>Forensic Analysis Approach</h4>
+      <ol>
+        <li>Identify suspicious launch agents or daemons that don't appear to be from legitimate vendors</li>
+        <li>Check executable paths referenced in plists to ensure they point to valid locations</li>
+        <li>Compare creation/modification timestamps of plists against system installation and update times</li>
+        <li>Examine network configuration plists for signs of network manipulation or redirection</li>
+        <li>Search user preference plists for evidence of application usage and behavior</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- Log Analysis Tools -->
+<div class="card best-practices-card">
+  <div>
+    <div></i></div>
+    <h2>macOS Log Analysis Tools</h2>
+  </div>
+  <p class="intro-text">
+    Due to the binary nature of modern macOS logs, specialized tools are required for effective analysis. Each approach offers different advantages for incident response and forensic investigation.
+  </p>
+  
+  <!-- Live Response Pros and Cons -->
+  <div class="analysis-comparison">
+    <h3 class="analysis-title"><i class="fas fa-laptop-code"></i> Live Response Analysis</h3>
+    <div class="comparison-container">
+      <div class="comparison-column advantages">
+        <h4><i class="fas fa-check-circle"></i> Advantages</h4>
+        <ul class="check-list">
+          <li>Best alternative to SIEM</li>
+          <li>Use system commands</li>
+          <li>Can read binary formats</li>
+          <li>Best data quality</li>
+        </ul>
+      </div>
+      
+      <div class="comparison-column limitations">
+        <h4><i class="fas fa-times-circle"></i> Limitations</h4>
+        <ul class="x-list">
+          <li>Requires access to the system</li>
+          <li>Can change the system</li>
+          <li>Logs can be modified by attackers</li>
+          <li>Default logging rarely changed</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Native Tools Carousel -->
+  <div class="tool-section">
+    <h3></i>Native macOS Log Analysis Tools</h3>
+    <div class="tool-cards">
+      <!-- Console App -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-desktop"></i>
+          <h4>Console App</h4>
+        </div>
+        <div class="tool-content">
+          <p>GUI tool for reading and filtering Apple Unified Logs with a visual interface.</p>
+          <div class="tool-specs">
+            <div class="tool-spec">
+              <span class="spec-label">Type:</span>
+              <span class="spec-value">Graphical UI</span>
+            </div>
+            <div class="tool-spec">
+              <span class="spec-label">Strength:</span>
+              <span class="spec-value">Visual filtering</span>
+            </div>
+            <div class="tool-spec">
+              <span class="spec-label">Limitation:</span>
+              <span class="spec-value">No scripting</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- log Command -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-terminal"></i>
+          <h4>log Command</h4>
+        </div>
+        <div class="tool-content">
+          <p>Command-line tool for querying the unified logging system with powerful filtering options.</p>
+          <div class="command-examples">
+            <div class="command">$ log show --last 1h</div>
+            <div class="command">$ log stream --predicate 'category == "network"'</div>
+            <div class="command">$ log show --info --debug</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- syslog Command -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-history"></i>
+          <h4>syslog Command</h4>
+        </div>
+        <div class="tool-content">
+          <p>Tool for viewing legacy Apple System Logs (.asl files). Deprecated in newer macOS versions.</p>
+          <div class="command-examples deprecated">
+            <div class="command">$ syslog -f /var/log/asl/filename.asl</div>
+            <div class="command-note">Note: Deprecated in favor of 'log' command</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Live Response Examples -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <i class="fas fa-user-check"></i>
+          <h4>Live Analysis Examples</h4>
+        </div>
+        <div class="tool-content">
+          <p>Common commands for live system analysis during incident response.</p>
+          <div class="command-examples">
+            <div class="command-with-desc">
+              <div class="command">$ last</div>
+              <div class="command-desc">Shows last logged in users</div>
+            </div>
+            <div class="command-with-desc">
+              <div class="command">$ syslog -f file.asl</div>
+              <div class="command-desc">View ASL binary logs</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Third-Party Tools -->
+  <div class="tool-section">
+    <h3></i> Third-Party Analysis Tools</h3>
+    
+    <!-- mac_apt Tool Box -->
+    <div class="third-party-tool">
+      <div class="tool-banner">
+        <h4><i class="fas fa-code"></i> mac_apt - macOS Artifact Parsing Tool</h4>
+        <span class="tool-badge">Cross-Platform</span>
+      </div>
+      
+      <div class="tool-details">
+        <p>Python-based tool for analyzing macOS and iOS artifacts including Unified Logs. Ideal for off-device forensic analysis.</p>
+        
+        <div class="tool-features-container">
+          <div class="tool-features">
+            <h5>Key Features</h5>
+            <ul>
+              <li>Cross-platform (Python 3.7+)</li>
+              <li>Reads disk images & live systems</li>
+              <li>Plugin-driven architecture</li>
+              <li>Multiple output formats (CSV, XLSX)</li>
+            </ul>
+          </div>
+          
+          <div class="tool-limitations">
+            <h5>Limitations</h5>
+            <ul>
+              <li>Work in progress</li>
+              <li>Needs considerable disk space</li>
+              <li>Running ALL plugins is very slow</li>
+              <li>Some TSV/CSV parsing issues</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div>
+          <h5><i class="fas fa-terminal"></i> Example Usage</h5>
+          <pre><code># Extract user login data and shell history
+python /opt/mac_apt/mac_apt.py -o /analysis --csv -d E01 /diskimage.E01 UTMPX USERS TERMSESSIONS
+
+# Extract unified logs
+python /opt/mac_apt/mac_apt.py -o /analysis --xlsx -d MOUNTED /Volumes/MacintoshHD UNIFIEDLOGS
+
+# Run the FAST set of plugins (quicker analysis)
+python /opt/mac_apt/mac_apt.py -o /analysis --csv -d DD /disk.dd FAST</code></pre>
+        </div>
+        
+        <div class="tool-link">
+          <span>
+            <i class="fas fa-link"></i> GitHub Repository
+          </span>
+          <a href="https://github.com/ydkhatri/mac_apt" target="_blank" class="github-link">mac_apt</a>
+        </div>
+      </div>
+              </div>
+
+ 
+    <!-- macOS-UnifiedLogs Tool Box -->
+    <div class="third-party-tool">
+      <div class="tool-banner">
+        <h4><i class="fas fa-code-branch"></i> macOS-UnifiedLogs by Mandiant</h4>
+        <span class="tool-badge">Rust-based</span>
+      </div>
+      
+      <div class="tool-details">
+        <p>Open-source library for parsing Apple Unified Logs with the ability to extract detailed metadata from .tracev3 files.</p>
+        
+        <div class="tool-features-container">
+          <div class="tool-features">
+            <h5>Extracted Elements</h5>
+            <ul>
+              <li>Process & Thread IDs</li>
+              <li>Activity IDs</li>
+              <li>Log Messages</li>
+              <li>Timestamps (Intel and ARM)</li>
+              <li>Effective User ID (EUID)</li>
+              <li>Subsystem & Category</li>
+            </ul>
+          </div>
+          
+          <div class="tool-limitations">
+            <h5>Limitations</h5>
+            <ul>
+              <li>No error code lookups</li>
+              <li>Limited custom object support</li>
+              <li>No protocol buffer data support</li>
+              <li>Work in progress</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="tool-link">
+          <span>
+            <i class="fas fa-link"></i> GitHub Repository
+          </span>
+          <a href="https://github.com/mandiant/macos-UnifiedLogs" target="_blank" class="github-link">macos-UnifiedLogs</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+  
+
+<div class="back-button-container">   
+<a href="endpoint.html" class="explore-button"><i class="fas fa-arrow-left"></i> Back </a> </div>
+</body>
+</html>

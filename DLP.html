@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - DLP Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">DLP Logs</div>
+      <a href="#" class="nav-item active">DLP Solution Overview</a>
+      <a href="#" class="nav-item">Key DLP Solution Components</a>
+      <a href="#" class="nav-item">DLP Activity Log Types</a>
+      <a href="#" class="nav-item">DLP Vendor Log Differences</a>
+      <a href="#" class="nav-item">DLP Log Analysis Queries</a>
+ 
+    </div>
+   <!-- Main Content -->
+<div class="main-content">
+  <div class="header">
+    <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Data Loss Prevention</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search documentation...">
+    </div>
+  </div>
+  <div class="card event-log-overview">
+    <div class="card-header">
+      <div></div>
+      <h2>DLP Solution Overview</h2>
+    </div>
+    <div class="content-wrapper">
+      <div class="overview-content">
+        <p>Data Loss Prevention (DLP) solutions are comprehensive security frameworks designed to identify, monitor, and protect sensitive data across an organization's entire infrastructure. These solutions prevent unauthorized access, transmission, or storage of confidential information including personally identifiable information (PII), financial records, intellectual property, and regulated data. By implementing robust DLP systems, organizations can enforce data governance policies, prevent accidental data exposure, and maintain regulatory compliance.</p>
+        <p>Enterprise DLP platforms typically provide three core protection modes: <code>data at rest</code> for securing stored information in databases and file systems, <code>data in motion</code> for monitoring network traffic and communications, and <code>data in use</code> for controlling active data access and manipulation. Implementation strategies include endpoint agents, network appliances, cloud-based services, and API integrations that work together to create comprehensive data protection coverage across hybrid environments.</p>
+        <p>Effective DLP deployment requires organizations to classify data sensitivity levels, establish clear data handling policies, and implement graduated response mechanisms. DLP solutions excel at preventing data breaches, detecting insider threats, ensuring compliance with regulations like GDPR and HIPAA, controlling shadow IT usage, and providing forensic capabilities for incident investigation. They also support business continuity by enabling secure remote work while maintaining data protection standards and reducing the risk of costly regulatory fines.</p>
+      </div>
+    </div>
+  </div>
+ <!-- Key DLP Solution Components -->
+<div class="card event-log-locations">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>Key DLP Solution Components</h2>
+  </div>
+  <p>Enterprise DLP solutions incorporate several critical components that work in concert to provide comprehensive data protection across all organizational touchpoints. Understanding these components is essential for implementing effective data loss prevention strategies:</p>
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="log-type site-log">Data Discovery & Classification</td>
+          <td>Automatically scans and identifies sensitive data across repositories, databases, file shares, and cloud storage. Uses pattern matching, machine learning, and content analysis to classify data by sensitivity level and apply appropriate protection policies based on regulatory requirements and business rules.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Content Inspection Engine</td>
+          <td>Analyzes data content in real-time using advanced techniques including regular expressions, keyword matching, statistical analysis, and machine learning algorithms. Detects sensitive information patterns such as credit card numbers, social security numbers, medical records, and proprietary business data across multiple file formats.</td>
+        </tr>
+        <tr>
+          <td class="log-type virtualhost-log">Network DLP</td>
+          <td>Monitors network traffic and communications channels including email, web traffic, FTP transfers, and instant messaging. Intercepts and analyzes data transmissions to prevent unauthorized data exfiltration while maintaining network performance and supporting encrypted traffic inspection.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-log">Endpoint DLP</td>
+          <td>Deploys agents on workstations, laptops, and mobile devices to monitor local data access, file operations, and removable media usage. Controls data copying, printing, screen captures, and application interactions while providing offline protection and detailed user activity tracking.</td>
+        </tr>
+        <tr>
+          <td class="log-type site-log">Storage DLP</td>
+          <td>Protects data repositories including databases, file servers, SharePoint sites, and cloud storage platforms. Continuously monitors stored data for policy violations, unauthorized access attempts, and configuration changes while maintaining data integrity and availability.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Policy Management</td>
+          <td>Centralizes creation, deployment, and maintenance of data protection policies across the organization. Supports role-based policy assignment, exception handling, automated policy updates, and compliance template management with granular control over enforcement actions and user notifications.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <div class="tip-content">
+      <strong>Pro Tip:</strong> When implementing DLP components, start with data discovery to understand your data landscape, then gradually deploy enforcement policies to avoid disrupting business operations while building user awareness and acceptance.
+    </div>
+  </div>
+</div>
+    <!-- DLP Activity Log Types -->
+<div class="card">
+  <h2>DLP Activity Log Types</h2>
+  <p>DLP solutions generate comprehensive logs that help organizations monitor data protection activities, investigate security incidents, and maintain compliance. Understanding these log types is crucial for effective data governance and security monitoring:</p>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Log Type</th>
+          <th>Description</th>
+          <th>Security Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Policy Violation Logs</td>
+          <td>Records data protection policy violations including user details, violated policy, severity level, data classification, and enforcement action taken.</td>
+          <td>Identifies data misuse patterns and enables rapid incident response to prevent data breaches.</td>
+        </tr>
+        <tr>
+          <td>Data Movement Logs</td>
+          <td>Tracks sensitive data transfers across network channels, email, cloud uploads, and removable media with source, destination, and content analysis results.</td>
+          <td>Provides visibility into data flows and helps detect unauthorized data exfiltration attempts.</td>
+        </tr>
+        <tr>
+          <td>Content Inspection Logs</td>
+          <td>Documents file scanning results, content classification decisions, false positive reviews, and pattern matching outcomes.</td>
+          <td>Shows data discovery effectiveness and helps tune detection accuracy while reducing false alerts.</td>
+        </tr>
+        <tr>
+          <td>User Activity Logs</td>
+          <td>Captures user interactions with sensitive data including file access, copy operations, print activities, and application usage patterns.</td>
+          <td>Enables behavioral analysis to detect insider threats and unusual data access patterns.</td>
+        </tr>
+        <tr>
+          <td>System Configuration Logs</td>
+          <td>Records policy changes, rule modifications, system updates, agent deployments, and administrative configuration changes.</td>
+          <td>Maintains audit trail of DLP system changes and ensures configuration integrity.</td>
+        </tr>
+       
+        <tr>
+          <td>Discovery Scan Logs</td>
+          <td>Captures data discovery scan results, newly identified sensitive data repositories, and classification updates.</td>
+          <td>Ensures comprehensive data inventory and identifies shadow IT or unmanaged data stores.</td>
+        </tr>
+        <tr>
+          <td>Endpoint Agent Logs</td>
+          <td>Records endpoint agent status, policy synchronization, offline protection events, and device compliance information.</td>
+          <td>Monitors endpoint protection coverage and ensures consistent policy enforcement.</td>
+        </tr>
+        <tr>
+          <td>Alert and Notification Logs</td>
+          <td>Documents alert generation, notification delivery, user acknowledgments, and automated response actions.</td>
+          <td>Tracks security awareness effectiveness and measures user response to data protection alerts.</td>
+        </tr>
+        <tr>
+          <td>Quarantine and Remediation Logs</td>
+          <td>Records quarantined files, blocked transmissions, data encryption actions, and remediation workflow progress.</td>
+          <td>Provides evidence of protective actions taken and supports compliance audit requirements.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tip-content">
+    <strong>Note:</strong> Establish appropriate log retention periods that balance storage costs with compliance requirements, typically ranging from 1-7 years depending on industry regulations and organizational policies.
+  </div>
+</div>
+<!-- DLP Vendor Log Differences -->
+<div class="card">
+  <h2>DLP Vendor Log Differences</h2>
+  <p>Different DLP vendors implement logging with varying approaches, creating challenges when consolidating logs for security operations. Understanding these differences is critical for effective SIEM integration and cross-platform analysis.</p>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>What Varies</th>
+          <th>Examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Log Format</td>
+          <td>Each vendor uses different log structures and output formats.</td>
+          <td>Symantec DLP uses CEF format; Forcepoint uses JSON; Microsoft Purview uses XML.</td>
+        </tr>
+        <tr>
+          <td>Field Names</td>
+          <td>Standard fields like user, action, and severity use different naming conventions.</td>
+          <td>One uses <code>user_name</code>, another <code>actor</code> or <code>subject_id</code>.</td>
+        </tr>
+        <tr>
+          <td>Event Classification</td>
+          <td>Policy violations and incidents are categorized differently.</td>
+          <td>Symantec: <code>Policy_Violation</code>; Forcepoint: <code>Data_Incident</code>; Digital Guardian: <code>Security_Event</code>.</td>
+        </tr>
+        <tr>
+          <td>Severity Levels</td>
+          <td>Risk and severity scales vary between vendors.</td>
+          <td>Some use 1-5 scale, others use Low/Medium/High/Critical, or color codes.</td>
+        </tr>
+        <tr>
+          <td>Data Classification</td>
+          <td>Sensitive data categories and labeling systems differ.</td>
+          <td>Microsoft uses sensitivity labels; Symantec uses data identifiers; Forcepoint uses policy tags.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="subsection">
+    <h3>Common (Standard) Elements</h3>
+    <p>Despite vendor-specific differences, most DLP logs will include these standardized fields:</p>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Field Name</th>
+            <th>Description</th>
+            <th>Security Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>timestamp</strong></td>
+            <td>The date and time of the DLP event, expressed as a UTC-formatted string</td>
+            <td>Enables correlation with other security events and incident timelines</td>
+          </tr>
+          <tr>
+            <td><strong>event_type</strong></td>
+            <td>The type of event that matched a data identifier (Real Time or SaaS API)</td>
+            <td>Categorizes detection method and helps prioritize response based on event source</td>
+          </tr>
+          <tr>
+            <td><strong>severity</strong></td>
+            <td>The severity of the rule: Low/Info, Medium/Warn, High/Alert, or Critical</td>
+            <td>Prioritizes incidents based on risk level and determines response urgency</td>
+          </tr>
+          <tr>
+            <td><strong>action</strong></td>
+            <td>Whether the violation was Blocked or Monitored</td>
+            <td>Shows enforcement effectiveness and distinguishes preventive vs. detective controls</td>
+          </tr>
+          <tr>
+            <td><strong>rule</strong></td>
+            <td>The DLP rule name that triggered the violation</td>
+            <td>Maps violations to specific policies and compliance requirements</td>
+          </tr>
+          <tr>
+            <td><strong>data_classification</strong></td>
+            <td>The data classification whose data identifier matched on the violation</td>
+            <td>Identifies data type and sensitivity level for proper incident handling</td>
+          </tr>
+          <tr>
+            <td><strong>owner</strong></td>
+            <td>The owner of the file or data object</td>
+            <td>Links data activities to responsible users for accountability and investigation</td>
+          </tr>
+          <tr>
+            <td><strong>destination</strong></td>
+            <td>The domain or endpoint of the request destination</td>
+            <td>Identifies data flow targets and potential exfiltration channels</td>
+          </tr>
+          <tr>
+            <td><strong>application</strong></td>
+            <td>The application or service used for the request</td>
+            <td>Shows which channels are being used for data transfers and policy violations</td>
+          </tr>
+          <tr>
+            <td><strong>file_size</strong></td>
+            <td>The size of the file in bytes</td>
+            <td>Helps assess scope of potential data loss and detect bulk transfer attempts</td>
+          </tr>
+          <tr>
+            <td><strong>content_type</strong></td>
+            <td>The mime type of the file that matches the data identifier</td>
+            <td>Identifies file types being transferred and potential evasion techniques</td>
+          </tr>
+          <tr>
+            <td><strong>destination_ip / destination_port</strong></td>
+            <td>The IP address and port of the destination</td>
+            <td>Enables network-level analysis and identification of unauthorized destinations</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>These standardized fields enable you to <strong>normalize logs</strong> across different DLP vendors into a consistent format for analysis in <strong>SIEMs</strong> or <strong>data governance platforms</strong>.</p>
+  </div>
+  
+  
+</div>
+    <!-- DLP Log Analysis Queries -->
+<div class="card">
+  <h2>DLP Log Analysis Queries</h2>
+  <p>Use these generic SIEM query patterns to analyze DLP logs, detect data exfiltration attempts, monitor policy compliance, and investigate data security incidents across any DLP solution. Field names will vary by vendor - adapt queries by substituting your system's specific field names.</p>
+  <div class="cmd-grid">
+    <!-- Data Exfiltration Detection -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span class="cmd-title">High-Risk Data Violations</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (severity="high" OR severity="critical" OR risk_level>=8) (action="*block*" OR action="*quarantine*" OR action="*encrypt*") | stats count by user, data_type, destination | sort -count</span>
+        </div>
+        <div class="cmd-output">Identifies users triggering high-severity data protection violations - critical for detecting potential data breach attempts and insider threats.</div>
+      </div>
+    </div>
+    <!-- Unusual Data Transfer Patterns -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-chart-line"></i>
+        <span class="cmd-title">Abnormal Data Transfer Volume</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (action="*transfer*" OR action="*upload*" OR action="*email*") | bucket span=1h | stats sum(file_size) as total_bytes by user, _time | where total_bytes > 1073741824</span>
+        </div>
+        <div class="cmd-output">Detects users transferring unusually large amounts of data (>1GB per hour) - potential indicator of bulk data exfiltration or policy circumvention.</div>
+      </div>
+    </div>
+    <!-- After-Hours Data Access -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-moon"></i>
+        <span class="cmd-title">Off-Hours Sensitive Data Access</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (data_type="*pii*" OR data_type="*financial*" OR data_type="*confidential*") | where _time.hour() >= 22 OR _time.hour() <= 5 | stats count by user, data_type, action</span>
+        </div>
+        <div class="cmd-output">Monitors sensitive data access outside business hours - helps identify unauthorized access patterns and potential account compromise.</div>
+      </div>
+    </div>
+    <!-- Policy Bypass Attempts -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-shield-alt"></i>
+        <span class="cmd-title">Policy Circumvention Detection</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (action="*override*" OR action="*bypass*" OR status="*exception*") OR (policy_action="block" AND user_action="continue") | stats count by user, policy_name | sort -count</span>
+        </div>
+        <div class="cmd-output">Identifies attempts to bypass or override data protection policies - critical for detecting deliberate policy violations and unauthorized data access.</div>
+      </div>
+    </div>
+    <!-- Mass Data Classification Changes -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-tags"></i>
+        <span class="cmd-title">Bulk Data Reclassification</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" action="*classify*" OR action="*label*" | bucket span=15m | stats count by user, _time, classification_change | where count > 50</span>
+        </div>
+        <div class="cmd-output">Detects bulk data classification changes - helps identify attempts to downgrade data sensitivity to bypass protection policies.</div>
+      </div>
+    </div>
+    <!-- Encrypted Data Violations -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-lock"></i>
+        <span class="cmd-title">Encrypted Content Violations</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (file_type="*encrypted*" OR file_type="*zip*" OR file_type="*rar*" OR content_type="*password*protected*") (action="*block*" OR severity="*medium*") | stats count by user, destination</span>
+        </div>
+        <div class="cmd-output">Monitors attempts to transfer encrypted or password-protected files - potential method for evading content inspection and data protection controls.</div>
+      </div>
+    </div>
+    <!-- Removable Media Usage -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-usb"></i>
+        <span class="cmd-title">Removable Media Data Transfer</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (destination="*usb*" OR destination="*removable*" OR channel="*device*") (data_type="*sensitive*" OR data_type="*confidential*") | stats count by user, device_id | sort -count</span>
+        </div>
+        <div class="cmd-output">Tracks sensitive data transfers to removable media - critical for preventing data theft via physical devices and maintaining endpoint security.</div>
+      </div>
+    </div>
+    <!-- Cloud Upload Monitoring -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <span class="cmd-title">Unauthorized Cloud Uploads</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="dlp*" (destination="*dropbox*" OR destination="*gdrive*" OR destination="*onedrive*" OR destination="*cloud*") NOT policy_name="*approved*cloud*" | stats count by user, destination, data_type</span>
+        </div>
+        <div class="cmd-output">Detects uploads to unauthorized cloud services - helps prevent data loss through shadow IT and unapproved cloud storage platforms.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ 
+ 
+      <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

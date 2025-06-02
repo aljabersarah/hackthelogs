@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - PAM Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">PAM Logs</div>
+      <a href="#" class="nav-item active">PAM Solution Overview</a>
+      <a href="#" class="nav-item">Key PAM Solution Components</a>
+      <a href="#" class="nav-item">PAM Activity Log Types</a>
+      <a href="#" class="nav-item">PAM Vendor Log Differences</a>
+      <a href="#" class="nav-item">PAM Log Analysis Queries</a>
+ 
+    </div>
+   <!-- Main Content -->
+<div class="main-content">
+  <div class="header">
+    <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Privileged Access Management</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search documentation...">
+    </div>
+  </div>
+  <div class="card event-log-overview">
+    <div class="card-header">
+      <div></div>
+      <h2>PAM Solution Overview</h2>
+    </div>
+    <div class="content-wrapper">
+      <div class="overview-content">
+        <p>Privileged Access Management (PAM) solutions are essential security frameworks that safeguard, control, and monitor privileged accounts within an organization. These solutions protect critical access points including administrator credentials, service accounts, application accounts, and emergency access protocols. By implementing robust PAM systems, organizations can enforce least privilege principles, prevent unauthorized access, and maintain comprehensive audit trails.</p>
+        <p>Most enterprise PAM platforms offer several key capabilities: <code>password vaulting</code> for secure credential storage, <code>session monitoring</code> that records privileged user activities, and <code>just-in-time access</code> that provides temporary elevated permissions only when needed. Implementation models vary by vendor but typically include on-premises deployments, cloud-based solutions, or hybrid approaches integrated with existing identity management infrastructure.</p>
+        <p>To effectively utilize PAM solutions, organizations should establish clear access policies, implement role-based access controls, and regularly rotate privileged credentials. PAM solutions are invaluable for preventing privilege escalation attacks, detecting suspicious administrator activities, controlling third-party access, and enforcing separation of duties. They also provide crucial evidence for compliance audits, help demonstrate regulatory adherence to frameworks like GDPR, PCI DSS, and HIPAA, and support incident response investigations following security breaches.</p>
+      </div>
+    </div>
+  </div>
+ <!-- Key PAM Solution Components -->
+<div class="card event-log-locations">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>Key PAM Solution Components</h2>
+  </div>
+  <p>Enterprise PAM solutions incorporate several essential components that work together to secure privileged access across the organization. Understanding these components is crucial for implementing comprehensive privileged access controls:</p>
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="log-type site-log">Password Vault</td>
+          <td>Securely stores, manages, and automatically rotates privileged credentials including administrator passwords, service account credentials, and API keys. Implements strong encryption, access controls, and check-in/check-out workflows to eliminate shared passwords and ensure accountability.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Session Management</td>
+          <td>Records, monitors, and controls privileged user sessions in real-time. Includes video recording, keystroke logging, and command filtering capabilities with options to terminate suspicious sessions. Creates tamper-proof audit trails essential for compliance and forensic investigations.</td>
+        </tr>
+        <tr>
+          <td class="log-type virtualhost-log">Privileged Elevation</td>
+          <td>Enables just-in-time privilege escalation on endpoints without exposing administrative credentials. Allows users to perform specific privileged tasks through application whitelisting, command filtering, and time-limited elevation while maintaining least privilege principles.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-log">Access Workflow Management</td>
+          <td>Implements request, approval, and provisioning workflows for privileged access. Enforces multi-level approvals, time-bound access, automatic revocation, and documented business justifications for all privileged access requests.</td>
+        </tr>
+        <tr>
+          <td class="log-type site-log">Secret Management</td>
+          <td>Manages application-to-application and machine-to-machine authentication credentials. Automatically handles application secrets, certificates, encryption keys, and API tokens with secure retrieval mechanisms that eliminate hardcoded credentials in code repositories.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Threat Analytics</td>
+          <td>Detects anomalous privileged user behavior using machine learning and behavioral analytics. Identifies potential account compromise, privilege misuse, and insider threats by establishing baseline behaviors and alerting on deviations from normal patterns.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <div class="tip-content">
+      <strong>Pro Tip:</strong> When implementing a PAM solution, prioritize integrating these components with your existing identity management infrastructure to create a unified security framework with centralized policy enforcement.
+    </div>
+  </div>
+</div>
+    <!-- PAM Activity Log Types -->
+<div class="card">
+  <h2>PAM Activity Log Types</h2>
+  <p>PAM solutions generate various types of logs that help organizations monitor privileged activities and maintain compliance. Understanding these log types is essential for effective security monitoring and auditing:</p>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Log Type</th>
+          <th>Description</th>
+          <th>Security Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Password Access Logs</td>
+          <td>Records all password retrieval, viewing, and copying events, including user details, timestamp, reason for access, and approval status.</td>
+          <td>Detects unauthorized credential access and monitors legitimate password usage patterns.</td>
+        </tr>
+        <tr>
+          <td>Session Logs</td>
+          <td>Documents privileged session details including connection info, session duration, commands executed, and file transfers.</td>
+          <td>Provides complete visibility into privileged user activities and enables forensic analysis.</td>
+        </tr>
+        <tr>
+          <td>Password Management Logs</td>
+          <td>Tracks password creation, rotation, verification, reset events, and policy changes.</td>
+          <td>Ensures password policies are enforced and rotation schedules are maintained.</td>
+        </tr>
+        <tr>
+          <td>System Configuration Logs</td>
+          <td>Records system settings changes, policy modifications, user management, and integration configurations.</td>
+          <td>Maintains audit trail of administrative changes to the PAM solution itself.</td>
+        </tr>
+        <tr>
+          <td>User Authentication Logs</td>
+          <td>Captures login attempts, authentication failures, password resets, and multi-factor authentication events.</td>
+          <td>Detects unauthorized access attempts and potential credential compromise.</td>
+        </tr>
+        <tr>
+          <td>API Access Logs</td>
+          <td>Documents all API calls, integrations, and automated interactions with the PAM system.</td>
+          <td>Monitors programmatic access and integration points for potential misuse.</td>
+        </tr>
+        <tr>
+          <td>Approval Workflow Logs</td>
+          <td>Tracks privilege escalation requests, approvals, rejections, and ticket-based access grants.</td>
+          <td>Ensures proper authorization procedures are followed for privileged access.</td>
+        </tr>
+        <tr>
+          <td>Scheduled Task Logs</td>
+          <td>Records automated password rotations, discovery scans, and other scheduled operations.</td>
+          <td>Confirms critical maintenance tasks are completing successfully.</td>
+        </tr>
+        <tr>
+          <td>Real-time Alert Logs</td>
+          <td>Documents security alerts, policy violations, suspicious activities, and automated responses.</td>
+          <td>Provides timeline of detected security incidents and response actions.</td>
+        </tr>
+        <tr>
+          <td>Discovery Scan Logs</td>
+          <td>Captures privileged account discovery results, newly detected accounts, and service account activities.</td>
+          <td>Helps identify unmanaged privileged accounts and shadow IT.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tip-content">
+    <strong>Note:</strong> Consider establishing appropriate log retention periods based on your organization's compliance requirements, industry regulations, and internal security policies.
+  </div>
+</div>
+<!-- PAM Vendor Log Differences -->
+<div class="card">
+  <h2>PAM Vendor Log Differences</h2>
+  <p>Different PAM vendors implement logging in unique ways, creating challenges when normalizing logs for security monitoring. Understanding these differences is essential for effective SIEM integration.</p>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>What Varies</th>
+          <th>Examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Log Format</td>
+          <td>Each vendor uses its own log structure (JSON, XML, Syslog, plain text).</td>
+          <td>CyberArk may log in key-value pairs, BeyondTrust may use JSON or Syslog.</td>
+        </tr>
+        <tr>
+          <td>Field Names</td>
+          <td>Field names (like <code>user</code>, <code>action</code>, <code>timestamp</code>) may differ.</td>
+          <td>One may use <code>actor</code>, another <code>user_id</code> or <code>initiator</code>.</td>
+        </tr>
+        <tr>
+          <td>Event Names/Types</td>
+          <td>Events might be labeled differently.</td>
+          <td>CyberArk: <code>VaultAccess</code>; Delinea: <code>CredentialUse</code>; BeyondTrust: <code>SessionStart</code>.</td>
+        </tr>
+        <tr>
+          <td>Delivery Method</td>
+          <td>Some support native SIEM connectors, others rely on log exports or APIs.</td>
+          <td>CyberArk uses SmartLog and Syslog; Delinea supports API and file output.</td>
+        </tr>
+        <tr>
+          <td>Depth of Data</td>
+          <td>Some log every keystroke or screen recording; others just log session start/stop.</td>
+          <td>BeyondTrust provides screen recording; others only textual command logs.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="subsection">
+    <h3>Common (Standard) Elements</h3>
+    <p>Despite the vendor-specific differences, most PAM logs will include:</p>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Common Element</th>
+            <th>Description</th>
+            <th>Normalization Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Timestamp</strong></td>
+            <td>When the event occurred</td>
+            <td>Enables timeline correlation across security events</td>
+          </tr>
+          <tr>
+            <td><strong>User ID or Account Name</strong></td>
+            <td>Who performed the privileged action</td>
+            <td>Maps activities to specific users for accountability</td>
+          </tr>
+          <tr>
+            <td><strong>Action/Event Type</strong></td>
+            <td>What privileged operation occurred</td>
+            <td>Categorizes events for analysis and alerting</td>
+          </tr>
+          <tr>
+            <td><strong>Target System or Asset</strong></td>
+            <td>Where the privileged access was directed</td>
+            <td>Identifies affected systems and resources</td>
+          </tr>
+          <tr>
+            <td><strong>Status (Success/Fail)</strong></td>
+            <td>Whether the operation succeeded</td>
+            <td>Distinguishes between completed actions and attempts</td>
+          </tr>
+          <tr>
+            <td><strong>Source IP/Hostname</strong></td>
+            <td>Origin of the privileged access request</td>
+            <td>Helps identify unusual access locations or patterns</td>
+          </tr>
+          <tr>
+            <td><strong>Session ID or Log Reference</strong></td>
+            <td>Unique identifier for the privileged session</td>
+            <td>Links related events for comprehensive session analysis</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>These shared elements help you <strong>normalize logs</strong> into a consistent format for analysis in tools like <strong>SIEMs</strong> or <strong>log management platforms</strong>.</p>
+  </div>
+  
+  <div class="subsection">
+    <h3>Example: Same Event from Two Vendors</h3>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Vendor</th>
+            <th>Format</th>
+            <th>Log Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>CyberArk</strong></td>
+            <td>Plain text / Key-value</td>
+            <td><code>Time=2025-04-23 15:45:00; User=admin1; Action=RetrievePassword; Target=FinanceServer01; Result=Success</code></td>
+          </tr>
+          <tr>
+            <td><strong>BeyondTrust</strong></td>
+            <td>JSON</td>
+            <td><code>{ "timestamp": "2025-04-23T15:45:00Z", "event_type": "CredentialUse", "user": "admin1", "resource": "FinanceServer01", "status": "Success" }</code></td>
+          </tr>
+          <tr>
+            <td><strong>Delinea</strong></td>
+            <td>Syslog</td>
+            <td><code>Apr 23 15:45:00 pam-server Delinea[12345]: user=admin1 action=CheckoutPassword target=FinanceServer01 result=SUCCESS src_ip=10.0.1.45</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Note:</strong> The examples above show the same privileged access event (retrieving credentials for a finance server) as logged by different PAM vendors. Notice how field names and formats differ while the core information remains consistent.</p>
+  </div>
+</div>
+    <!-- PAM Log Analysis Queries -->
+<div class="card">
+  <h2>PAM Log Analysis Queries</h2>
+  <p>Use these generic SIEM query patterns to analyze PAM logs, detect suspicious privileged account usage, and monitor critical PAM operations across any PAM solution. Field names will vary by vendor - adapt queries by substituting your system's specific field names.</p>
+  <div class="cmd-grid">
+    <!-- Privileged User Activity Monitoring -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-user-shield"></i>
+        <span class="cmd-title">Privileged User Activity</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (event_category="*login*" OR event_category="*logon*" OR event_category="*session*" OR event_category="*password*use*") | stats count by user, target_system, action | sort -count</span>
+        </div>
+        <div class="cmd-output">Tracks user sessions and password usage patterns  helps monitor service availability and identify peak usage periods.</div>
+      </div>
+    </div>
+    <!-- Failed Password Operations -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-key"></i>
+        <span class="cmd-title">Failed Password Operations</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (event_category="*password*" OR event_category="*credential*") status="fail*" | stats count by target_system, target_account | sort -count</span>
+        </div>
+        <div class="cmd-output">Identifies failed password management operations  critical for detecting unmanaged credentials that could pose security risks.</div>
+      </div>
+    </div>
+    <!-- Suspicious After-Hours Access -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-clock"></i>
+        <span class="cmd-title">After-Hours Privileged Access</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (action="*checkout*" OR action="*retrieve*" OR action="*access*") | where _time.hour() >= 22 OR _time.hour() <= 5 | stats count by user, target_system</span>
+        </div>
+        <div class="cmd-output">Detects privileged account usage outside business hours  potential indicator of unauthorized access or account compromise.</div>
+      </div>
+    </div>
+    <!-- Administrative Actions -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-user-cog"></i>
+        <span class="cmd-title">Administrative Activities</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (event_category="*admin*" OR event_category="*config*" OR event_category="*policy*") OR user IN ("*admin*", "*administrator*", "root", "system") | stats count by user, action | sort -count</span>
+        </div>
+        <div class="cmd-output">Monitors high-privilege administrative actions  helps identify unauthorized configuration changes or potential compromise of admin accounts.</div>
+      </div>
+    </div>
+    <!-- Excessive Privileged Session Duration -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-hourglass-half"></i>
+        <span class="cmd-title">Long-Running Privileged Sessions</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" event_category="*session*" | eval duration=session_end-session_start | stats max(duration) as session_time by session_id, user | where session_time > 120</span>
+        </div>
+        <div class="cmd-output">Identifies unusually long privileged sessions  potential indicator of account misuse or unauthorized activities.</div>
+      </div>
+    </div>
+    <!-- Mass Account Operations -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-users-slash"></i>
+        <span class="cmd-title">Mass Account Changes</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (action="*delete*" OR action="*add*" OR action="*create*" OR action="*remove*") event_category="*account*" | bucket span=15m | stats count by user, _time | where count > 10</span>
+        </div>
+        <div class="cmd-output">Detects unusual bulk account operations  helps identify potential unauthorized mass deletion or modification of accounts.</div>
+      </div>
+    </div>
+    <!-- Vault Operations Monitoring -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-vault"></i>
+        <span class="cmd-title">Vault Management Activities</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (event_category="*safe*" OR event_category="*vault*" OR event_category="*container*") (action="*create*" OR action="*delete*" OR action="*modify*" OR action="*permission*") | stats count by user, action | sort -count</span>
+        </div>
+        <div class="cmd-output">Tracks vault/safe creation, deletion, and permission changes  useful for detecting unauthorized modifications to access control structures.</div>
+      </div>
+    </div>
+    <!-- Password Checkout without Session -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span class="cmd-title">Password Checkout Anomalies</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="pam*" (action="*checkout*" OR action="*retrieve*") | append [search source="pam*" event_category="*session*"] | stats count(eval(action="*checkout*" OR action="*retrieve*")) as checkouts, count(eval(event_category="*session*")) as sessions by user | where checkouts > sessions+3</span>
+        </div>
+        <div class="cmd-output">Identifies users checking out passwords without corresponding session records  potential credential harvesting activity.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ 
+ 
+      <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html> 

@@ -1,0 +1,3220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Windows Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Windows Logs</div>
+      <a href="#" class="nav-item active"> Windows Event Log Overview </a>
+      <a href="#" class="nav-item"> Key Event Log Locations </a>
+      <a href="#" class="nav-item"> Windows Advanced Audit Policies </a>
+      <a href="#" class="nav-item"> How to implement audit policy </a>
+      <a href="#" class="nav-item"> Critical Windows Event IDs </a>
+      <a href="#" class="nav-item"> PowerShell Commands for Log Analysis </a>
+      <a href="#" class="nav-item"> Best Practices for Windows Event Logging </a>
+      <a href="#" class="nav-item"> MITRE ATT&CK Navigator </a>
+    </div>
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Windows Event Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+      <div class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Windows Event Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Windows Event Logs are a critical component of the Windows operating system's logging and auditing framework, designed to provide comprehensive insights into system, security, and application activities. These logs capture detailed event data, including timestamps, process IDs, user account details, and system-level operations, enabling administrators and security professionals to monitor and analyze system behavior in real-time.</p>
+            <p>The Windows Event Log service efficiently records application, security, and system events into centralized log files. This functionality supports proactive system health monitoring, rapid identification of security incidents, and effective troubleshooting of configuration or operational issues.</p>
+            <p>Advanced security audit policies in Windows offer granular audit logging configurations, ensuring that critical activities such as logon attempts, privilege escalation, object access, and policy changes are captured with precision. By default, many of these policies are disabled, potentially creating blind spots in event monitoring. Enabling these policies enhances the ability to detect and investigate sophisticated attacks, such as privilege misuse, lateral movement, and unauthorized access. These audit logs are foundational for generating high-fidelity detections and facilitating forensic investigations.</p>
+          </div>
+        </div>
+      </div>
+      <!-- Key Event Log Locations -->
+      <div class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Event Log Locations</h2>
+        </div>
+        <p>Windows stores its event logs in several key locations depending on the log type:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Path</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type application-log"> Application </td>
+                <td>
+                  <code>%SystemRoot%\System32\Winevt\Logs\Application.evtx</code>
+                </td>
+                <td>Events logged by applications and programs</td>
+              </tr>
+              <tr>
+                <td class="log-type security-log"> Security </td>
+                <td>
+                  <code>%SystemRoot%\System32\Winevt\Logs\Security.evtx</code>
+                </td>
+                <td>Security audit events, login attempts, resource access</td>
+              </tr>
+              <tr>
+                <td class="log-type system-log"> System </td>
+                <td>
+                  <code>%SystemRoot%\System32\Winevt\Logs\System.evtx</code>
+                </td>
+                <td>System events from Windows components</td>
+              </tr>
+              <tr>
+                <td class="log-type setup-log"> Setup </td>
+                <td>
+                  <code>%SystemRoot%\System32\Winevt\Logs\Setup.evtx</code>
+                </td>
+                <td>Events related to application setup</td>
+              </tr>
+              <tr>
+                <td class="log-type forwarded-log"> Forwarded Events </td>
+                <td>
+                  <code>%SystemRoot%\System32\Winevt\Logs\ForwardedEvents.evtx</code>
+                </td>
+                <td>Events collected from remote computers</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Use Event Viewer ( <code>eventvwr.msc</code>) to browse these logs interactively, or PowerShell's <code>Get-WinEvent</code> cmdlet for scripted analysis.
+          </div>
+        </div>
+      </div>
+
+  <div class="card audit-policies-card">
+  <div class="card-header">
+    <div>
+      
+    </div>
+    <h2>Windows Advanced Audit Policies</h2>
+  </div>
+  
+  <p class="intro-text">Windows audit policy defines what types of events are written to the Security logs of your Windows servers. Establishing an effective audit policy helps you spot potential security problems, ensure user accountability and provide evidence in the event of a security breach. The recommended audit policy settings provided here are intended as a baseline for system administrators starting to define AD audit policies. You should be sure to consider the cybersecurity risks and compliance requirements of your organization. In addition, test and refine your policies before implementing them in your production environment.</p>
+  
+  <h3>Recommended Windows Auditing Settings</h3>
+  <p>The following advanced security audit policy settings are recommended:</p>
+  
+  <div class="audit-categories-grid">
+    <!-- Account Logon -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-sign-in-alt"></i>
+        <h4>Account Logon</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Credential Validation</td>
+            <td><span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Kerberos Authentication Service</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Kerberos Service Ticket Operations</td>
+            <td><span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Other Account Logon Events</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Account Management -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-users-cog"></i>
+        <h4>Account Management</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Application Group Management</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Computer Account Management</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Distribution Group Management</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Other Account Management Events</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Security Group Management</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit User Account Management</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Detailed Tracking -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-chart-line"></i>
+        <h4>Detailed Tracking</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit PNP Activity</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Process Creation</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- DS Access -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-sitemap"></i>
+        <h4>DS Access</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Directory Service Access</td>
+            <td><span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Directory Service Changes</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Logon/Logoff -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-door-open"></i>
+        <h4>Logon/Logoff</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Account Lockout</td>
+            <td><span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Group Membership</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Logon</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Other Logon/Logoff Events</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Special Logon</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Object Access -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-file-alt"></i>
+        <h4>Object Access</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Detailed File Share</td>
+            <td><span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit File Share</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Other Object Access Events</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Removable Storage</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Policy Change -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-clipboard-list"></i>
+        <h4>Policy Change</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Audit Policy Change</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Authentication Policy Change</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit MPSSVC Rule-Level Policy Change</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Other Policy Change Events</td>
+            <td><span class="audit-failure">Failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Privilege Use -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-key"></i>
+        <h4>Privilege Use</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Sensitive Privilege Use</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- System -->
+    <div class="audit-category-box">
+      <div class="category-box-header">
+        <i class="fas fa-laptop-code"></i>
+        <h4>System</h4>
+      </div>
+      <table class="subcategory-table">
+        <tbody>
+          <tr>
+            <td>Audit Other System Events</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+          <tr>
+            <td>Audit Security State Change</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit Security System Extension</td>
+            <td><span class="audit-success">Success</span></td>
+          </tr>
+          <tr>
+            <td>Audit System Integrity</td>
+            <td><span class="audit-success">Success</span>  <span class="audit-failure">Failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div>  
+
+ <div class="card audit-policies-card">
+  <div class="card-header">
+    <div>
+      
+    </div>
+    <h2>How to implement audit policy</h2>
+  </div>
+ 
+ 
+            
+          <p>There are two methods of setting up your audit policy:</p>
+   
+ 
+    
+  <div class="gpo-path-visualization">
+  <h4>Basic Security Audit Policy Path</h4>
+  <div class="gpo-path">
+    <div class="gpo-node">Computer Configuration</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node">Windows Settings</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node">Security Settings</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node">Local Policies</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node gpo-end-node">Audit Policy</div>
+  </div>
+  
+</div>
+     
+  
+   
+ 
+    
+<div class="gpo-path-visualization">
+  <h4>Advanced Security Audit Policy Path</h4>
+  <div class="gpo-path">
+    <div class="gpo-node">Computer Configuration</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node">Policies</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node">Windows Settings</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node">Security Settings</div>
+    <i class="fas fa-chevron-right"></i>
+    <div class="gpo-node gpo-end-node">Advanced Audit Policy Configuration</div>
+    
+  </div>
+  
+</div>     
+   
+ 
+          
+
+          
+        </div>
+     
+         
+
+
+      <div class="card">
+        <h2>Critical Windows Event IDs</h2>
+        <div class="button-container">
+          <button class="install-button">Install list</button>
+        </div>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Subcategory</th>
+                <th>Recommended Monitoring</th>
+                <th>Common Threats</th>
+                <th>False Positive Scenarios</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1100</td>
+                <td>The event logging service has shut down</td>
+                <td>----</td>
+                <td>Service shutdown</td>
+                <td>Monitor for unexpected service shutdowns</td>
+                <td>Log tampering, Anti-forensics</td>
+                <td>System shutdown, Maintenance</td>
+              </tr>
+              <tr>
+                <td>1102</td>
+                <td>The audit log was cleared</td>
+                <td>-----</td>
+                <td> Log clear </td>
+                <td>Alert on all audit log clears</td>
+                <td>Evidence destruction, Attack cleanup</td>
+                <td>Routine log maintenance</td>
+              </tr>
+              <tr>
+                <td>4611</td>
+                <td>A trusted logon process has been registered with the Local Security Authority</td>
+                <td>System</td>
+                <td>Security System Extension</td>
+                <td>Monitor for new logon processes</td>
+                <td>Credential theft, Authentication bypass</td>
+                <td>Software installation</td>
+              </tr>
+              <tr>
+                <td>4616</td>
+                <td>The system time was changed</td>
+                <td>System</td>
+                <td>Security State Change</td>
+                <td>Track time changes outside NTP</td>
+                <td>Log manipulation, Time-based attacks</td>
+                <td>Time zone changes, NTP updates</td>
+              </tr>
+              <tr>
+                <td>4618</td>
+                <td>A monitored security event pattern has occurred</td>
+                <td>System</td>
+                <td>System Integrity</td>
+                <td>Immediate investigation of patterns</td>
+                <td>Policy violations, Attack patterns</td>
+                <td>Legitimate pattern matches</td>
+              </tr>
+              <tr>
+                <td>4624</td>
+                <td>An account was successfully logged on</td>
+                <td>Logon/Logoff</td>
+                <td>Logon</td>
+                <td>Monitor for unusual patterns</td>
+                <td>Unauthorized access, Lateral movement</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4625</td>
+                <td>An account failed to log on</td>
+                <td>Logon/Logoff</td>
+                <td>Logon</td>
+                <td>Alert on multiple failures</td>
+                <td>Brute force attacks, Password spraying</td>
+                <td>Forgotten passwords</td>
+              </tr>
+              <tr>
+                <td>4634</td>
+                <td>An account was logged off</td>
+                <td>Logon/Logoff</td>
+                <td>Logon</td>
+                <td>Baseline normal patterns</td>
+                <td>Session hijacking detection</td>
+                <td>Normal user logoffs</td>
+              </tr>
+              <tr>
+                <td>4647</td>
+                <td>User initiated logoff</td>
+                <td>Logon/Logoff</td>
+                <td>Logon</td>
+                <td>Compare with 4634 events</td>
+                <td>Forced logoffs, Session termination</td>
+                <td>Normal user logoffs</td>
+              </tr>
+              <tr>
+                <td>4648</td>
+                <td>A logon was attempted using explicit credentials</td>
+                <td>Logon/Logoff</td>
+                <td>Logon</td>
+                <td>Alert on unexpected usage</td>
+                <td>Pass-the-hash, Credential abuse</td>
+                <td>RunAs operations</td>
+              </tr>
+              <tr>
+                <td>4657</td>
+                <td>A registry value was modified</td>
+                <td>Object Access</td>
+                <td>Registry</td>
+                <td>Monitor critical keys</td>
+                <td>Persistence, Configuration changes</td>
+                <td>Software updates</td>
+              </tr>
+              <tr>
+                <td>4670</td>
+                <td>Permissions on an object were changed</td>
+                <td>Object Access</td>
+                <td>File System,Registry </td>
+                <td>Track sensitive object changes</td>
+                <td>Privilege escalation, Access control changes</td>
+                <td>Legitimate permission updates</td>
+              </tr>
+              <tr>
+                <td>4672</td>
+                <td>Special privileges assigned to new logon</td>
+                <td>Logon/Logoff</td>
+                <td> Special Logon</td>
+                <td>Alert on privilege assignments</td>
+                <td>Privilege escalation, Admin abuse</td>
+                <td>Admin logons</td>
+              </tr>
+              <tr>
+                <td>4688</td>
+                <td>A new process has been created</td>
+                <td>Process Tracking</td>
+                <td>Process Creation</td>
+                <td>Monitor suspicious processes</td>
+                <td>Malware execution, Living off the land</td>
+                <td>Normal process creation</td>
+              </tr>
+              <tr>
+                <td>4689</td>
+                <td>A process has exited</td>
+                <td>Process Tracking</td>
+                <td>Process Termination</td>
+                <td>Compare with 4688 events</td>
+                <td>Crash analysis, Process termination</td>
+                <td>Normal process exits</td>
+              </tr>
+              <tr>
+                <td>4692</td>
+                <td>Backup of data protection master key was attempted</td>
+                <td>Process Tracking</td>
+                <td>DPAPI Activity</td>
+                <td>Alert on all attempts</td>
+                <td>Key theft, Unauthorized backup</td>
+                <td>Authorized key backup</td>
+              </tr>
+              <tr>
+                <td>4693</td>
+                <td>Recovery of data protection master key was attempted</td>
+                <td>Process Tracking</td>
+                <td>DPAPI Activity</td>
+                <td>Alert on all attempts</td>
+                <td>Key compromise, Unauthorized recovery</td>
+                <td>Authorized key recovery</td>
+              </tr>
+              <tr>
+                <td>4695</td>
+                <td>Unprotection of auditable protected data was attempted</td>
+                <td>Process Tracking</td>
+                <td>DPAPI Activity</td>
+                <td>Alert on all attempts</td>
+                <td>Data exposure, Protection removal</td>
+                <td>Authorized data access</td>
+              </tr>
+              <tr>
+                <td>4697</td>
+                <td>A service was installed in the system</td>
+                <td>System</td>
+                <td>Security System Extension</td>
+                <td>Alert on new services</td>
+                <td>Persistence, Backdoor installation</td>
+                <td>Legitimate service installation</td>
+              </tr>
+              <tr>
+                <td>4698</td>
+                <td>A scheduled task was created</td>
+                <td>Object Access</td>
+                <td>Other Object Access Events</td>
+                <td>Monitor new task creation</td>
+                <td>Persistence, Scheduled execution</td>
+                <td>Legitimate task scheduling</td>
+              </tr>
+              <tr>
+                <td>4699</td>
+                <td>A scheduled task was deleted.</td>
+                <td>Object Access</td>
+                <td>Other Object Access Events</td>
+                <td>Monitor for unexpected task deletions</td>
+                <td>Persistence removal</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4700</td>
+                <td>A scheduled task was enabled.</td>
+                <td>Object Access</td>
+                <td>Other Object Access Events</td>
+                <td>Monitor for unauthorized task enabling</td>
+                <td>Task misuse</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4702</td>
+                <td>A scheduled task was updated.</td>
+                <td>Object Access</td>
+                <td>Other Object Access Events</td>
+                <td>Monitor for unauthorized task updates</td>
+                <td>Persistence mechanisms</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4703</td>
+                <td>A user right was adjusted.</td>
+                <td>Policy Change</td>
+                <td>Authorization Policy Change</td>
+                <td>Monitor for suspicious privilege changes</td>
+                <td>Privilege escalation</td>
+                <td>Normal administrative activity</td>
+              </tr>
+              <tr>
+                <td>4704</td>
+                <td>A user right was assigned.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for unusual privilege assignments</td>
+                <td>Privilege escalation</td>
+                <td>Administrative activity</td>
+              </tr>
+              <tr>
+                <td>4715</td>
+                <td>The audit policy (SACL) on an object was changed.</td>
+                <td>Policy Change</td>
+                <td>Modification</td>
+                <td>Monitor for unauthorized audit policy changes</td>
+                <td>Audit log tampering</td>
+                <td>Policy updates</td>
+              </tr>
+              <tr>
+                <td>4717</td>
+                <td>System security access was granted to an account.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unauthorized access grants</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4718</td>
+                <td>System security access was removed from an account.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unauthorized access removal</td>
+                <td>Privilege abuse</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4719</td>
+                <td>System audit policy was changed.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for unauthorized audit policy changes</td>
+                <td>Audit log tampering</td>
+                <td>Policy updates</td>
+              </tr>
+              <tr>
+                <td>4720</td>
+                <td>A user account was created.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized account creation</td>
+                <td>Privilege escalation, Backdoor accounts</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4722</td>
+                <td>A user account was enabled.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for re-enabling of disabled accounts</td>
+                <td>Privilege escalation</td>
+                <td>Administrative activity</td>
+              </tr>
+              <tr>
+                <td>4723</td>
+                <td>An attempt was made to change an account's password.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized password change attempts</td>
+                <td>Account compromise</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4724</td>
+                <td>An attempt was made to reset an account's password.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized password reset attempts</td>
+                <td>Account compromise</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4725</td>
+                <td>A user account was disabled.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unexpected account disabling</td>
+                <td>Privilege abuse</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4726</td>
+                <td>A user account was deleted.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized account deletions</td>
+                <td>Privilege abuse</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4731</td>
+                <td>A security-enabled local group was created.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group creation</td>
+                <td>Privilege escalation</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4732</td>
+                <td>A member was added to a security-enabled local group.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group membership additions</td>
+                <td>Privilege escalation</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4733</td>
+                <td>A member was removed from a security-enabled local group.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group membership removals</td>
+                <td>Privilege abuse</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4734</td>
+                <td>A security-enabled local group was deleted.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group deletions</td>
+                <td>Privilege abuse</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4735</td>
+                <td>A security-enabled local group was changed.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unexpected group modifications</td>
+                <td>Privilege escalation</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4738</td>
+                <td>A user account was changed.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unexpected account changes</td>
+                <td>Account takeover</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4739</td>
+                <td>Domain Policy was changed.</td>
+                <td>Account Management</td>
+                <td>Other Account Management Events</td>
+                <td>Monitor for unauthorized domain policy changes</td>
+                <td>Policy tampering</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4740</td>
+                <td>A user account was locked out.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for frequent lockouts</td>
+                <td>Brute force attacks</td>
+                <td>User error</td>
+              </tr>
+              <tr>
+                <td>4767</td>
+                <td>A user account was unlocked.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unexpected account unlocks</td>
+                <td>Privilege abuse</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4776</td>
+                <td>The domain controller attempted to validate the credentials for an account.</td>
+                <td>Account Logon</td>
+                <td>Credential Validation</td>
+                <td>Monitor for failed credential validations</td>
+                <td>Brute force attacks</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4778</td>
+                <td>A session was reconnected to a Window Station.</td>
+                <td>Logon/Logoff</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Monitor for unexpected session reconnections</td>
+                <td>Session hijacking</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4779</td>
+                <td>A session was disconnected from a Window Station.</td>
+                <td>Logon/Logoff</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Monitor for unexpected session disconnections</td>
+                <td>Session hijacking</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4780</td>
+                <td>The ACL was set on accounts which are members of administrators groups.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized ACL changes</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4781</td>
+                <td>The name of an account was changed.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unexpected account name changes</td>
+                <td>Account impersonation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4782</td>
+                <td>The password hash of an account was accessed.</td>
+                <td>Account Management</td>
+                <td>Other Account Management Events</td>
+                <td>Monitor for unauthorized password hash access</td>
+                <td>Credential theft</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4793</td>
+                <td>The Password Policy Checking API was called.</td>
+                <td>Account Management</td>
+                <td>Other Account Management Events</td>
+                <td>Monitor for frequent password policy API calls</td>
+                <td>Policy tampering</td>
+                <td>Planned operations</td>
+              </tr>
+              <tr>
+                <td>4798</td>
+                <td>A user's local group membership was enumerated.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for frequent group membership enumerations</td>
+                <td>Reconnaissance</td>
+                <td>Normal administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4800</td>
+                <td>The workstation was locked.</td>
+                <td>Logon/Logoff</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Monitor for unusual workstation lock activities</td>
+                <td>Suspicious user behavior</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4801</td>
+                <td>The workstation was unlocked.</td>
+                <td>Logon/Logoff</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Monitor for unusual workstation unlock activities</td>
+                <td>Suspicious user behavior</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4803</td>
+                <td>The screen saver was dismissed.</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Screen Saver</td>
+                <td>Monitor for unusual activity after screen saver dismissal</td>
+                <td>Unauthorized access</td>
+                <td>Normal user activity</td>
+              </tr>
+              <tr>
+                <td>4816</td>
+                <td>RPC detected an integrity violation while decrypting an incoming message.</td>
+                <td>Process Tracking</td>
+                <td>RPC Events</td>
+                <td>Monitor for RPC integrity violations</td>
+                <td>Protocol tampering</td>
+                <td>Network issues</td>
+              </tr>
+              <tr>
+                <td>4817</td>
+                <td>Auditing settings on object were changed.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for unauthorized auditing changes</td>
+                <td>Policy tampering</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4882</td>
+                <td>The security permissions for Certificate Services changed.</td>
+                <td>Object Access</td>
+                <td>Certification Services</td>
+                <td>Monitor for unexpected certificate permissions changes</td>
+                <td>Certificate misuse</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4885</td>
+                <td>The audit filter for Certificate Services changed.</td>
+                <td>Object Access</td>
+                <td>Certification Services</td>
+                <td>Monitor for unauthorized audit filter changes</td>
+                <td>Policy tampering</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4890</td>
+                <td>The certificate manager settings for Certificate Services changed.</td>
+                <td>Object Access</td>
+                <td>Certification Services</td>
+                <td>Monitor for unauthorized manager settings changes</td>
+                <td>Configuration tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4906</td>
+                <td>The CrashOnAuditFail value has changed.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for changes to the CrashOnAuditFail setting</td>
+                <td>Audit bypass</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4907</td>
+                <td>Auditing settings on object changed.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for unauthorized auditing changes</td>
+                <td>Policy tampering</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4908</td>
+                <td>Special Groups Logon table modified.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for changes to Special Groups Logon</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4912</td>
+                <td>Per-User Audit Policy changed.</td>
+                <td>Policy Change</td>
+                <td>Audit Policy Change</td>
+                <td>Monitor for unusual per-user policy applications</td>
+                <td>Policy tampering</td>
+                <td>Planned operations</td>
+              </tr>
+              <tr>
+                <td>4964</td>
+                <td>Special groups assigned to a new logon.</td>
+                <td>Logon/Logoff</td>
+                <td>Special Logon</td>
+                <td>Monitor for unexpected special group assignments</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>5038</td>
+                <td>Code integrity determined that the image hash of a file is not valid.</td>
+                <td>System</td>
+                <td>System Integrity</td>
+                <td>Monitor for invalid file hashes</td>
+                <td>Malware infection</td>
+                <td>File corruption</td>
+              </tr>
+              <tr>
+                <td>5142</td>
+                <td>Network share object added.</td>
+                <td>Object Access</td>
+                <td>File Share</td>
+                <td>Monitor for unauthorized network shares</td>
+                <td>Unauthorized data sharing</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>5143</td>
+                <td>Network share object changed.</td>
+                <td>Object Access</td>
+                <td>File Share</td>
+                <td>Monitor for changes to critical network shares</td>
+                <td>Data leakage</td>
+                <td>Policy updates</td>
+              </tr>
+              <tr>
+                <td>5144</td>
+                <td>Network share object deleted.</td>
+                <td>Object Access</td>
+                <td>File Share</td>
+                <td>Monitor for deleted network shares</td>
+                <td>Unauthorized data removal</td>
+                <td>Maintenance tasks</td>
+              </tr>
+              <tr>
+                <td>5146</td>
+                <td>The Windows Filtering Platform has blocked a packet.</td>
+                <td>System</td>
+                <td>Other System Events</td>
+                <td>Monitor for unexpected packet blocks</td>
+                <td>Malicious traffic</td>
+                <td>Network misconfiguration</td>
+              </tr>
+              <tr>
+                <td>5158</td>
+                <td>The Windows Filtering Platform has permitted a bind to a local port.</td>
+                <td>Object Access</td>
+                <td>Filtering Platform Connection</td>
+                <td>Monitor for unusual port bindings</td>
+                <td>Unauthorized services</td>
+                <td>Legitimate application usage</td>
+              </tr>
+              <tr>
+                <td>5376</td>
+                <td>Credential Manager credentials were backed up.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unexpected credential backups</td>
+                <td>Credential theft</td>
+                <td>Planned maintenance</td>
+              </tr>
+              <tr>
+                <td>5377</td>
+                <td>Credential Manager credentials were restored from a backup.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unexpected credential restores</td>
+                <td>Credential tampering</td>
+                <td>Planned maintenance</td>
+              </tr>
+              <tr>
+                <td>5378</td>
+                <td>The requested credentials delegation was disallowed by policy.</td>
+                <td>Logon/Logoff</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Monitor for repeated delegation disallowances</td>
+                <td>Policy misconfiguration</td>
+                <td>Normal policy behavior</td>
+              </tr>
+              <tr>
+                <td>6145</td>
+                <td>One or more errors occurred while processing security policy in the group policy objects.</td>
+                <td>Policy Change</td>
+                <td>Other Policy Change Events</td>
+                <td>Monitor for GPO processing errors</td>
+                <td>Policy corruption</td>
+                <td>Network issues</td>
+              </tr>
+              <tr>
+                <td>6273</td>
+                <td>Network Policy Server denied access to a user.</td>
+                <td>Logon/Logoff</td>
+                <td>Network Policy Server</td>
+                <td>Monitor for repeated access denials</td>
+                <td>Unauthorized access attempts</td>
+                <td>Incorrect credentials</td>
+              </tr>
+              <tr>
+                <td>6276</td>
+                <td>Network Policy Server quarantined a user.</td>
+                <td>Logon/Logoff</td>
+                <td>Network Policy Server</td>
+                <td>Monitor for quarantined user accounts</td>
+                <td>Compromised accounts</td>
+                <td>Policy enforcement</td>
+              </tr>
+              <tr>
+                <td>6280</td>
+                <td>Network Policy Server unlocked the user account.</td>
+                <td>Logon/Logoff</td>
+                <td>Network Policy Server</td>
+                <td>Monitor for unexpected account unlocks</td>
+                <td>Policy circumvention</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>6281</td>
+                <td>Code Integrity determined that the page hashes of an image file are not valid.</td>
+                <td>System</td>
+                <td>System Integrity</td>
+                <td>Monitor for invalid page hashes</td>
+                <td>Malware injection</td>
+                <td>File corruption</td>
+              </tr>
+              <tr>
+                <td>6410</td>
+                <td>Code integrity determined that a file does not meet the security requirements to load into a process.</td>
+                <td>System</td>
+                <td>System Integrity</td>
+                <td>Monitor for file loading failures</td>
+                <td>Malware infection</td>
+                <td>File corruption</td>
+              </tr>
+              <tr>
+                <td>6416</td>
+                <td>A new external device was recognized by the system.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for unauthorized devices</td>
+                <td>Unauthorized data transfer</td>
+                <td>Planned device usage</td>
+              </tr>
+              <tr>
+                <td>6419</td>
+                <td>A request was made to disable a device.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for unexpected device disable requests</td>
+                <td>Device tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>6420</td>
+                <td>A device was disabled.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for unexpected device disable actions</td>
+                <td>Device tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>6421</td>
+                <td>A request was made to enable a device.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for unexpected device enable requests</td>
+                <td>Device tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>6422</td>
+                <td>A device was enabled.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for unexpected device enable actions</td>
+                <td>Device tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>6423</td>
+                <td>The installation of this device is forbidden by system policy.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for device installation policy violations</td>
+                <td>Unauthorized device installation</td>
+                <td>Policy enforcement</td>
+              </tr>
+              <tr>
+                <td>6424</td>
+                <td>The installation of this device was allowed after having previously been forbidden by policy.</td>
+                <td>Process Tracking</td>
+                <td>Plug and Play</td>
+                <td>Monitor for device installation policy changes</td>
+                <td>Unauthorized device installation</td>
+                <td>Policy updates</td>
+              </tr>
+              <tr>
+                <td>4649</td>
+                <td>A replay attack was detected.</td>
+                <td>Logon/Logoff</td>
+                <td>Other Logon/Logoff Events</td>
+                <td>Monitor for repeated identical requests</td>
+                <td>Credential reuse</td>
+                <td>Network misconfiguration</td>
+              </tr>
+              <tr>
+                <td>4706</td>
+                <td>A new trust was created to a domain.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unauthorized trust creation</td>
+                <td>Domain compromise</td>
+                <td>Planned domain updates</td>
+              </tr>
+              <tr>
+                <td>4707</td>
+                <td>A trust to a domain was removed.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unauthorized trust removal</td>
+                <td>Domain isolation</td>
+                <td>Planned domain updates</td>
+              </tr>
+              <tr>
+                <td>4713</td>
+                <td>Kerberos policy was changed.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unexpected Kerberos policy changes</td>
+                <td>Authentication bypass</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4716</td>
+                <td>Trusted domain information was modified.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unexpected changes to trusted domain information</td>
+                <td>Domain tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4727</td>
+                <td>A security-enabled global group was created.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group creation</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4728</td>
+                <td>A member was added to a security-enabled global group.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group member additions</td>
+                <td>Privilege escalation</td>
+                <td>Planned changes</td>
+              </tr>
+              <tr>
+                <td>4729</td>
+                <td>A member was removed from a security-enabled global group.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group member removals</td>
+                <td>Privilege abuse</td>
+                <td>Planned changes</td>
+              </tr>
+              <tr>
+                <td>4730</td>
+                <td>A security-enabled global group was deleted.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized group deletions</td>
+                <td>Privilege abuse</td>
+                <td>Planned changes</td>
+              </tr>
+              <tr>
+                <td>4737</td>
+                <td>A security-enabled global group was changed.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unexpected group modifications</td>
+                <td>Privilege escalation</td>
+                <td>Planned changes</td>
+              </tr>
+              <tr>
+                <td>4741</td>
+                <td>A computer account was created.</td>
+                <td>Account Management</td>
+                <td>Computer Account Management</td>
+                <td>Monitor for unauthorized computer account creation</td>
+                <td>Backdoor accounts</td>
+                <td>Planned changes</td>
+              </tr>
+              <tr>
+                <td>4742</td>
+                <td>A computer account was changed.</td>
+                <td>Account Management</td>
+                <td>Computer Account Management</td>
+                <td>Monitor for unauthorized computer account changes</td>
+                <td>Privilege escalation</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4743</td>
+                <td>A computer account was deleted.</td>
+                <td>Account Management</td>
+                <td>Computer Account Management</td>
+                <td>Monitor for unauthorized computer account deletions</td>
+                <td>Backdoor removal</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4754</td>
+                <td>A security-enabled universal group was created.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized universal group creation</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4755</td>
+                <td>A security-enabled universal group was changed.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized universal group changes</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4756</td>
+                <td>A member was added to a security-enabled universal group.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized additions to universal groups</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4757</td>
+                <td>A member was removed from a security-enabled universal group.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unauthorized removals from universal groups</td>
+                <td>Privilege abuse</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4764</td>
+                <td>A group’s type was changed.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for unexpected group type changes</td>
+                <td>Privilege escalation</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4765</td>
+                <td>SID History was added to an account.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized SID History additions</td>
+                <td>Account tampering</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4766</td>
+                <td>An attempt to add SID History to an account failed.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for failed attempts to add SID History</td>
+                <td>Privilege escalation attempts</td>
+                <td>Misconfiguration</td>
+              </tr>
+              <tr>
+                <td>4768</td>
+                <td>A Kerberos authentication ticket (TGT) was requested.</td>
+                <td>Account Logon</td>
+                <td>Kerberos Authentication Service</td>
+                <td>Monitor for unusual TGT requests</td>
+                <td>Brute force attacks</td>
+                <td>Normal authentication operations</td>
+              </tr>
+              <tr>
+                <td>4769</td>
+                <td>A Kerberos service ticket was requested.</td>
+                <td>Account Logon</td>
+                <td>Kerberos Service Ticket Operations</td>
+                <td>Monitor for unusual service ticket requests</td>
+                <td>Lateral movement</td>
+                <td>Legitimate service access</td>
+              </tr>
+              <tr>
+                <td>4770</td>
+                <td>A Kerberos service ticket was renewed.</td>
+                <td>Account Logon</td>
+                <td>Kerberos Service Ticket Operations</td>
+                <td>Monitor for repeated ticket renewals</td>
+                <td>Session hijacking</td>
+                <td>Normal ticket renewal processes</td>
+              </tr>
+              <tr>
+                <td>4771</td>
+                <td>Kerberos pre-authentication failed.</td>
+                <td>Account Logon</td>
+                <td>Kerberos Authentication Service</td>
+                <td>Monitor for frequent pre-authentication failures</td>
+                <td>Brute force attacks</td>
+                <td>User error</td>
+              </tr>
+              <tr>
+                <td>4794</td>
+                <td>An attempt was made to set the Directory Services Restore Mode administrator password.</td>
+                <td>Account Management</td>
+                <td>User Account Management</td>
+                <td>Monitor for unauthorized password resets</td>
+                <td>Account compromise</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4799</td>
+                <td>A security-enabled local group membership was enumerated.</td>
+                <td>Account Management</td>
+                <td>Security Group Management</td>
+                <td>Monitor for frequent group membership enumerations</td>
+                <td>Reconnaissance</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>4865</td>
+                <td>A trusted forest information entry was added.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unexpected forest additions</td>
+                <td>Privilege escalation</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4866</td>
+                <td>A trusted forest information entry was removed.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unauthorized forest entry removals</td>
+                <td>Domain isolation</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>4867</td>
+                <td>A trusted forest information entry was added.</td>
+                <td>Policy Change</td>
+                <td>Authentication Policy Change</td>
+                <td>Monitor for unexpected forest additions</td>
+                <td>Privilege escalation</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>5136</td>
+                <td>A directory service object was modified.</td>
+                <td>Directory Services</td>
+                <td>Directory Service Changes</td>
+                <td>Monitor for unauthorized directory modifications</td>
+                <td>Data tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>5137</td>
+                <td>A directory service object was created.</td>
+                <td>Directory Services</td>
+                <td>Directory Service Changes</td>
+                <td>Monitor for unauthorized directory creations</td>
+                <td>Unauthorized accounts</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>5138</td>
+                <td>A directory service object was undeleted.</td>
+                <td>Directory Services</td>
+                <td>Directory Service Changes</td>
+                <td>Monitor for unexpected directory undeletions</td>
+                <td>Data tampering</td>
+                <td>Planned updates</td>
+              </tr>
+              <tr>
+                <td>5139</td>
+                <td>A directory service object was moved.</td>
+                <td>Directory Services</td>
+                <td>Directory Service Changes</td>
+                <td>Monitor for unauthorized directory moves</td>
+                <td>Data tampering</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>5140</td>
+                <td>(NOISY!) Network share object accessed.</td>
+                <td>Object Access</td>
+                <td>File Share</td>
+                <td>Monitor for abnormal network share access</td>
+                <td>Data exfiltration</td>
+                <td>Normal file sharing</td>
+              </tr>
+              <tr>
+                <td>4103</td>
+                <td>Microsoft-Windows-PowerShell</td>
+                <td>Microsoft-Windows-PowerShell</td>
+                <td>Pipeline Execution</td>
+                <td>Monitor for unusual pipeline executions</td>
+                <td>Malicious script execution</td>
+                <td>Administrative scripting</td>
+              </tr>
+              <tr>
+                <td>4104</td>
+                <td>Scriptblock executed.</td>
+                <td>Microsoft-Windows-PowerShell</td>
+                <td>Execute a Remote Command</td>
+                <td>Monitor for unauthorized script executions</td>
+                <td>Malicious script execution</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>40961</td>
+                <td>PowerShell Console Starting.</td>
+                <td>Microsoft-Windows-PowerShell</td>
+                <td>PowerShell Console Startup</td>
+                <td>Monitor for unexpected PowerShell console starts</td>
+                <td>Unauthorized access</td>
+                <td>Administrative tasks</td>
+              </tr>
+              <tr>
+                <td>40962</td>
+                <td>PowerShell Console Started.</td>
+                <td>Microsoft-Windows-PowerShell</td>
+                <td>PowerShell Console Startup</td>
+                <td>Monitor for frequent PowerShell starts</td>
+                <td>Potential malicious activity</td>
+                <td>Administrative tasks</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>PowerShell Commands for Log Analysis</h2>
+        <p>Common PowerShell commands for querying and managing Windows Event Logs. These examples demonstrate how to retrieve, filter, and export event logs for system monitoring and troubleshooting.</p>
+        <div class="cmd-grid">
+          <!-- Basic Event Log Query -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Basic Event Log Query</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -LogName 'System' -MaxEvents 10</span>
+              </div>
+              <div class="cmd-output">Retrieves the 10 most recent events from the System event log.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Filter by Error Level -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-exclamation-circle"></i>
+              <span class="cmd-title">Filter by Error Level</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName='Application'; Level=2}</span>
+              </div>
+              <div class="cmd-output"> Retrieves all Error events (Level 2) from the Application log. <br> Levels: 1=Critical, 2=Error, 3=Warning, 4=Information </div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Filter by Date Range -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-calendar-alt"></i>
+              <span class="cmd-title">Filter by Date Range</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">$startDate = (Get-Date).AddDays(-1) $endDate = Get-Date Get-WinEvent -FilterHashtable @{ LogName='System' StartTime=$startDate EndTime=$endDate Level=1,2 }</span>
+              </div>
+              <div class="cmd-output">Retrieves all Critical and Error events from the System log in the last 24 hours.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Export to CSV -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-file-export"></i>
+              <span class="cmd-title">Export to CSV</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2,3} -MaxEvents 100 | Select-Object TimeCreated, LevelDisplayName, ProviderName, Id, Message | Export-Csv -Path "C:\Logs\SystemErrors.csv" -NoTypeInformation</span>
+              </div>
+              <div class="cmd-output">Exports the 100 most recent Critical, Error, and Warning events from the System log to a CSV file.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- List Audit Policies -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-shield-alt"></i>
+              <span class="cmd-title">List Audit Policies</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">auditpol /get /category:*</span>
+              </div>
+              <div class="cmd-output">Displays the current audit policy settings for all categories configured on the system.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Clear Event Log -->
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-trash-alt"></i>
+              <span class="cmd-title">Clear Event Log</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Clear-EventLog -LogName "System" -Confirm:$false</span>
+              </div>
+              <div class="cmd-output">Clears all events from the System event log without prompting for confirmation. Use with caution!</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Check Event Log Size -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-database"></i>
+              <span class="cmd-title">Check Event Log Size</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -ListLog * | Where-Object {$_.RecordCount -gt 0} | Select-Object LogName, RecordCount, FileSize, IsEnabled | Sort-Object RecordCount -Descending | Format-Table -AutoSize</span>
+              </div>
+              <div class="cmd-output">Lists all event logs with their record count and size, sorted by number of records.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Find Failed Logon Attempts -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Find Failed Logon Attempts</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName='Security'; ID=4625} | Select-Object TimeCreated, @{Name='Username';Expression={$_.Properties[5].Value}}, @{Name='Source';Expression={$_.Properties[19].Value}}, @{Name='Status';Expression={$_.Properties[7].Value}}, @{Name='SubStatus';Expression={$_.Properties[9].Value}} | Format-Table -AutoSize</span>
+              </div>
+              <div class="cmd-output">Retrieves failed logon attempts with username, source IP, and error codes.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Monitor Real-time Events -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-broadcast-tower"></i>
+              <span class="cmd-title">Monitor Real-time Events</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">$query = New-Object System.Diagnostics.Eventing.Reader.EventLogQuery("Security", [System.Diagnostics.Eventing.Reader.PathType]::LogName) $watcher = New-Object System.Diagnostics.Eventing.Reader.EventLogWatc her($query) Register-ObjectEvent -InputObject $watcher -EventName EventRecordWritten -Action { $event = $Event.SourceEventArgs.EventRecord Write-Host "New event: $($event.Id) at $($event.TimeCreated)" } $watcher.Enabled = $true</span>
+              </div>
+              <div class="cmd-output">Sets up a real-time monitor for new events in the Security log.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Configure Audit Policy -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-cogs"></i>
+              <span class="cmd-title">Configure Audit Policy</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">auditpol /set /subcategory:"Logon" /success:enable /failure:enable</span>
+              </div>
+              <div class="cmd-output">Enables auditing of both successful and failed logon attempts.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Filter by Event ID -->
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-filter"></i>
+              <span class="cmd-title">Filter by Event ID</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{ LogName='Security' ID=4624,4625,4634 }</span>
+              </div>
+              <div class="cmd-output">Retrieves login events (successful logins, failed logins, and logouts) from the Security log.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+          <!-- Filter by Provider -->
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-sitemap"></i>
+              <span class="cmd-title">Filter by Provider</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{ LogName='System' ProviderName='Microsoft-Windows-Disk' Level=2,3 }</span>
+              </div>
+              <div class="cmd-output">Retrieves all Error and Warning events related to disk operations.</div>
+            </div>
+            <button class="cmd-copy">
+              <i class="far fa-copy"></i> Copy </button>
+          </div>
+        </div>
+      </div>
+      <div class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Windows Event Logging</h2>
+        </div>
+        <p class="intro-text">Follow these guidelines to ensure effective event logging in Windows environments:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Increase Log Size</h3>
+              <p>Set larger default log sizes: Security (4GB), System (2GB), Application (2GB) to prevent log rotation during an incident.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Configure Retention</h3>
+              <p>Set "Retention method" to "As needed" or "Overwrite events by days" rather than "Overwrite events as needed".</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Centralize Logs</h3>
+              <p>Forward critical events to a centralized SIEM solution for consolidated monitoring and analysis.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Advanced Audit Policies</h3>
+              <p>Implement granular Advanced Audit Policy Configuration through Group Policy settings.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Regular Backups</h3>
+              <p>Schedule regular backups of critical event logs to preserve evidence for forensic analysis.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Command Line Logging</h3>
+              <p>Enable process command line auditing (Event ID 4688) to capture command-line arguments.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Monitor Log Clearing</h3>
+              <p>Set alerts for log clearing activities (Event ID 1102) which may indicate tampering.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Critical Event Alerts</h3>
+              <p>Configure real-time alerting for high-priority security events that require immediate attention.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- MITRE ATT&CK Navigator -->
+      <div class="card">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>MITRE ATT&CK Navigator</h2>
+        </div>
+        <section class="section" id="mitre-framework">
+          <div class="mitre-section-title">
+            <div class="mitre-legend">
+              <div class="mitre-legend-item">
+                <div class="mitre-legend-color coverage-high"></div>
+                <span>High Coverage</span>
+              </div>
+              <div class="mitre-legend-item">
+                <div class="mitre-legend-color coverage-medium"></div>
+                <span>Medium Coverage</span>
+              </div>
+              <div class="mitre-legend-item">
+                <div class="mitre-legend-color coverage-low"></div>
+                <span>Low Coverage</span>
+              </div>
+              <div class="mitre-legend-item">
+                <div class="mitre-legend-color coverage-none"></div>
+                <span>No Coverage</span>
+              </div>
+            </div>
+          </div>
+          <p class="description">Visualize Windows Event Log coverage of MITRE ATT&CK techniques. Click on any technique to see associated Event IDs and example detection queries. Colored bars represent the level of detection coverage provided by Windows Event Logs for each technique.</p>
+          <!-- MITRE Matrix -->
+          <div>
+            <!-- Initial Access -->
+            <div class="mitre-row" id="initial-access">
+              <div class="mitre-tactic">
+                <i class="fas fa-door-open"></i>
+                <span>Initial Access</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1078" data-coverage="high" data-events="6">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1078</div>
+                  <div class="mitre-technique-name">Valid Accounts</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1110" data-coverage="medium" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-medium"></div>
+                  <div class="mitre-technique-id">T1110</div>
+                  <div class="mitre-technique-name">Brute Force</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                 
+                
+              </div>
+            </div>
+            <!-- Execution -->
+            <div class="mitre-row" id="execution">
+              <div class="mitre-tactic">
+                <i class="fas fa-play-circle"></i>
+                <span>Execution</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1059" data-coverage="high" data-events="8">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1059</div>
+                  <div class="mitre-technique-name">Command and Scripting Interpreter</div>
+                  <div class="mitre-event-count">1 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1053.005" data-coverage="medium" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-medium"></div>
+                  <div class="mitre-technique-id">T1053.005</div>
+                  <div class="mitre-technique-name">Scheduled Task/Job</div>
+                  <div class="mitre-event-count">5 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1543.003" data-coverage="medium" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-medium"></div>
+                  <div class="mitre-technique-id">T1543.003</div>
+                  <div class="mitre-technique-name">Windows Service</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1569.002" data-coverage="high" data-events="6">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1569.002</div>
+                  <div class="mitre-technique-name">Service Execution</div>
+                  <div class="mitre-event-count">6 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Persistence -->
+            <div class="mitre-row" id="persistence">
+              <div class="mitre-tactic">
+                <i class="fas fa-thumbtack"></i>
+                <span>Persistence</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1053.005" data-coverage="high" data-events="7">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1053.005</div>
+                  <div class="mitre-technique-name">Scheduled Task/Job</div>
+                  <div class="mitre-event-count">3 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1078" data-coverage="high" data-events="6">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1078</div>
+                  <div class="mitre-technique-name">Valid Accounts</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1547.001" data-coverage="medium" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-medium"></div>
+                  <div class="mitre-technique-id">T1547.001</div>
+                  <div class="mitre-technique-name">Boot or Logon Autostart Execution</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1098" data-coverage="high" data-events="5">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1098</div>
+                  <div class="mitre-technique-name">Account Manipulation</div>
+                  <div class="mitre-event-count">5 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Privilege Escalation -->
+            <div class="mitre-row" id="privilege-escalation">
+              <div class="mitre-tactic">
+                <i class="fas fa-arrow-circle-up"></i>
+                <span>Privilege Escalation</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1078" data-coverage="high" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1078</div>
+                  <div class="mitre-technique-name">Valid Accounts</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1134.005" data-coverage="high" data-events="2">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1134.005</div>
+                  <div class="mitre-technique-name">SID-History Injection</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1068" data-coverage="high" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1068</div>
+                  <div class="mitre-technique-name">Exploitation for Privilege Escalation</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Defense Evasion -->
+            <div class="mitre-row" id="defense-evasion">
+              <div class="mitre-tactic">
+                <i class="fas fa-user-secret"></i>
+                <span>Defense Evasion</span>
+              </div>
+              <div class="mitre-technique" data-technique="T1027" data-coverage="high" data-events="1">
+                <div class="mitre-coverage-indicator coverage-high"></div>
+                <div class="mitre-technique-id">T1027</div>
+                <div class="mitre-technique-name">Obfuscated Files or Information</div>
+                <div class="mitre-event-count">4 event</div>
+              </div>
+            </div>
+            <!-- Credential Access -->
+            <div class="mitre-row" id="credential-access">
+              <div class="mitre-tactic">
+                <i class="fas fa-key"></i>
+                <span>Credential Access</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1003" data-coverage="high" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1003</div>
+                  <div class="mitre-technique-name">OS Credential Dumping</div>
+                  <div class="mitre-event-count">3 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1550.002" data-coverage="high" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1550.002</div>
+                  <div class="mitre-technique-name">Pass-the-Hash</div>
+                  <div class="mitre-event-count">3 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1552.002" data-coverage="high" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1552.002</div>
+                  <div class="mitre-technique-name">Credentials in Registry</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Discovery -->
+            <div class="mitre-row" id="discovery">
+              <div class="mitre-tactic">
+                <i class="fas fa-search"></i>
+                <span>Discovery</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1018" data-coverage="medium" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-medium"></div>
+                  <div class="mitre-technique-id">T1018</div>
+                  <div class="mitre-technique-name">Remote System Discovery</div>
+                  <div class="mitre-event-count">3 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Lateral Movement -->
+            <div class="mitre-row" id="lateral-movement">
+              <div class="mitre-tactic">
+                <i class="fas fa-random"></i>
+                <span>Lateral Movement</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1563.002" data-coverage="high" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1563.002</div>
+                  <div class="mitre-technique-name">Remote Desktop Hijacking</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1021.002" data-coverage="high" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1021.002</div>
+                  <div class="mitre-technique-name">Lateral Movement via SMB</div>
+                  <div class="mitre-event-count">3 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1021.001" data-coverage="high" data-events="4">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1021.001</div>
+                  <div class="mitre-technique-name">Remote Desktop Protocol</div>
+                  <div class="mitre-event-count">4 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Exfiltration -->
+            <div class="mitre-row" id="exfiltration">
+              <div class="mitre-tactic">
+                <i class="fas fa-upload"></i>
+                <span>Exfiltration</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1020" data-coverage="medium" data-events="2">
+                  <div class="mitre-coverage-indicator coverage-medium"></div>
+                  <div class="mitre-technique-id">T1020</div>
+                  <div class="mitre-technique-name">Automated Exfiltration</div>
+                  <div class="mitre-event-count">2 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1567.002" data-coverage="high" data-events="3">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1567.002</div>
+                  <div class="mitre-technique-name">Exfiltration to Cloud Storage</div>
+                  <div class="mitre-event-count">3 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Impact -->
+            <div class="mitre-row" id="impact">
+              <div class="mitre-tactic">
+                <i class="fas fa-bomb"></i>
+                <span>Impact</span>
+              </div>
+              <div class="mitre-techniques">
+                <div class="mitre-technique" data-technique="T1485" data-coverage="high" data-events="2">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1485</div>
+                  <div class="mitre-technique-name">Data Destruction</div>
+                  <div class="mitre-event-count">2 events</div>
+                </div>
+                <div class="mitre-technique" data-technique="T1490" data-coverage="high" data-events="2">
+                  <div class="mitre-coverage-indicator coverage-high"></div>
+                  <div class="mitre-technique-id">T1490</div>
+                  <div class="mitre-technique-name">Inhibit System Recovery</div>
+                  <div class="mitre-event-count">2 events</div>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1027">
+              <button class="mitre-close" id="close-details-T1027">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Obfuscated Files or Information</div>
+                <div class="mitre-details-id">T1027</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may attempt to make an executable or file difficult to discover or analyze by encrypting, encoding, or otherwise obfuscating its contents on the system or in transit. This is common behavior that can be used across different platforms and the network to evade defenses. Payloads may be compressed, archived, or encrypted in order to avoid detection. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4104</div>
+                    <div class="mitre-event-description">PowerShell script block logging</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">8</div>
+                    <div class="mitre-event-description">File creation (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">1</div>
+                    <div class="mitre-event-description">Process creation (Sysmon)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1027 - PowerShell Obfuscation Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-PowerShell/Operational"; Id=4104} | Where-Object {$_.Message -match "ToBase64String|FromBase64String|convert|encoding|encode|decode|compressed|gzipstream|io.compression|deflatestream"} | Select-Object TimeCreated, Id, @{Name="ScriptBlock";Expression={$_.Properties[2].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies PowerShell commands that may be attempting to encode, decode, or compress data, which are common techniques for obfuscating malicious code. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) SID-History Injection-->
+            <div class="mitre-details" id="technique-details-T1134.005">
+              <button class="mitre-close" id="close-details-T1134.005">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">SID-History Injection</div>
+                <div class="mitre-details-id">T1134.005</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may use SID-History injection to gain additional privileges. The Windows security identifier (SID) is a unique value that identifies a user or group account. SIDs are used by Windows security in both security descriptors and access tokens. An account can hold additional SIDs in the SID-History attribute, allowing users to maintain access to network resources after being moved to a different domain. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4765</div>
+                    <div class="mitre-event-description">SID History was added to an account</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4766</div>
+                    <div class="mitre-event-description">An attempt to add SID History to an account failed</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4738</div>
+                    <div class="mitre-event-description">A user account was changed</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4624</div>
+                    <div class="mitre-event-description">An account was successfully logged on</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1134.005 - SID-History Injection Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4765} | Select-Object TimeCreated, @{Name="TargetUser";Expression={$_.Properties[0].Value}}, @{Name="TargetDomain";Expression={$_.Properties[1].Value}}, @{Name="TargetSid";Expression={$_.Properties[2].Value}}, @{Name="SubjectUser";Expression={$_.Properties[4].Value}}, @{Name="SubjectDomain";Expression={$_.Properties[5].Value}}, @{Name="SidHistory";Expression={$_.Properties[9].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies instances where SID History attributes have been added to user accounts, which may indicate privilege escalation attempts. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1543.003">
+              <button class="mitre-close" id="close-details-T1543.003">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Windows Service</div>
+                <div class="mitre-details-id">T1543.003</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may create or modify Windows services to execute malicious payloads as part of persistence. Windows services are programs that can be started automatically when the system boots, even before a user logs on. Services can be configured to run under the context of SYSTEM, LOCAL SERVICE, or NETWORK SERVICE accounts, or a specified user account that may have different permissions and access than the current user. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4697</div>
+                    <div class="mitre-event-description">A service was installed in the system</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">7045</div>
+                    <div class="mitre-event-description">A service was installed in the system</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">7040</div>
+                    <div class="mitre-event-description">The start type of a service was changed</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1543.003 - Windows Service Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="System"; Id=7045} | Select-Object TimeCreated, @{Name="ServiceName";Expression={$_.Properties[0].Value}}, @{Name="ImagePath";Expression={$_.Properties[1].Value}}, @{Name="ServiceType";Expression={$_.Properties[2].Value}}, @{Name="StartType";Expression={$_.Properties[3].Value}}, @{Name="Account";Expression={$_.Properties[4].Value}} | Where-Object {$_.ImagePath -match "powershell|cmd.exe|regsvr32|rundll32|wscript|cscript|\\\\|http"}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies suspicious newly installed services that contain potentially malicious command patterns in their execution paths. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden)  Valid Accounts -->
+            <div class="mitre-details" id="technique-details-T1078">
+              <button class="mitre-close" id="close-details-T1078">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Valid Accounts</div>
+                <div class="mitre-details-id">T1078</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion. Compromised credentials may be used to bypass access controls placed on various resources on systems within the network and may even be used for persistent access to remote systems and externally available services. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4624</div>
+                    <div class="mitre-event-description">An account was successfully logged on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4625</div>
+                    <div class="mitre-event-description">An account failed to log on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4648</div>
+                    <div class="mitre-event-description">A logon was attempted using explicit credentials</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4776</div>
+                    <div class="mitre-event-description">The computer attempted to validate the credentials for an account</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1078 - Valid Accounts Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4624} | Where-Object {$_.Properties[8].Value -eq 3} | Select-Object TimeCreated, @{Name="UserName";Expression={$_.Properties[5].Value}}, @{Name="Domain";Expression={$_.Properties[6].Value}}, @{Name="SourceIP";Expression={$_.Properties[18].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies successful network logons (type 3), which may indicate use of stolen credentials or remote access using valid accounts. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Brute Force -->
+            <div class="mitre-details" id="technique-details-T1110">
+              <button class="mitre-close" id="close-details-T1110">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Brute Force</div>
+                <div class="mitre-details-id">T1110</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained. Brute forcing can be used to attempt access to credentials valid for domain, local, cloud, and other types of accounts, as well as network services and web applications that require authentication. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4740</div>
+                    <div class="mitre-event-description">A user account was locked out</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4625</div>
+                    <div class="mitre-event-description">An account failed to log on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4771</div>
+                    <div class="mitre-event-description">Kerberos pre-authentication failed</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4776</div>
+                    <div class="mitre-event-description">The computer attempted to validate the credentials for an account</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1110 - Brute Force Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4625} | Group-Object -Property @{Expression={$_.Properties[5].Value}} | Where-Object {$_.Count -ge 5} | Select-Object Name, Count, @{Name="FailedLogonAttempts";Expression={$_.Group | Select-Object TimeCreated, @{Name="Username";Expression={$_.Properties[5].Value}}, @{Name="SourceIP";Expression={$_.Properties[19].Value}}}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies multiple failed logon attempts (5+) for the same username, which may indicate brute force attempts. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Command and Scripting Interpreter -->
+            <div class="mitre-details" id="technique-details-T1059">
+              <button class="mitre-close" id="close-details-T1059">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Command and Scripting Interpreter</div>
+                <div class="mitre-details-id">T1059</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries. These interfaces and languages provide ways of interacting with computer systems and are a common feature across many different platforms. Commands and scripts can be embedded in initial access payloads delivered to victims as lure documents or as secondary payloads downloaded from an existing C2. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4104</div>
+                    <div class="mitre-event-description">PowerShell script block logging</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1059 - Command and Scripting Interpreter Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-PowerShell/Operational"; Id=4104} | Where-Object {$_.Message -match "bypass|hidden|encodedcommand|IEX|Invoke-Expression|DownloadString|New-Object Net.WebClient|Start-BitsTransfer"} | Select-Object TimeCreated, Id, @{Name="ScriptBlock";Expression={$_.Properties[2].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies PowerShell script blocks containing suspicious patterns that may indicate malicious activity, such as execution bypass techniques, obfuscation, or download cradles. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1547.001">
+              <button class="mitre-close" id="close-details-T1547.001">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Boot or Logon Autostart Execution</div>
+                <div class="mitre-details-id">T1547.001</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may achieve persistence by adding a program to a startup folder or referencing it with a Registry run key. Adding an entry to the "run keys" in the Registry or startup folder will cause the program referenced to be executed when a user logs in. These programs will be executed under the context of the user and will have the account's associated permissions level. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4657</div>
+                    <div class="mitre-event-description">A registry value was modified</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1547.001 - Registry Run Keys Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4657} | Where-Object {$_.Properties[4].Value -match '\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run|\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce|\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run'} | Select-Object TimeCreated, @{Name="User";Expression={$_.Properties[1].Value}}, @{Name="Process";Expression={$_.Properties[11].Value}}, @{Name="ValueName";Expression={$_.Properties[5].Value}}, @{Name="ValueData";Expression={$_.Properties[6].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies modifications to common Run and RunOnce registry keys that may indicate persistence mechanisms being established. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Data Destruction -->
+            <div class="mitre-details" id="technique-details-T1485">
+              <button class="mitre-close" id="close-details-T1485">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Data Destruction</div>
+                <div class="mitre-details-id">T1485</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may destroy data and files on specific systems or in large numbers on a network to interrupt availability to systems, services, and network resources. Data destruction is likely to render the data irrecoverable by forensic techniques through overwriting files or data on local and remote drives. Common tools, such as File Shredder and wipe, and built-in commands like Windows cipher can be used. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4663</div>
+                    <div class="mitre-event-description">An attempt was made to access an object</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">11</div>
+                    <div class="mitre-event-description">File creation (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">23</div>
+                    <div class="mitre-event-description">File deletion (Sysmon)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1485 - Data Destruction Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4688} | Where-Object {$_.Properties[8].Value -match "cipher.exe /w|sdelete|wevtutil cl|bcdedit|vssadmin delete|fsutil|wipe|eraser|shred"} | Select-Object TimeCreated, @{Name="ProcessName";Expression={$_.Properties[8].Value}}, @{Name="User";Expression={$_.Properties[1].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies processes associated with secure deletion, disk wiping, or evidence removal tools that may indicate attempts at data destruction. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Automated Exfiltration -->
+            <div class="mitre-details" id="technique-details-T1020">
+              <button class="mitre-close" id="close-details-T1020">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Automated Exfiltration</div>
+                <div class="mitre-details-id">T1020</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may exfiltrate data, such as sensitive documents or credentials, through the use of automated processing after being gathered during Collection. When automated exfiltration is used, other exfiltration techniques likely apply as well to transfer the information out of the network, such as Exfiltration Over C2 Channel or Exfiltration Over Alternative Protocol. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">5156</div>
+                    <div class="mitre-event-description">The Windows Filtering Platform has permitted a connection</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">3</div>
+                    <div class="mitre-event-description">Network connection (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4663</div>
+                    <div class="mitre-event-description">An attempt was made to access an object</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1020 - Automated Exfiltration Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Sysmon/Operational"; Id=3} | Where-Object {$_.Properties[4].Value -match "443|80|25|22" -and $_.Properties[14].Value -match ".zip|.rar|.7z|.tar"} | Select-Object TimeCreated, @{Name="SourceIP";Expression={$_.Properties[3].Value}}, @{Name="DestinationIP";Expression={$_.Properties[5].Value}}, @{Name="DestinationPort";Expression={$_.Properties[7].Value}}, @{Name="ProcessName";Expression={$_.Properties[1].Value}}, @{Name="ImagePath";Expression={$_.Properties[4].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies network connections on common exfiltration ports that may involve compressed file formats, potentially indicating automated data exfiltration activities. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Lateral Movement via SMB -->
+            <div class="mitre-details" id="technique-details-T1021.002">
+              <button class="mitre-close" id="close-details-T1021.002">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Lateral Movement via SMB</div>
+                <div class="mitre-details-id">T1021.002</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may use Valid Accounts to interact with a remote network share using Server Message Block (SMB). The adversary may then perform actions such as transferring files or remotely executing files on the SMB share. SMB is commonly used for file sharing and printer sharing and for access to Windows administrative shares, which provide remote access to system resources and utilities. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4624</div>
+                    <div class="mitre-event-description">An account was successfully logged on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">5140</div>
+                    <div class="mitre-event-description">A network share object was accessed</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">5145</div>
+                    <div class="mitre-event-description">A network share object was checked to see whether client can be granted desired access</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1021.002 - SMB Lateral Movement Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=5140} | Where-Object {$_.Properties[9].Value -match "\\\\ADMIN\\$|\\\\C\\$|\\\\IPC\\$"} | Select-Object TimeCreated, @{Name="UserName";Expression={$_.Properties[1].Value}}, @{Name="Domain";Expression={$_.Properties[2].Value}}, @{Name="SourceIP";Expression={$_.Properties[6].Value}}, @{Name="ShareName";Expression={$_.Properties[9].Value}}, @{Name="SharePath";Expression={$_.Properties[10].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies access to administrative shares (C$, ADMIN$, IPC$), which may indicate lateral movement attempts using SMB and administrative shares. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Pass-the-Hash -->
+            <div class="mitre-details" id="technique-details-T1550.002">
+              <button class="mitre-close" id="close-details-T1550.002">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Pass-the-Hash</div>
+                <div class="mitre-details-id">T1550.002</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may perform pass-the-hash (PtH) attacks to move laterally within an environment. Pass-the-hash uses captured password hashes (NTLM hashes) to authenticate as a user without having to know that user's password. This technique bypasses standard authentication steps that require a cleartext password, moving directly into the authentication using password hashes. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4624</div>
+                    <div class="mitre-event-description">An account was successfully logged on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4625</div>
+                    <div class="mitre-event-description">An account failed to log on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4648</div>
+                    <div class="mitre-event-description">A logon was attempted using explicit credentials</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4768</div>
+                    <div class="mitre-event-description">A Kerberos authentication ticket (TGT) was requested</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1550.002 - Pass-the-Hash Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4624} | Where-Object {$_.Properties[8].Value -eq 9 -or $_.Properties[10].Value -eq 0xc} | Select-Object TimeCreated, @{Name="UserName";Expression={$_.Properties[5].Value}}, @{Name="Domain";Expression={$_.Properties[6].Value}}, @{Name="LogonType";Expression={$_.Properties[8].Value}}, @{Name="AuthPackage";Expression={$_.Properties[10].Value}}, @{Name="WorkstationName";Expression={$_.Properties[11].Value}}, @{Name="SourceIP";Expression={$_.Properties[18].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies logon events that may indicate pass-the-hash attacks, focusing on NTLM authentication and network logon types that are commonly associated with this technique. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1490">
+              <button class="mitre-close" id="close-details-T1490">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Inhibit System Recovery</div>
+                <div class="mitre-details-id">T1490</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may delete or modify system backups or recovery capabilities to prevent recovery. Operating systems may contain features that can help fix corrupted systems, such as Windows System Restore and Windows Recovery Environment. Adversaries may disable or delete system recovery features to make it more difficult for victims to recover from attacks, such as ransomware. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">104</div>
+                    <div class="mitre-event-description">Log cleared (System)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">1</div>
+                    <div class="mitre-event-description">Process creation (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">11</div>
+                    <div class="mitre-event-description">File creation (Sysmon)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1490 - Inhibit System Recovery Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4688} | Where-Object {$_.Properties[8].Value -match "vssadmin.exe|wbadmin.exe|bcdedit.exe|diskshadow.exe|wmic.exe|powershell.exe" -and $_.Properties[9].Value -match "delete shadows|delete catalog|recoveryenabled no|shadowcopy delete|shadowstorage|resize shadowstorage"} | Select-Object TimeCreated, @{Name="Process";Expression={$_.Properties[8].Value}}, @{Name="CommandLine";Expression={$_.Properties[9].Value}}, @{Name="User";Expression={$_.Properties[1].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies commands used to delete Volume Shadow Copies or disable system recovery features, which may indicate preparation for ransomware deployment or attempts to prevent system recovery. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1567.002">
+              <button class="mitre-close" id="close-details-T1567.002">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Exfiltration to Cloud Storage</div>
+                <div class="mitre-details-id">T1567.002</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may exfiltrate data to cloud storage services in order to avoid typical network-based detection. Cloud storage services allow for the storage, editing, and retrieval of data from internet-accessible servers without the need for direct connection to internal networks. Adversaries may use these services to exfiltrate sensitive information. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">5156</div>
+                    <div class="mitre-event-description">The Windows Filtering Platform has permitted a connection</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">3</div>
+                    <div class="mitre-event-description">Network connection (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">22</div>
+                    <div class="mitre-event-description">DNS query (Sysmon)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1567.002 - Exfiltration to Cloud Storage Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Sysmon/Operational"; Id=22} | Where-Object {$_.Properties[1].Value -match "dropbox\.com|box\.com|onedrive\.live\.com|drive\.google\.com|docs\.google\.com|mega\.nz|mediafire\.com|pastebin\.com"} | Select-Object TimeCreated, @{Name="QueryName";Expression={$_.Properties[1].Value}}, @{Name="ProcessName";Expression={$_.Properties[4].Value}}, @{Name="User";Expression={$_.Properties[14].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies DNS queries to popular cloud storage services, which may indicate data exfiltration attempts using these platforms as destinations. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1021.001">
+              <button class="mitre-close" id="close-details-T1021.001">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Remote Desktop Protocol</div>
+                <div class="mitre-details-id">T1021.001</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may use Valid Accounts to log into a computer using the Remote Desktop Protocol (RDP). Remote desktop is a common feature in operating systems. It allows a user to log into an interactive session with a system desktop graphical user interface on a remote system. Microsoft refers to its implementation of the Remote Desktop Protocol (RDP) as Remote Desktop Services (RDS). </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4624</div>
+                    <div class="mitre-event-description">An account was successfully logged on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4625</div>
+                    <div class="mitre-event-description">An account failed to log on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4778</div>
+                    <div class="mitre-event-description">A session was reconnected to a Window Station</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4779</div>
+                    <div class="mitre-event-description">A session was disconnected from a Window Station</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1021.001 - Remote Desktop Protocol Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4624} | Where-Object {$_.Properties[8].Value -eq 10} | Select-Object TimeCreated, @{Name="UserName";Expression={$_.Properties[5].Value}}, @{Name="Domain";Expression={$_.Properties[6].Value}}, @{Name="SourceIP";Expression={$_.Properties[18].Value}}, @{Name="LogonType";Expression={$_.Properties[8].Value}} | Sort-Object -Property TimeCreated -Descending</span>
+                    </div>
+                    <div class="cmd-output"> Identifies Remote Desktop Protocol logons (type 10) to systems, providing information about source IP addresses and user accounts that may indicate lateral movement activity. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1018">
+              <button class="mitre-close" id="close-details-T1018">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Remote System Discovery</div>
+                <div class="mitre-details-id">T1018</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may attempt to get a listing of other systems by IP address, hostname, or other logical identifier on a network that may be used for lateral movement from the current system. Functionality could exist within remote access tools to enable this, but utilities such as ping, net view, and arp are commonly available for built-in use. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">1</div>
+                    <div class="mitre-event-description">Process creation (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">3</div>
+                    <div class="mitre-event-description">Network connection (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">5156</div>
+                    <div class="mitre-event-description">The Windows Filtering Platform has permitted a connection</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1018 - Remote System Discovery Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4688} | Where-Object {$_.Properties[8].Value -match "net.exe|net1.exe|ping.exe|arp.exe|nbtstat.exe|nltest.exe" -and $_.Properties[9].Value -match "view|ping|arp -a|nbtstat -n|nltest /dclist|dsquery"} | Select-Object TimeCreated, @{Name="Process";Expression={$_.Properties[8].Value}}, @{Name="CommandLine";Expression={$_.Properties[9].Value}}, @{Name="User";Expression={$_.Properties[1].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies common system discovery commands and tools used to enumerate remote systems on a network, which may indicate reconnaissance activity. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1552.002">
+              <button class="mitre-close" id="close-details-T1552.002">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Credentials in Registry</div>
+                <div class="mitre-details-id">T1552.002</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may search the Registry for credentials and passwords. The Windows Registry stores configuration information that can be used by the system or other programs. Adversaries may query the Registry looking for credentials and passwords that have been stored for use by other programs or services. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4656</div>
+                    <div class="mitre-event-description">A handle to an object was requested</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4663</div>
+                    <div class="mitre-event-description">An attempt was made to access an object</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4657</div>
+                    <div class="mitre-event-description">A registry value was modified</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1552.002 - Registry Credential Access Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4663, 4656} | Where-Object {$_.Properties[4].Value -match "password|credentials|AutoLogon|DefaultPassword|DefaultUserName" -and $_.Properties[4].Value -match "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|\\SAM\\SAM\\Domains\\Account|\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RemoteAccess|\\SECURITY\\Policy\\Secrets"} | Select-Object TimeCreated, @{Name="User";Expression={$_.Properties[1].Value}}, @{Name="ProcessName";Expression={$_.Properties[11].Value}}, @{Name="ObjectName";Expression={$_.Properties[4].Value}}, @{Name="AccessMask";Expression={$_.Properties[7].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies registry access attempts targeting locations known to store credentials or passwords, which may indicate credential harvesting activity. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1068">
+              <button class="mitre-close" id="close-details-T1068">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Exploitation for Privilege Escalation</div>
+                <div class="mitre-details-id">T1068</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may exploit software vulnerabilities in an attempt to elevate privileges. Exploitation of a software vulnerability occurs when an adversary takes advantage of a programming error in a program, service, or within the operating system software or kernel itself to execute adversary-controlled code. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4657</div>
+                    <div class="mitre-event-description">A registry value was modified</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">7</div>
+                    <div class="mitre-event-description">Image loaded (Sysmon)</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4672</div>
+                    <div class="mitre-event-description">Special privileges assigned to new logon</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1068 - Privilege Escalation Exploitation Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4688} | Where-Object {$_.Properties[8].Value -match "juicy-potato|sweetpotato|printspoofer|lovelypotato|roguepotato|pipepotato|ghostpotato|rottenpotatong|badpotato|cve-|exploit"} | Select-Object TimeCreated, @{Name="Process";Expression={$_.Properties[8].Value}}, @{Name="CommandLine";Expression={$_.Properties[9].Value}}, @{Name="User";Expression={$_.Properties[1].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies processes with names or command lines associated with known local privilege escalation exploits, such as Potato variants and other common exploits. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1098">
+              <button class="mitre-close" id="close-details-T1098">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Account Manipulation</div>
+                <div class="mitre-details-id">T1098</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may manipulate accounts to maintain access to victim systems. Account manipulation may consist of any action that preserves adversary access to a compromised account, such as modifying credentials or permission groups. These actions could also include account creation, which may be used to establish secondary persistence mechanisms. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4738</div>
+                    <div class="mitre-event-description">A user account was changed</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4728</div>
+                    <div class="mitre-event-description">A member was added to a security-enabled global group</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4732</div>
+                    <div class="mitre-event-description">A member was added to a security-enabled local group</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4724</div>
+                    <div class="mitre-event-description">An attempt was made to reset an account's password</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1098 - Account Manipulation Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4732} | Where-Object {$_.Properties[2].Value -match "Administrators|Domain Admins|Enterprise Admins|Remote Desktop Users"} | Select-Object TimeCreated, @{Name="Group";Expression={$_.Properties[2].Value}}, @{Name="MemberName";Expression={$_.Properties[1].Value}}, @{Name="SubjectUser";Expression={$_.Properties[4].Value}}, @{Name="SubjectDomain";Expression={$_.Properties[5].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies additions to privileged groups, which may indicate an adversary adding compromised accounts to administrative groups to maintain elevated access. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) -->
+            <div class="mitre-details" id="technique-details-T1569.002">
+              <button class="mitre-close" id="close-details-T1569.002">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Service Execution</div>
+                <div class="mitre-details-id">T1569.002</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may abuse the Windows service control manager to execute commands or payloads. The Windows service control manager (services.exe) is an interface to manage and manipulate services. The service control manager is accessible to users via GUI components as well as system utilities such as sc.exe and Net. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">7045</div>
+                    <div class="mitre-event-description">A service was installed in the system</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">7036</div>
+                    <div class="mitre-event-description">The service entered the running state</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4697</div>
+                    <div class="mitre-event-description">A service was installed in the system</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1569.002 - Service Execution Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4688} | Where-Object {$_.Properties[8].Value -match "sc.exe|net.exe|net1.exe" -and $_.Properties[9].Value -match "start|create"} | Select-Object TimeCreated, @{Name="Process";Expression={$_.Properties[8].Value}}, @{Name="CommandLine";Expression={$_.Properties[9].Value}}, @{Name="User";Expression={$_.Properties[1].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies use of service control utilities to start or create services, which may indicate adversaries leveraging services for execution. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Remote Desktop Hijacking -->
+            <div class="mitre-details" id="technique-details-T1563.002">
+              <button class="mitre-close" id="close-details-T1563.002">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Remote Desktop Hijacking</div>
+                <div class="mitre-details-id">T1563.002</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may hijack a legitimate user's remote desktop session to move laterally within an environment. Remote desktop is a common feature in operating systems that allows a user to log into an interactive session with a system desktop graphical user interface on a remote system. An adversary may take advantage of this feature to hijack a legitimate RDP session to achieve lateral movement within a network. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4624</div>
+                    <div class="mitre-event-description">An account was successfully logged on</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4778</div>
+                    <div class="mitre-event-description">A session was reconnected to a Window Station</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4779</div>
+                    <div class="mitre-event-description">A session was disconnected from a Window Station</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1563.002 - Remote Desktop Hijacking Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4778} | Select-Object TimeCreated, @{Name="TargetUser";Expression={$_.Properties[1].Value}}, @{Name="TargetDomain";Expression={$_.Properties[2].Value}}, @{Name="SourceIP";Expression={$_.Properties[5].Value}}, @{Name="SessionName";Expression={$_.Properties[3].Value}} | Sort-Object TimeCreated</span>
+                    </div>
+                    <div class="cmd-output"> Identifies session reconnection events, which may indicate RDP session hijacking, especially when correlated with unexpected disconnections or when sessions are reconnected from unusual source addresses. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) OS Credential Dumping -->
+            <div class="mitre-details" id="technique-details-T1003">
+              <button class="mitre-close" id="close-details-T1003">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">OS Credential Dumping</div>
+                <div class="mitre-details-id">T1003</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may attempt to dump credentials to obtain account login and credential material, normally in the form of a hash or a clear text password, from the operating system and software. Credentials can then be used to perform lateral movement and access restricted information. Several tools may be used to dump credentials from various operating system locations and in different formats. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4688</div>
+                    <div class="mitre-event-description">A new process has been created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4656</div>
+                    <div class="mitre-event-description">A handle to an object was requested</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4663</div>
+                    <div class="mitre-event-description">An attempt was made to access an object</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">7</div>
+                    <div class="mitre-event-description">Image loaded (Sysmon)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1003 - OS Credential Dumping Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4688} | Where-Object {$_.Properties[8].Value -match "mimikatz|procdump|gsecdump|wce\.exe|lsass\.exe dump|pwdump|ntdsutil|vssadmin|dsquery|lsadump|hashdump|cachedump"} | Select-Object TimeCreated, @{Name="ProcessName";Expression={$_.Properties[8].Value}}, @{Name="User";Expression={$_.Properties[1].Value}}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies process creation events that may indicate credential dumping activity, including common tools and commands used to extract password hashes from systems. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+            <!-- Technique Details Panel (Initially Hidden) Scheduled Task/Job -->
+            <div class="mitre-details" id="technique-details-T1053.005">
+              <button class="mitre-close" id="close-details-T1053.005">&times;</button>
+              <div class="mitre-details-header">
+                <div class="mitre-details-title">Scheduled Task/Job</div>
+                <div class="mitre-details-id">T1053.005</div>
+              </div>
+              <div class="mitre-details-description"> Adversaries may abuse the Windows Task Scheduler to perform task scheduling for initial or recurring execution of malicious code. Windows Task Scheduler can be used to execute programs at system startup or on a scheduled basis for persistence. The Windows Task Scheduler can also be abused to conduct remote execution as part of lateral movement and privilege escalation. </div>
+              <div class="mitre-details-events">
+                <h4>Windows Event IDs for Detection</h4>
+                <div class="mitre-events-grid">
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4698</div>
+                    <div class="mitre-event-description">A scheduled task was created</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4699</div>
+                    <div class="mitre-event-description">A scheduled task was deleted</div>
+                  </div>
+                  <div class="mitre-event-card">
+                    <div class="mitre-event-id">4700</div>
+                    <div class="mitre-event-description">A scheduled task was enabled</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mitre-details-query">
+                <h4>
+                  <i class="fas fa-terminal"></i> PowerShell Detection Query
+                </h4>
+                <div class="cmd-card info">
+                  <div class="cmd-header">
+                    <i class="fas fa-search"></i>
+                    <span class="cmd-title">T1053.005 - Scheduled Task Detection</span>
+                    <span class="cmd-tag">Hunt</span>
+                  </div>
+                  <div class="cmd-content">
+                    <div class="cmd-line">
+                      <span class="cmd-prompt">PS></span>
+                      <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Security"; Id=4698} | Select-Object TimeCreated, @{Name="User";Expression={$_.Properties[1].Value}}, @{Name="TaskName";Expression={$_.Properties[4].Value}}, @{Name="TaskContent";Expression={$_.Properties[5].Value}} | Where-Object {$_.TaskContent -match "powershell|cmd.exe|regsvr32|rundll32|wscript|cscript|\\\\|http"}</span>
+                    </div>
+                    <div class="cmd-output"> Identifies newly created scheduled tasks that contain suspicious command patterns like PowerShell, command prompt usage, remote resources, or scripts. </div>
+                  </div>
+                  <button class="cmd-copy">
+                    <i class="far fa-copy"></i> Copy </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="back-button-container">
+        <a href="endpoint.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

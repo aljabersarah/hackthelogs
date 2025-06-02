@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - WAF Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">WAF Logs</div>
+      <a href="#" class="nav-item active">WAF Log Overview</a>
+      <a href="#" class="nav-item">Key WAF Threat Types</a>
+      <a href="#" class="nav-item">WAF Log Format</a>
+      <a href="#" class="nav-item">WAF SIEM Queries</a>
+      <a href="#" class="nav-item">OWASP Top 10 Web Application Security Risks</a>
+ 
+    </div>
+ 
+ <!-- Main Content -->
+<div class="main-content">
+  <div class="header">
+    <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Web Application Firewall Logs</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search documentation...">
+    </div>
+  </div>
+  <div class="card event-log-overview">
+    <div class="card-header">
+      <div></div>
+      <h2>WAF Log Overview</h2>
+    </div>
+    <div class="content-wrapper">
+      <div class="overview-content">
+        <p>Web Application Firewall (WAF) logs are critical security artifacts that document HTTP/HTTPS traffic decisions made by the WAF. These logs capture essential data including client IP addresses, request URLs, user agents, cookies, request methods, response codes, attack signatures detected, and the action taken (allow, block, challenge). This detailed record enables security teams to monitor application traffic and investigate potential web-based attacks.</p>
+        <p>Most enterprise WAFs generate several log types: <code>access logs</code> that record HTTP/HTTPS requests, <code>security logs</code> that document detected web attacks like XSS, SQL injection, and CSRF, and <code>audit logs</code> that track WAF operational events such as rule changes, administrator activities, and policy updates. Log formats vary by vendor but typically include JSON, CEF (Common Event Format), or structured formats that can be exported to SIEM and analytics platforms.</p>
+        <p>To effectively utilize WAF logs, organizations should implement proper log retention policies, configure detailed logging parameters, and integrate logs with security analytics platforms. WAF logs are invaluable for detecting malicious activities such as web application scanning, injection attacks, credential stuffing, API abuse, and session hijacking attempts. They also provide crucial evidence for incident response investigations, help demonstrate compliance with regulations like PCI DSS, and support application troubleshooting efforts.</p>
+      </div>
+    </div>
+  </div>
+ <!-- Key WAF Threat Types -->
+<div class="card event-log-locations">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>Key WAF Threat Types</h2>
+  </div>
+  <p>Web Application Firewalls are designed to detect and block a wide variety of web-based attacks. Below are common threat types that WAFs help protect against:</p>
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Threat Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="log-type site-log">SQL Injection (SQLi)</td>
+          <td>Attempts to manipulate backend SQL queries to gain unauthorized access or extract data.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-site-log">Cross-Site Scripting (XSS)</td>
+          <td>Injects malicious scripts into web pages viewed by other users to steal data or hijack sessions.</td>
+        </tr>
+        <tr>
+          <td class="log-type ftp-log">Command Injection</td>
+          <td>Tries to execute arbitrary system commands through vulnerable input fields.</td>
+        </tr>
+        <tr>
+          <td class="log-type config-log">Local File Inclusion (LFI)</td>
+          <td>Exploits vulnerabilities to access files on the server that should not be publicly available.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-site-log">Remote File Inclusion (RFI)</td>
+          <td>Tries to include and execute remote malicious scripts from external servers.</td>
+        </tr>
+        <tr>
+          <td class="log-type ftp-log">HTTP Protocol Abuse</td>
+          <td>Detects non-standard HTTP behavior which may indicate reconnaissance or probing.</td>
+        </tr>
+        <tr>
+          <td class="log-type site-log">Bot/Automation Detection</td>
+          <td>Identifies automated tools or bots based on headers, frequency, and behavior anomalies.</td>
+        </tr>
+        <tr>
+          <td class="log-type config-log">Brute Force / Credential Stuffing</td>
+          <td>Detects repeated login failures, indicating password guessing or credential stuffing attacks.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <div class="tip-content">
+      <strong>Pro Tip:</strong> WAFs often combine signature-based, anomaly-based, and behavioral detection to protect against known and emerging threats. Customize WAF rules to suit your application's risk profile.
+    </div>
+  </div>
+</div>
+
+      <!-- WAF Log Format -->
+<div class="card">
+  <h2>WAF Log Format</h2>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th>Example Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>timestamp</td>
+          <td>Date and time of the event</td>
+          <td>Timestamp</td>
+          <td>2025-04-23T10:25:17Z</td>
+        </tr>
+        <tr>
+          <td>client_ip</td>
+          <td>IP address of the client</td>
+          <td>Source</td>
+          <td>192.168.1.55</td>
+        </tr>
+        <tr>
+          <td>request_method</td>
+          <td>HTTP method used in the request</td>
+          <td>Request Type</td>
+          <td>GET</td>
+        </tr>
+        <tr>
+          <td>request_uri</td>
+          <td>Complete requested URI path</td>
+          <td>Request</td>
+          <td>/admin/login.aspx?user=admin'--</td>
+        </tr>
+        <tr>
+          <td>rule_id</td>
+          <td>Matched WAF rule ID</td>
+          <td>Detection</td>
+          <td>981245</td>
+        </tr>
+        <tr>
+          <td>message</td>
+          <td>Description of the WAF rule triggered</td>
+          <td>Detection</td>
+          <td>SQL Injection Attempt Detected</td>
+        </tr>
+        <tr>
+          <td>severity</td>
+          <td>Severity level of the alert</td>
+          <td>Detection</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td>action</td>
+          <td>Action taken by the WAF</td>
+          <td>Response</td>
+          <td>Blocked</td>
+        </tr>
+        <tr>
+          <td>user_agent</td>
+          <td>User-Agent string from the client</td>
+          <td>Source</td>
+          <td>sqlmap/1.5.2</td>
+        </tr>
+        <tr>
+          <td>referer</td>
+          <td>Referring URL</td>
+          <td>Source</td>
+          <td>https://example.com/home</td>
+        </tr>
+        <tr>
+          <td>response_code</td>
+          <td>HTTP status code returned</td>
+          <td>Response</td>
+          <td>403</td>
+        </tr>
+        <tr>
+          <td>processing_time_ms</td>
+          <td>Time taken to process the request (in milliseconds)</td>
+          <td>Performance</td>
+          <td>382</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+      <!-- WAF SIEM Queries -->
+<div class="card">
+  <h2>WAF SIEM Queries</h2>
+  <p>Use these queries to detect abnormal activity, exploitation attempts, automated threats, and user agent misuse from WAF or HTTP logs in your SIEM.</p>
+  <div class="cmd-grid">
+    <!-- List All User Agents -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-user-secret"></i>
+        <span class="cmd-title">List All User Agents</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">stats count by http_user_agent | sort - count</span>
+        </div>
+        <div class="cmd-output">Detect bots or suspicious tools by listing the most used user agents.</div>
+      </div>
+    </div>
+
+    <!-- Most Visited Destination IPs -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-network-wired"></i>
+        <span class="cmd-title">Top Destination IPs</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">stats count by dest_ip | sort - count</span>
+        </div>
+        <div class="cmd-output">Finds servers receiving the highest traffic — useful in load-balanced environments.</div>
+      </div>
+    </div>
+
+    <!-- POST Requests with 200 Response -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-envelope-open-text"></i>
+        <span class="cmd-title">POST with 200</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">search method="POST" status=200 | stats count by src_ip, uri_path | sort - count</span>
+        </div>
+        <div class="cmd-output">Detects successful POST requests — may indicate abuse or data exfiltration.</div>
+      </div>
+    </div>
+
+    <!-- Suspicious POST Requests -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-robot"></i>
+        <span class="cmd-title">Automated POST Requests</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">search method="POST" NOT (http_user_agent="*Mozilla*" OR http_user_agent="*Chrome*" OR http_user_agent="*Safari*") | fields _time, src_ip, http_user_agent, uri_path</span>
+        </div>
+        <div class="cmd-output">Detects non-browser POSTs — typical of automation, bots, and exploit tools.</div>
+      </div>
+    </div>
+
+    <!-- Detect URI with Executables -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-bug"></i>
+        <span class="cmd-title">Requests for EXE Files</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">search uri_path="*.exe" | fields _time, src_ip, uri_path</span>
+        </div>
+        <div class="cmd-output">Flags requests targeting `.exe` files — potential malware hosting or downloads.</div>
+      </div>
+    </div>
+
+    <!-- Repeated Failed Requests from Same IP -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-times-circle"></i>
+        <span class="cmd-title">IPs with Multiple Failed Requests</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">search status IN (403, 401) | stats count as Failures by src_ip | where Failures > 5 | sort - Failures</span>
+        </div>
+        <div class="cmd-output">Finds brute force or probing attempts from IPs that trigger repeated denied requests.</div>
+      </div>
+    </div>
+
+    <!-- Top 5 Accessed URIs -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-route"></i>
+        <span class="cmd-title">Most Accessed Endpoints</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">stats count by uri_path | sort - count | head 5</span>
+        </div>
+        <div class="cmd-output">Highlights endpoints with the highest traffic — useful to monitor popular or vulnerable paths.</div>
+      </div>
+    </div>
+
+    <!-- User Agent Frequency per IP -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-user-cog"></i>
+        <span class="cmd-title">User Agent Diversity per IP</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">stats dc(http_user_agent) as UniqueAgents by src_ip | sort - UniqueAgents</span>
+        </div>
+        <div class="cmd-output">Reveals IPs using multiple user agents — may indicate obfuscation or botnet behavior.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ 
+      <!-- OWASP Top 10 Navigator -->
+      <div class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon">
+            
+          </div>
+          <h2>OWASP Top 10 Web Application Security Risks</h2>
+        </div>
+        <p class="description"> The OWASP Top 10 is a standard awareness document for developers and web application security practitioners. It represents a broad consensus about the most critical security risks to web applications based on frequency of discovery, severity, and potential impact. </p>
+        <div class="audit-categories-grid">
+          <!-- A01:2021 Broken Access Control -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-lock-open"></i>
+              <h4>A01:2021 - Broken Access Control</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Restrictions on authenticated users aren't properly enforced. Attackers can exploit flaws to access unauthorized functionality or data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">Critical Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A02:2021 Cryptographic Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>A02:2021 - Cryptographic Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Failures related to cryptography that often lead to sensitive data exposure. Includes weak encryption, improper certificate validation, or using deprecated functions.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A03:2021 Injection -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-code"></i>
+              <h4>A03:2021 - Injection</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>User-supplied data is not validated, filtered, or sanitized. SQL, NoSQL, OS, and LDAP injection flaws can result in data exfiltration or system compromise.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A04:2021 Insecure Design -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-drafting-compass"></i>
+              <h4>A04:2021 - Insecure Design</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Flaws related to design and architectural security failures. Represents a shift from remediation to designing with security in mind from the start.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A05:2021 Security Misconfiguration -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sliders-h"></i>
+              <h4>A05:2021 - Security Misconfiguration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Missing security hardening, improper permissions, unnecessary features enabled, default accounts/passwords, and overly informative error messages.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A06:2021 Vulnerable Components -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-puzzle-piece"></i>
+              <h4>A06:2021 - Vulnerable Components</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Using outdated libraries, frameworks, or components with known vulnerabilities. Includes failure to track vulnerable dependencies and patch management.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A07:2021 Auth Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-lock"></i>
+              <h4>A07:2021 - Auth Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Incorrect implementation of authentication and session management. Includes weak passwords, improper session handling, and credential exposure.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A08:2021 Software Integrity Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-check-circle"></i>
+              <h4>A08:2021 - Software Integrity Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Failures to verify integrity of software updates, critical data, CI/CD pipelines, or unsigned libraries. Includes auto-update functionality without integrity checks.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A09:2021 Logging Failures -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-clipboard-list"></i>
+              <h4>A09:2021 - Logging Failures</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Insufficient logging, monitoring, and alerting. Inadequate detection, escalation, and response to active breaches. Logs missing critical details or improperly stored.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- A10:2021 SSRF -->
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-random"></i>
+              <h4>A10:2021 - Server-Side Request Forgery</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Web application fetches remote resources without validating user-supplied URLs. Attackers can force the server to connect to internal services or read unauthorized data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detection</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+          </div>
+          
+        </div>
+          <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The OWASP Top 10 should be viewed as a starting point, not a comprehensive security program. Organizations should develop additional security measures based on their specific threat landscape and risk profile.
+          </div>
+        </div>
+      
+      </div>
+      <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

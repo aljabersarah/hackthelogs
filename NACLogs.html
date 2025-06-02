@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - PAM Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js\Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">NAC Logs</div>
+      <a href="#" class="nav-item active">NAC Solution Overview</a>
+      <a href="#" class="nav-item">Key NAC Solution Capabilities</a>
+      <a href="#" class="nav-item">NAC Event Logs</a>
+      <a href="#" class="nav-item">NAC Logging Standards and Integration</a>
+      <a href="#" class="nav-item">NAC Log Analysis Queries</a>
+ 
+    </div>
+   <!-- Main Content -->
+<div class="main-content">
+  <div class="header">
+    <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Network Access Control</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search documentation...">
+    </div>
+  </div>
+  <div class="card event-log-overview">
+    <div class="card-header">
+      <div></div>
+      <h2>NAC Solution Overview</h2>
+    </div>
+    <div class="content-wrapper">
+      <div class="overview-content">
+        <p>Network Access Control (NAC) solutions are comprehensive security and management frameworks that enable organizations to secure, control, and monitor devices accessing corporate networks. These solutions protect enterprise infrastructure by authenticating, authorizing, and evaluating endpoints before granting network access, regardless of connection type (wired, wireless, or VPN). By implementing robust NAC systems, organizations can enforce security policies, control network access, protect sensitive resources, and maintain visibility across their entire network infrastructure.</p>
+        <p>Most enterprise NAC platforms offer several key capabilities: <code>device authentication</code> for secure verification, <code>policy enforcement</code> that implements security controls, <code>network segmentation</code> that controls traffic flows, and <code>compliance checking</code> that ensures endpoints meet security requirements. Implementation approaches vary by vendor but typically include agent-based deployments, agentless monitoring, or hybrid solutions integrated with existing identity and access management systems.</p>
+        <p>To effectively utilize NAC solutions, organizations should develop comprehensive network security policies, implement risk-based controls, and balance security with user experience. NAC solutions are invaluable for preventing unauthorized access, ensuring regulatory compliance, managing security postures, and enabling secure network connectivity. They also provide crucial capabilities for device compliance verification, help segregate guest and corporate networks, and support incident response through quarantine, isolation, and remediation features.</p>
+      </div>
+    </div>
+  </div>
+<!-- Key NAC Solution Capabilities -->
+<div class="card event-log-locations">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>Key NAC Solution Capabilities</h2>
+  </div>
+  <p>NAC solutions help organizations control access to their networks through the following capabilities:</p>
+  <div class="log-locations-table-container">
+    <table class="log-locations-table">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="log-type site-log">Policy Lifecycle Management</td>
+          <td>Enforces policies for all operating scenarios without requiring separate products or additional modules.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Profiling and Visibility</td>
+          <td>Recognizes and profiles users and their devices before malicious code can cause damage.</td>
+        </tr>
+        <tr>
+          <td class="log-type virtualhost-log">Guest Networking Access</td>
+          <td>Manage guests through a customizable, self-service portal that includes guest registration, guest authentication, guest sponsoring, and a guest management portal.</td>
+        </tr>
+        <tr>
+          <td class="log-type custom-log">Security Posture Check</td>
+          <td>Evaluates security-policy compliance by user type, device type, and operating system.</td>
+        </tr>
+        <tr>
+          <td class="log-type site-log">Incidence Response</td>
+          <td>Mitigates network threats by enforcing security policies that block, isolate, and repair noncompliant machines without administrator attention.</td>
+        </tr>
+        <tr>
+          <td class="log-type error-log">Bidirectional Integration</td>
+          <td>Integrate with other security and network solutions through the open/RESTful API.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <div class="tip-content">
+      <strong>Pro Tip:</strong> When implementing a NAC solution, consider a phased approach that starts with monitoring mode to understand your existing network access patterns before enforcing strict policies. This allows for policy refinement and user education while minimizing disruption to business operations.
+    </div>
+  </div>
+</div>
+<!-- NAC Event Logs -->
+<div class="card">
+  <div class="card-header">
+    <div class="header-icon"></div>
+    <h2>NAC Event Logs</h2>
+  </div>
+  <p>Events are records of administrative and network access actions that the NAC solution stores in logs. Export event logs as CSV files. You can also configure the NAC solution to send the event logs to your Security Information and Event Management tools or Business Intelligence systems.</p>
+  
+  <p>The event logs show both network events and administrative events. Network events show the authentication attempts, authorization decisions, posture assessments, and endpoint activities. Administrative events show actions taken from the NAC administrative console including login sessions, failed login attempts, admin actions, system settings changes, and policy modifications.</p>
+  
+  <p>You can filter the date range, severity level, category, or module.</p>
+  
+  <div class="card">
+    <h3>Administrative Event Severity Levels</h3>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Severity Level</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Critical</td>
+          <td>Indicates a failure in a primary NAC system.</td>
+        </tr>
+        <tr>
+          <td>Error</td>
+          <td>Indicates a failure in a non-primary NAC system.</td>
+        </tr>
+        <tr>
+          <td>Warning</td>
+          <td>Indicates an issue in the future if action is not taken.</td>
+        </tr>
+        <tr>
+          <td>Notice</td>
+          <td>Indicates unusual conditions.</td>
+        </tr>
+        <tr>
+          <td>Information</td>
+          <td>Indicates normal operational data.</td>
+        </tr>
+        <tr>
+          <td>Debug</td>
+          <td>Indicates useful information for troubleshooting.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="card">
+    <h3>Network Event Severity Levels</h3>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Severity Level</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Emergency</td>
+          <td>Indicates a catastrophic NAC failure requiring immediate attention.</td>
+        </tr>
+        <tr>
+          <td>Alert</td>
+          <td>Indicates a failure of a foundational NAC system requiring attention.</td>
+        </tr>
+        <tr>
+          <td>Critical</td>
+          <td>Indicates a failure in a primary NAC authentication or authorization system.</td>
+        </tr>
+        <tr>
+          <td>Error</td>
+          <td>Indicates a failure in a non-primary NAC system.</td>
+        </tr>
+        <tr>
+          <td>Warning</td>
+          <td>Indicates an issue in the future if action is not taken.</td>
+        </tr>
+        <tr>
+          <td>Notice</td>
+          <td>Indicates unusual conditions.</td>
+        </tr>
+        <tr>
+          <td>Information</td>
+          <td>Indicates normal operational data.</td>
+        </tr>
+        <tr>
+          <td>Debug</td>
+          <td>Indicates useful information for troubleshooting.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="card">
+    <h3>Event Types</h3>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Event Type</th>
+            <th>Description</th>
+            <th>Management Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Administrative Events</td>
+            <td>Actions taken from the NAC console including login sessions, failed login attempts, admin actions, system settings changes, and policy modifications.</td>
+            <td>Administration > System > Logging > Administrative Events</td>
+          </tr>
+          <tr>
+            <td>Operational Events</td>
+            <td>Authentication and authorization events, including successful and failed authentications, policy evaluation results, and endpoint profiling activities.</td>
+            <td>Operations > Reports > Operational Events</td>
+          </tr>
+          <tr>
+            <td>Syslog Integration</td>
+            <td>Configuration for forwarding NAC logs to external syslog servers and SIEM solutions.</td>
+            <td>Administration > System > Logging > Remote Logging Targets</td>
+          </tr>
+          <tr>
+            <td>Log Settings</td>
+            <td>Minimum logging level configuration for different components of the NAC system.</td>
+            <td>Administration > System > Logging > Log Categories</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+   <div class="tip-content">
+      <strong>Pro Tip:</strong> You can adjust the logging level for different NAC components independently to balance between detailed troubleshooting information and system performance.
+    </div>
+</div>
+
+<!-- NAC Log Standards and Integration -->
+<div class="card">
+  <h2>NAC Logging Standards and Integration</h2>
+  <p>NAC solutions implement logging in various ways, creating challenges when normalizing logs for security monitoring. Understanding logging standards is essential for effective SIEM integration and security operations.</p>
+  <div class="log-locations-table-container">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>What Varies</th>
+          <th>Examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Log Format</td>
+          <td>Different log structures including JSON, CSV, Syslog, and proprietary formats.</td>
+          <td>Common formats include structured JSON, standard Syslog (RFC 5424), and CSV exports for analysis.</td>
+        </tr>
+        <tr>
+          <td>Field Names</td>
+          <td>Field names (like <code>device</code>, <code>user</code>, <code>action</code>) may differ across implementations.</td>
+          <td>Some use <code>endpointId</code>, others use <code>macAddress</code> or <code>deviceName</code> for endpoint identification.</td>
+        </tr>
+        <tr>
+          <td>Event Names/Types</td>
+          <td>Events might be labeled differently across solutions.</td>
+          <td>Authentication events may be labeled as <code>AuthSuccess</code>, <code>AccessGranted</code>, or <code>SuccessfulAuthentication</code>.</td>
+        </tr>
+        <tr>
+          <td>Delivery Method</td>
+          <td>Support for SIEM connectors, API exports, or webhooks varies.</td>
+          <td>Methods include UDP/TCP Syslog forwarding, REST API polling, SNMP traps, or direct database connections.</td>
+        </tr>
+        <tr>
+          <td>Data Granularity</td>
+          <td>Some provide detailed network telemetry; others only basic status changes.</td>
+          <td>Advanced solutions may log detailed posture assessment results; others only authentication outcomes.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="subsection">
+    <h3>Common NAC Log Elements</h3>
+    <p>Despite implementation differences, most NAC logs will include:</p>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Common Element</th>
+            <th>Description</th>
+            <th>Normalization Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Timestamp</strong></td>
+            <td>When the authentication or authorization event occurred</td>
+            <td>Enables timeline correlation across security events</td>
+          </tr>
+          <tr>
+            <td><strong>Network Device</strong></td>
+            <td>The network access device (switch, wireless controller) processing the authentication</td>
+            <td>Identifies the network entry point being accessed</td>
+          </tr>
+          <tr>
+            <td><strong>Endpoint Identifier</strong></td>
+            <td>MAC address, IP address, or other unique endpoint identifier</td>
+            <td>Provides consistent tracking across different event types</td>
+          </tr>
+          <tr>
+            <td><strong>User Identity</strong></td>
+            <td>User account attempting network access</td>
+            <td>Associates activities with specific users for accountability</td>
+          </tr>
+          <tr>
+            <td><strong>Authentication Type</strong></td>
+            <td>Method used (802.1X, MAC Auth, WebAuth)</td>
+            <td>Categorizes authentication methods for security analysis</td>
+          </tr>
+          <tr>
+            <td><strong>Authorization Result</strong></td>
+            <td>Outcome of policy evaluation (permit, deny, quarantine)</td>
+            <td>Distinguishes between successful, failed, or restricted access events</td>
+          </tr>
+          <tr>
+            <td><strong>Network Assignment</strong></td>
+            <td>VLAN, SGT, ACL, or other access control assignment</td>
+            <td>Documents the network segmentation decision</td>
+          </tr>
+          <tr>
+            <td><strong>Posture Status</strong></td>
+            <td>Compliance state of the endpoint</td>
+            <td>Indicates whether security requirements were met</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>These shared elements help security teams <strong>normalize logs</strong> into a consistent format for analysis in <strong>SIEMs</strong> or <strong>log management platforms</strong>.</p>
+  </div>
+  
+  <div class="subsection">
+    <h3>Example: Common NAC Events in Different Formats</h3>
+    <div class="log-locations-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Format</th>
+            <th>Event Type</th>
+            <th>Log Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>JSON</strong></td>
+            <td>Authentication</td>
+            <td><code>{ "dateTime": "2025-04-23T15:45:00Z", "eventType": "Authentication", "macAddress": "11:22:33:44:55:66", "username": "jsmith@company.com", "authType": "EAP-TLS", "result": "Success", "assignedVLAN": "20" }</code></td>
+          </tr>
+          <tr>
+            <td><strong>Syslog</strong></td>
+            <td>Authentication</td>
+            <td><code>Apr 23 15:45:00 nac-server Authentication: session=AB12CD34 mac=11:22:33:44:55:66 user=jsmith@company.com auth_type=EAP-TLS result=PASS vlan=20 switch=10.1.1.10 port=GigabitEthernet1/0/12</code></td>
+          </tr>
+          <tr>
+            <td><strong>CSV Export</strong></td>
+            <td>Authentication</td>
+            <td><code>"2025-04-23 15:45:00","Authentication","11:22:33:44:55:66","jsmith@company.com","EAP-TLS","Success","VLAN 20","AB12CD34","10.1.1.10","GigabitEthernet1/0/12"</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Note:</strong> The examples above show the same network authentication event as logged in different formats. Despite format differences, the essential information about the authentication event remains consistent.</p>
+  </div>
+
+
+</div>
+ <!-- NAC Log Analysis Queries -->
+<div class="card">
+  <h2>NAC Log Analysis Queries</h2>
+  <p>Use these generic SIEM query patterns to analyze NAC logs, detect suspicious network access activities, and monitor security compliance across any NAC solution. Field names will vary by implementation - adapt queries by substituting your system's specific field names.</p>
+  <div class="cmd-grid">
+    <!-- Failed Authentication Events -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="cmd-title">Failed Authentication Events</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" (event_category="*authentication*" OR event_type="*auth*") status="*fail*" OR result="*rejected*" | stats count by mac_address, username, auth_failure_reason | sort -count</span>
+        </div>
+        <div class="cmd-output">Identifies endpoints with recurring authentication failures — helps prioritize investigation of potential brute force attempts or credential issues.</div>
+      </div>
+    </div>
+    <!-- Non-Compliant Endpoints -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-shield-alt"></i>
+        <span class="cmd-title">Non-Compliant Endpoints</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" (event_type="*posture*" OR event_type="*compliance*" OR event_message="*health*") result="*fail*" | dedup mac_address | table mac_address, username, ip_address, posture_status, failure_reason</span>
+        </div>
+        <div class="cmd-output">Detects endpoints failing security posture assessments — critical for identifying high-risk devices requiring remediation.</div>
+      </div>
+    </div>
+    <!-- Guest Access Monitoring -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-user-friends"></i>
+        <span class="cmd-title">Guest Access Monitoring</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" auth_type="*guest*" OR usergroup="*guest*" | bucket span=1d | stats count, dc(mac_address) as unique_devices by sponsor, _time | where count > 10</span>
+        </div>
+        <div class="cmd-output">Identifies excessive guest account sponsorship — helps detect potential abuse of guest access privileges or suspicious sponsorship patterns.</div>
+      </div>
+    </div>
+    <!-- Unauthorized Access Attempts -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-ban"></i>
+        <span class="cmd-title">Unauthorized Access Attempts</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" (vlan="*quarantine*" OR access_policy="*restricted*" OR auth_status="*limited*") | stats count by mac_address, ip_address, username, auth_failure_reason | sort -count</span>
+        </div>
+        <div class="cmd-output">Tracks endpoints placed in restrictive network segments — helps identify policy violations and potentially compromised endpoints.</div>
+      </div>
+    </div>
+    <!-- Network Access Termination -->
+    <div class="cmd-card error">
+      <div class="cmd-header">
+        <i class="fas fa-unlink"></i>
+        <span class="cmd-title">Network Access Termination</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" (action="*terminate*" OR action="*disconnect*" OR action="*coa*" OR action="*reauth*") | stats count by admin_user, mac_address, ip_address, reason, status | sort -_time</span>
+        </div>
+        <div class="cmd-output">Monitors forced disconnect commands — provides audit trail of critical access control actions for security incident response.</div>
+      </div>
+    </div>
+    <!-- Policy Configuration Changes -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-cogs"></i>
+        <span class="cmd-title">Policy Configuration Changes</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" (event_category="*policy*" OR event_category="*authorization*" OR event_category="*rule*") (action="*create*" OR action="*modify*" OR action="*delete*" OR action="*update*") | stats count by admin_user, policy_name, action | sort -_time</span>
+        </div>
+        <div class="cmd-output">Tracks policy and configuration changes — maintains audit trail of security policy modifications for compliance and troubleshooting.</div>
+      </div>
+    </div>
+    <!-- MAC Address Spoofing Detection -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-random"></i>
+        <span class="cmd-title">MAC Address Spoofing Detection</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" | stats values(username) as users, dc(username) as user_count, values(ip_address) as ips by mac_address | where user_count > 1 OR mvcount(ips) > 3</span>
+        </div>
+        <div class="cmd-output">Identifies MAC addresses associated with multiple user accounts or unusual numbers of IP addresses — helps detect potential MAC address spoofing or shared devices.</div>
+      </div>
+    </div>
+    <!-- Endpoint Profiling Changes -->
+    <div class="cmd-card info">
+      <div class="cmd-header">
+        <i class="fas fa-fingerprint"></i>
+        <span class="cmd-title">Endpoint Profiling Changes</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" event_category="*profil*" | transaction mac_address | where device_type_start != device_type_end | table _time, mac_address, device_type_start, device_type_end, username</span>
+        </div>
+        <div class="cmd-output">Finds endpoints with changing device profiles — identifies potentially suspicious device attribute changes that could indicate spoofing attempts.</div>
+      </div>
+    </div>
+    <!-- Unauthorized VLAN Assignment -->
+    <div class="cmd-card warning">
+      <div class="cmd-header">
+        <i class="fas fa-project-diagram"></i>
+        <span class="cmd-title">Unauthorized VLAN Assignment</span>
+      </div>
+      <div class="cmd-content">
+        <div class="cmd-line">
+          <span class="cmd-prompt">SIEM></span>
+          <span class="cmd-line-content">source="nac*" | lookup vlan_security vlan as assigned_vlan | where security_level="restricted" OR security_level="high" | stats count by mac_address, username, assigned_vlan, switch_ip, port</span>
+        </div>
+        <div class="cmd-output">Monitors endpoints assigned to high-security VLANs — ensures only authorized devices access sensitive network segments.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ 
+ 
+      <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html> 
+ 
+ 
