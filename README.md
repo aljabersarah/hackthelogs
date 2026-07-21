@@ -14,11 +14,7 @@ Whether you're a SOC analyst, security engineer, or student, this resource offer
 
 ---
 
-## Coming Soon
-
-A dedicated page on **log baselining** what to send to SIEMs and how to configure it effectively is in the works. Stay tuned!
-
----
+ 
 
 ## Community
 
