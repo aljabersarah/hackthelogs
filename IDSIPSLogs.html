@@ -50,7 +50,8 @@
         <div class="content-wrapper">
           <div class="overview-content">
             <p>An Intrusion Detection System observes traffic and reports what it recognises. An Intrusion Prevention System sits inline and can drop the traffic instead. The distinction is a deployment decision rather than a product one, and it matters enormously when reading the logs: an IDS alert means something was seen, while an IPS alert with a drop action means something was stopped. Confusing the two leads analysts to chase attacks that never landed, or worse, to assume an attack was blocked when the sensor was only watching.</p>
-            <p>The dominant open source engines are <code>Suricata</code> and <code>Snort</code>, and commercial platforms from Cisco, Palo Alto, and Trellix are built on the same signature model. A rule describes traffic to match on, and when a packet or stream matches, the engine emits an alert carrying the rule identifier, a classification, a priority, the five-tuple of the connection, and often the packet payload that triggered it. Suricata additionally produces <code>EVE JSON</code>, a unified structured output that carries not just alerts but protocol transaction records for HTTP, DNS, TLS, SMB, and file transfers. That protocol metadata is frequently more valuable than the alerts themselves, because it provides context for events no signature covers.</p>
+            <p>Detection engines fall into two broad families. Signature based engines match traffic against rules describing known attack patterns, a model shared by open source engines such as Suricata and Snort and by commercial platforms from Palo Alto Networks, Cisco, Fortinet, Check Point, and Trellix. Anomaly and behaviour based engines instead build a baseline of normal traffic and alert on deviation from it. Whatever the vendor, a detection event carries the same core elements: a rule or threat identifier, a classification, a severity, the five-tuple of the connection, the action taken, and often the payload that triggered it. The field names differ between platforms, the meaning does not, and the mapping table further down this page lines the common ones up.</p>
+            <p>Most sensors emit far more than alerts. Protocol transaction records document every observed HTTP request, DNS query, TLS handshake, and file transfer regardless of whether a rule matched. Suricata calls this <code>EVE JSON</code>, Zeek writes one log per protocol, and commercial platforms expose the same data as traffic, URL, application, or connection events. That protocol metadata is frequently more valuable than the alerts themselves, because it provides context for events no signature covers.</p>
             <p>The persistent operational problem with these systems is signal to noise. A default ruleset on a busy link will generate tens of thousands of alerts a day, the overwhelming majority of them informational or irrelevant to the environment. Tuning is not optional maintenance, it is the difference between a functioning detection capability and an ignored console. Equally important is placement: a sensor that cannot see traffic cannot alert on it, and in networks where most traffic is encrypted, an IDS without TLS inspection or JA3 fingerprinting is blind to the payloads it was bought to inspect.</p>
           </div>
         </div>
@@ -77,8 +78,8 @@
                 <td>The core output. One record per rule match, containing the signature identifier, revision, message, classification, priority, and the connection five-tuple. In IPS mode it also carries the action taken, which is what tells you whether the traffic was blocked or merely observed.</td>
               </tr>
               <tr>
-                <td class="log-type site-log">EVE JSON</td>
-                <td>Suricata's unified structured output. A single newline-delimited JSON stream carrying alerts plus protocol transaction records for HTTP, DNS, TLS, SSH, SMB, and more. The recommended output for any SIEM integration because every event type shares a common schema.</td>
+                <td class="log-type site-log">Unified Event Stream</td>
+                <td>A single structured stream carrying alerts plus protocol transaction records under one schema. Suricata calls this EVE JSON, commercial platforms deliver the equivalent over syslog in CEF, LEEF, or JSON. Always the preferred output for SIEM integration because every event type shares a common set of fields.</td>
               </tr>
               <tr>
                 <td class="log-type virtualhost-log">Protocol Transaction Logs</td>
@@ -105,7 +106,7 @@
         </div>
         <div>
           <div class="tip-content">
-            <strong>Pro Tip:</strong> Collect the statistics log and alert on <code>capture.kernel_drops</code>. A sensor under-provisioned for its link produces fewer alerts, which looks exactly like a quiet network. Packet loss is the most common cause of an IDS missing an intrusion it had a valid signature for.
+            <strong>Pro Tip:</strong> Collect the statistics log and alert on the drop counter, whatever your platform calls it: <code>capture.kernel_drops</code> on Suricata, dataplane packet descriptors on Palo Alto, snort instance drops on Firepower, IPS engine bypass on FortiGate. A sensor under-provisioned for its link produces fewer alerts, which looks exactly like a quiet network. Packet loss is the most common cause of an IDS missing an intrusion it had a valid signature for.
           </div>
         </div>
       </div>
@@ -113,58 +114,68 @@
       <!-- Log File Locations -->
       <div id="log-locations" class="card">
         <h2>Log File Locations</h2>
-        <p>Paths follow each engine's packaging conventions. Suricata concentrates almost everything into a single log directory.</p>
+        <p>Software sensors write to the local filesystem, while appliances and managed services expose logs through a console, an API, or syslog forwarding rather than a path you can read directly. Know which model you are dealing with before planning collection.</p>
         <div class="log-locations-table-container">
           <table class="log-locations-table">
             <thead>
               <tr>
+                <th>Platform</th>
                 <th>Log</th>
-                <th>Default Location</th>
+                <th>Location or Access Method</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="log-type site-log">Suricata EVE JSON</td>
-                <td>/var/log/suricata/eve.json</td>
+                <td class="log-type site-log">Suricata</td>
+                <td>Unified JSON, text alerts, engine, statistics</td>
+                <td>/var/log/suricata/eve.json, fast.log, suricata.log, stats.log. Config at /etc/suricata/suricata.yaml, rules under /var/lib/suricata/rules/</td>
               </tr>
               <tr>
-                <td class="log-type error-log">Suricata Fast Alert Log</td>
-                <td>/var/log/suricata/fast.log</td>
+                <td class="log-type error-log">Snort</td>
+                <td>Alert log and configuration</td>
+                <td>/var/log/snort/alert or alert_fast.txt. Config at /etc/snort/snort.conf (Snort 2) or snort.lua (Snort 3)</td>
               </tr>
               <tr>
-                <td class="log-type virtualhost-log">Suricata Engine Log</td>
-                <td>/var/log/suricata/suricata.log</td>
+                <td class="log-type virtualhost-log">Zeek</td>
+                <td>Per protocol transaction logs</td>
+                <td>/opt/zeek/logs/current/ with notice.log, conn.log, http.log, dns.log, ssl.log, files.log</td>
               </tr>
               <tr>
-                <td class="log-type config-log">Suricata Statistics</td>
-                <td>/var/log/suricata/stats.log</td>
+                <td class="log-type custom-log">Palo Alto Networks</td>
+                <td>Threat, traffic, and WildFire logs</td>
+                <td>Monitor tab in the web interface, <code>show log threat</code> in the CLI, or syslog forwarding via a Log Forwarding Profile. Panorama for aggregated retention</td>
               </tr>
               <tr>
-                <td class="log-type custom-log">Suricata Configuration</td>
-                <td>/etc/suricata/suricata.yaml</td>
+                <td class="log-type config-log">Cisco Secure Firewall (Firepower, FTD)</td>
+                <td>Intrusion events</td>
+                <td>FMC under Analysis then Intrusions then Events. Export by eStreamer or syslog. Local troubleshooting via /var/log/messages and /ngfw/var/log/</td>
               </tr>
               <tr>
-                <td class="log-type error-log">Snort Alert Log</td>
-                <td>/var/log/snort/alert or /var/log/snort/alert_fast.txt</td>
+                <td class="log-type custom-site-log">Fortinet FortiGate</td>
+                <td>IPS attack log</td>
+                <td>Log and Report then Intrusion Prevention, <code>execute log filter category ips</code> in the CLI, or forwarding to FortiAnalyzer and syslog</td>
               </tr>
               <tr>
-                <td class="log-type custom-site-log">Snort Configuration</td>
-                <td>/etc/snort/snort.conf (Snort 2) or /etc/snort/snort.lua (Snort 3)</td>
+                <td class="log-type site-log">Check Point</td>
+                <td>Threat Prevention logs</td>
+                <td>SmartConsole under Logs and Monitor. On the management server $FWDIR/log/*.log, readable with <code>fw log</code> or exported by LEA and syslog</td>
               </tr>
               <tr>
-                <td class="log-type site-log">Rule Files</td>
-                <td>/etc/suricata/rules/ or /etc/snort/rules/, managed by suricata-update or PulledPork</td>
+                <td class="log-type error-log">Cloud and managed services</td>
+                <td>Managed detection findings</td>
+                <td>AWS GuardDuty and Network Firewall to CloudWatch Logs, S3, or EventBridge. Azure Firewall Premium IDPS to Azure Monitor. Retrieved by API rather than file</td>
               </tr>
               <tr>
-                <td class="log-type custom-log">Extracted Files</td>
-                <td>/var/log/suricata/filestore/</td>
+                <td class="log-type custom-log">Extracted files and packet capture</td>
+                <td>Evidence artefacts</td>
+                <td>/var/log/suricata/filestore/ on Suricata, packet capture attached to the event record on commercial platforms and downloaded from the console</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div>
           <div class="tip-content">
-            <strong>Pro Tip:</strong> Give <code>/var/log/suricata</code> its own volume. EVE JSON with protocol logging enabled on a busy link can produce tens of gigabytes per day, and filling the root filesystem takes the sensor down along with everything else on the host.
+            <strong>Pro Tip:</strong> For any software sensor, give the log directory its own volume. Full protocol logging on a busy link produces tens of gigabytes per day, and filling the root filesystem takes the sensor down along with everything else on the host. For appliances the same risk appears as silent log rollover, where the console shows only a few hours of history and older events are gone before anyone investigates.
           </div>
         </div>
       </div>
@@ -172,25 +183,21 @@
       <!-- Configuring Logging -->
       <div id="enable-logging" class="card">
         <h2>Configuring IDS and IPS Logging</h2>
-        <p>Suricata's logging is configured in the outputs section of <code>suricata.yaml</code>. These settings produce a stream suitable for SIEM ingestion without overwhelming storage.</p>
+        <p>Every platform exposes the same six decisions through different interfaces. The principle in each step below applies regardless of engine, and the snippet shows one concrete implementation alongside the equivalent on other platforms.</p>
 
         <div class="implementation-steps">
-          <h3>Step 1: Configure EVE JSON Output</h3>
+          <h3>Step 1: Emit Structured Output Rather Than Text</h3>
           <div class="config-snippet">
+# Suricata: structured JSON covering alerts and protocol records
 outputs:
   - eve-log:
       enabled: yes
-      filetype: regular
       filename: eve.json
-      community-id: true          # correlate with Zeek and other tools
-      community-id-seed: 0
+      community-id: true          # portable flow hash for correlation
       types:
         - alert:
             payload: yes
-            payload-printable: yes
-            http-body: yes
             metadata: yes
-            tagged-packets: yes
         - http:
             extended: yes
         - dns:
@@ -198,93 +205,107 @@ outputs:
         - tls:
             extended: yes
         - files:
-            force-magic: yes
             force-hash: [md5, sha256]
         - flow
-        - ssh
-        - smb</div>
-          <div class="cmd-output">The community-id field is the single most valuable setting here. It produces a hash of the connection five-tuple that matches Zeek and other tools, making cross-source correlation trivial.</div>
+
+# Palo Alto: Device > Log Settings, or a Log Forwarding Profile per rule
+#   forward Threat and Traffic logs to syslog, format set to JSON or CEF
+# Cisco FTD: Policies > Intrusion > Logging, or stream events by eStreamer
+# FortiGate: config log syslogd setting, then set format cef
+# Check Point: SmartConsole log exporter, target format syslog or CEF</div>
+          <div class="cmd-output">Text alert formats drop most of the context the engine already has. Always choose the structured option, and where the platform supports a portable flow identifier such as community ID, enable it so sensor events join cleanly to firewall and proxy records.</div>
         </div>
 
         <div class="implementation-steps">
-          <h3>Step 2: Define Your Network Variables</h3>
+          <h3>Step 2: Define What Counts as Internal</h3>
           <div class="config-snippet">
+# Suricata and Snort: named address and port variables
 vars:
   address-groups:
     HOME_NET: "[10.0.0.0/8,192.168.0.0/16,172.16.0.0/12]"
     EXTERNAL_NET: "!$HOME_NET"
     HTTP_SERVERS: "[10.20.5.0/24]"
-    SQL_SERVERS: "[10.40.1.0/24]"
     DNS_SERVERS: "[10.10.0.10,10.10.0.11]"
   port-groups:
     HTTP_PORTS: "[80,81,8000,8080,8443]"
-    SHELLCODE_PORTS: "!80"</div>
-          <div class="cmd-output">Rules are written in terms of these variables. An incorrect HOME_NET is the most common cause of a sensor generating either no alerts at all or alerting on every internal connection.</div>
+
+# Palo Alto, FortiGate, Check Point: the same concept is expressed as
+#   security zones and address objects applied to each policy rule
+# Cisco FTD: Objects > Variable Set, per intrusion policy</div>
+          <div class="cmd-output">Rules are written in terms of internal versus external. Whether your platform calls it HOME_NET, a trusted zone, or a variable set, defining it incorrectly is the single most common serious misconfiguration and silently breaks directionality across the whole ruleset.</div>
         </div>
 
         <div class="implementation-steps">
-          <h3>Step 3: Manage Rules with suricata-update</h3>
+          <h3>Step 3: Keep the Ruleset Current</h3>
           <div class="config-snippet">
-# List and enable rule sources
+# Suricata: manage sources and reload without dropping traffic
 suricata-update list-sources
 suricata-update enable-source et/open
-suricata-update enable-source oisf/trafficid
-
-# Fetch, build, and reload without dropping traffic
 suricata-update
 suricatasc -c reload-rules
 
-# Verify what loaded
-grep -c "" /var/lib/suricata/rules/suricata.rules
-tail -20 /var/log/suricata/suricata.log</div>
-          <div class="cmd-output">reload-rules applies new signatures to a running sensor without a restart, which matters when the sensor is inline and a restart means a network outage.</div>
+# Snort: PulledPork or the Talos subscription feed
+# Palo Alto: Device > Dynamic Updates, schedule Applications and Threats
+# Cisco FTD: System > Updates > Rule Updates, then redeploy the policy
+# FortiGate: FortiGuard IPS definitions, verify with
+#   diagnose autoupdate versions | grep -A2 IPS</div>
+          <div class="cmd-output">Apply updates to a running sensor without a restart wherever the platform allows it, because restarting an inline sensor means a network outage. On commercial platforms a downloaded update does nothing until the policy is redeployed, which is a routinely missed step.</div>
         </div>
 
         <div class="implementation-steps">
-          <h3>Step 4: Tune Out Noisy Signatures</h3>
+          <h3>Step 4: Tune Noisy Signatures Rather Than Deleting Them</h3>
           <div class="config-snippet">
-# /etc/suricata/disable.conf
-2013028          # ET POLICY curl User-Agent, expected from monitoring
-re:.*Dshield.*   # disable an entire family by regex
-
+# Suricata: rate limit rather than remove
 # /etc/suricata/threshold.config
-# Alert once per 60 seconds per source rather than per packet
 threshold gen_id 1, sig_id 2001219, type limit, track by_src, count 1, seconds 60
+suppress gen_id 1, sig_id 2001219, track by_src, ip 10.50.9.14
 
-# Suppress a known-good scanner entirely
-suppress gen_id 1, sig_id 2001219, track by_src, ip 10.50.9.14</div>
-          <div class="cmd-output">Prefer threshold over disable. Thresholding keeps the detection alive at reduced volume, whereas disabling removes coverage permanently and silently.</div>
+# /etc/suricata/disable.conf  (last resort)
+2013028          # expected User-Agent from internal monitoring
+
+# Palo Alto: Objects > Security Profiles > Anti-Spyware or Vulnerability,
+#   add a Threat Exception scoped to a specific source or destination
+# Cisco FTD: set the rule state to Disabled, or add an event threshold
+#   and a suppression entry scoped by source
+# FortiGate: IPS sensor filters with an exempt-ip entry</div>
+          <div class="cmd-output">Prefer thresholding and scoped exceptions over disabling. Thresholding keeps the detection alive at reduced volume, whereas disabling removes coverage permanently and silently. Record every tuning decision with the reason so a future analyst knows why a signature is quiet.</div>
         </div>
 
         <div class="implementation-steps">
-          <h3>Step 5: Switch from IDS to IPS Mode</h3>
+          <h3>Step 5: Move from Detection to Prevention Deliberately</h3>
           <div class="config-snippet">
-# Inline via NFQUEUE on Linux
+# Suricata: place the sensor inline, then convert selected rules
 iptables -I FORWARD -j NFQUEUE --queue-num 0
 suricata -c /etc/suricata/suricata.yaml -q 0
 
-# Then convert selected alert rules to drop rules
 # /etc/suricata/modify.conf
 2010935 "alert" "drop"
 
-# Verify actions are being applied
+# Palo Alto: profile action set to reset-both, drop, or block-ip
+# Cisco FTD: intrusion policy in Drop when Inline mode, rule state
+#   set to Drop and Generate Events
+# FortiGate: IPS sensor action set to block or reset
+
+# Then audit what is actually being enforced
 jq -r 'select(.event_type=="alert") | .alert.action' /var/log/suricata/eve.json | sort | uniq -c</div>
-          <div class="cmd-output">Rules ship with the alert action even in inline mode. Traffic is only blocked once a rule is explicitly converted to drop, which surprises many teams who assume inline deployment means prevention.</div>
+          <div class="cmd-output">Inline deployment does not by itself mean prevention. Most rules ship in an alerting state on every platform, so traffic is only stopped once a rule is explicitly set to drop or block. Teams regularly discover during an incident that a sensor they believed was preventing had been watching all along.</div>
         </div>
 
         <div class="implementation-steps">
           <h3>Step 6: Monitor Sensor Health</h3>
           <div class="config-snippet">
+# Suricata: periodic statistics with drop counters
 outputs:
   - stats:
       enabled: yes
-      filename: stats.log
       interval: 30
-
-# Check drop rate on a running sensor
 suricatasc -c "dump-counters" | jq '.message.capture'
-grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div>
-          <div class="cmd-output">Any sustained kernel_drops value above roughly one percent means the sensor is losing visibility. Treat it as an availability incident, not a performance tuning task.</div>
+
+# Palo Alto: show running resource-monitor ingress-backlogs
+# Cisco FTD: show snort statistics, plus FMC Health Monitor
+# FortiGate: diagnose ips status, watch for fail-open events
+# Check Point: fw ctl multik stat and cpview</div>
+          <div class="cmd-output">Any sustained drop rate above roughly one percent means the sensor is losing visibility. Treat it as an availability incident rather than a performance tuning task, because the resulting gap is invisible in the alert stream.</div>
         </div>
 
         <div class="alert-warning">
@@ -301,7 +322,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="header-icon"></div>
           <h2>Anatomy of a Detection Rule</h2>
         </div>
-        <p class="description">Reading a signature is what lets an analyst decide whether an alert is a true positive. Every Suricata and Snort rule is built from the same components.</p>
+        <p class="description">Reading the detection logic is what lets an analyst decide whether an alert is a true positive. Signature based engines are built from the same components whether the rule is written in open syntax you can edit, shipped as a vendor threat signature, or exposed read only in a management console.</p>
         <div class="audit-categories-grid">
           <div class="audit-category-box">
             <div class="category-box-header">
@@ -311,7 +332,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             <table class="subcategory-table">
               <tbody>
                 <tr>
-                  <td>alert, drop, reject, or pass. In IDS mode every action behaves as alert. Only inline deployment makes drop and reject meaningful, which is the first thing to check when triaging.</td>
+                  <td>What the engine did: alert, drop, reject, or pass in open syntax, and allow, block, reset, or sinkhole on commercial platforms. In passive deployment every action behaves as alert. Only an inline sensor makes blocking meaningful, which is the first thing to check when triaging.</td>
                 </tr>
                 <tr>
                   <td>
@@ -331,7 +352,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             <table class="subcategory-table">
               <tbody>
                 <tr>
-                  <td>Protocol, source, source port, direction, destination, destination port. Written using HOME_NET and EXTERNAL_NET variables, so direction tells you whether this is inbound attack or outbound compromise.</td>
+                  <td>Protocol, source, source port, direction, destination, destination port. Expressed in terms of internal and external address groups or security zones, so direction tells you whether this is inbound attack or outbound compromise.</td>
                 </tr>
                 <tr>
                   <td>
@@ -346,12 +367,12 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="audit-category-box">
             <div class="category-box-header">
               <i class="fas fa-fingerprint"></i>
-              <h4>sid and rev</h4>
+              <h4>Signature ID and Revision</h4>
             </div>
             <table class="subcategory-table">
               <tbody>
                 <tr>
-                  <td>The signature identifier and its revision number. sid is the stable key for tuning, suppression, and tracking a detection over time. Always record it in your case notes.</td>
+                  <td>The stable identifier for the detection and its revision number. Called sid and rev in open rule syntax, Threat ID on Palo Alto, and GID:SID on Snort based engines including Firepower. This is the key for tuning, suppression, and tracking a detection over time, so always record it in your case notes.</td>
                 </tr>
                 <tr>
                   <td>
@@ -366,12 +387,12 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="audit-category-box">
             <div class="category-box-header">
               <i class="fas fa-tags"></i>
-              <h4>classtype and priority</h4>
+              <h4>Classification and Severity</h4>
             </div>
             <table class="subcategory-table">
               <tbody>
                 <tr>
-                  <td>Categorises the alert and assigns severity from 1 (highest) to 4. trojan-activity and attempted-admin warrant immediate attention, while policy-violation and misc-activity usually do not.</td>
+                  <td>Categorises the alert and ranks it. Open rule syntax uses classtype with priority 1 (highest) to 4, while commercial platforms use named tiers such as critical, high, medium, low, and informational. Malware and privilege gain categories warrant immediate attention, policy and informational categories usually do not.</td>
                 </tr>
                 <tr>
                   <td>
@@ -386,12 +407,12 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="audit-category-box">
             <div class="category-box-header">
               <i class="fas fa-search"></i>
-              <h4>content and pcre</h4>
+              <h4>Match Conditions</h4>
             </div>
             <table class="subcategory-table">
               <tbody>
                 <tr>
-                  <td>The actual match conditions: byte sequences and regular expressions applied to the payload or to protocol buffers such as http.uri. Reading these tells you exactly what the sensor saw.</td>
+                  <td>The actual detection logic: byte sequences and regular expressions applied to the payload or to protocol fields such as the HTTP URI. Open engines expose this as content and pcre options. Commercial platforms usually hide it, in which case the vendor threat encyclopedia entry is the substitute.</td>
                 </tr>
                 <tr>
                   <td>
@@ -434,7 +455,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
       <!-- Log Format -->
       <div id="log-format" class="card">
         <h2>IDS and IPS Log Format</h2>
-        <p>These are the fields present in a Suricata EVE JSON alert record and their equivalents in commercial platforms.</p>
+        <p>Every detection event carries the same conceptual fields. The table below uses open engine naming as the reference, and the mapping table underneath translates each concept to the major commercial platforms so a single set of detection rules can be written against any of them.</p>
         <div class="log-locations-table-container">
           <table class="log-table">
             <thead>
@@ -454,7 +475,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
               </tr>
               <tr>
                 <td>event_type</td>
-                <td>Record type within the EVE stream</td>
+                <td>Record type within the unified stream, distinguishing alerts from protocol and flow records</td>
                 <td>Metadata</td>
                 <td>alert</td>
               </tr>
@@ -533,12 +554,98 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             </tbody>
           </table>
         </div>
+
+        <h3>Field Name Mapping Across Platforms</h3>
+        <p>Normalise to these concepts when building correlation rules or dashboards that must work across more than one sensor type.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th>Suricata and Snort</th>
+                <th>Palo Alto</th>
+                <th>Cisco Firepower</th>
+                <th>Fortinet</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Rule identifier</td>
+                <td>alert.signature_id, gid:sid</td>
+                <td>threatid</td>
+                <td>GID:SID, Snort ID</td>
+                <td>attackid</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Rule name</td>
+                <td>alert.signature</td>
+                <td>threat_name</td>
+                <td>Message</td>
+                <td>attackname</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Classification</td>
+                <td>alert.category, classtype</td>
+                <td>subtype, category</td>
+                <td>Classification</td>
+                <td>eventtype</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Severity</td>
+                <td>alert.severity (1 to 4)</td>
+                <td>severity (critical to informational)</td>
+                <td>Impact and Priority</td>
+                <td>severity, crlevel</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Action taken</td>
+                <td>alert.action</td>
+                <td>action</td>
+                <td>Inline Result</td>
+                <td>action</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Source and destination</td>
+                <td>src_ip, dest_ip, src_port, dest_port</td>
+                <td>src, dst, sport, dport</td>
+                <td>Initiator IP, Responder IP</td>
+                <td>srcip, dstip, srcport, dstport</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Session identifier</td>
+                <td>flow_id, community_id</td>
+                <td>sessionid</td>
+                <td>Connection ID</td>
+                <td>sessionid</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Application or protocol</td>
+                <td>app_proto, proto</td>
+                <td>app, proto</td>
+                <td>Application Protocol</td>
+                <td>service, proto</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Direction</td>
+                <td>Derived from internal address groups</td>
+                <td>from_zone, to_zone, direction</td>
+                <td>Ingress and Egress Interface</td>
+                <td>srcintf, dstintf, direction</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Severity scales run in opposite directions between platforms. Open engines treat 1 as the most urgent, while several commercial products use ascending numeric severity where higher is worse. Normalise severity explicitly at ingestion, because a dashboard sorting the raw value across mixed sensors will put the least important events at the top.
+          </div>
+        </div>
       </div>
 
       <!-- Alert Classifications -->
       <div id="alert-classes" class="card">
         <h2>Alert Classifications and Priority</h2>
-        <p>Classtype drives triage. These are the classifications that justify immediate response and those that rarely do.</p>
+        <p>Classification drives triage on every platform. The names below are the open engine classtypes, which are the most widely documented set. Commercial products use their own vocabulary for the same tiers: Palo Alto splits detections into vulnerability, spyware, and virus subtypes, Cisco uses impact flags from 0 to 4, and Fortinet groups by attack category. Map yours onto this hierarchy once and the triage logic transfers unchanged.</p>
         <div class="log-locations-table-container">
           <table class="log-locations-table">
             <thead>
@@ -612,7 +719,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
       <!-- Analysis Queries -->
       <div id="analysis-queries" class="card">
         <h2>IDS and IPS Log Analysis Queries</h2>
-        <p>Use these jq and SIEM queries to triage alert volume, confirm blocking, and find the alerts that actually matter.</p>
+        <p>These queries are written against the normalised field names from the mapping table above, so substitute your platform's equivalents. Where a query can only run on the sensor itself the prompt shows bash and the example uses open engine tooling.</p>
         <div class="cmd-grid">
 
           <div class="cmd-card info">
@@ -622,38 +729,38 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
-                <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.event_type=="alert") | "\(.alert.signature_id) \(.alert.signature)"' /var/log/suricata/eve.json | sort | uniq -c | sort -rn | head -25</span>
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">event_type="alert" | stats count, dc(src_ip) as sources, dc(dest_ip) as targets by signature_id, signature | sort - count | head 25</span>
               </div>
-              <div class="cmd-output">The starting point for every tuning exercise. The top ten signatures usually account for most of the volume and almost none of the value.</div>
+              <div class="cmd-output">The starting point for every tuning exercise on any platform. The top ten signatures usually account for most of the volume and almost none of the value. A signature with high count but only one or two distinct sources is a tuning candidate rather than a campaign.</div>
             </div>
           </div>
 
           <div class="cmd-card error">
             <div class="cmd-header">
               <i class="fas fa-exclamation-circle"></i>
-              <span class="cmd-title">Priority 1 Alerts Only</span>
+              <span class="cmd-title">Highest Severity Alerts Only</span>
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
-                <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.event_type=="alert" and .alert.severity==1) | [.timestamp, .src_ip, .dest_ip, .alert.category, .alert.signature] | @tsv' /var/log/suricata/eve.json</span>
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">event_type="alert" severity IN ("1","critical","high") | table _time, src_ip, dest_ip, category, signature, action | sort - _time</span>
               </div>
-              <div class="cmd-output">Strips the stream down to the alerts the ruleset authors considered critical. The correct default view for a triage queue.</div>
+              <div class="cmd-output">Strips the stream down to what the ruleset authors considered critical, the correct default view for a triage queue. Match the severity values to your platform, remembering that open engines count down from 1 while most commercial products count up.</div>
             </div>
           </div>
 
           <div class="cmd-card error">
             <div class="cmd-header">
               <i class="fas fa-sign-out-alt"></i>
-              <span class="cmd-title">Outbound Trojan Activity</span>
+              <span class="cmd-title">Outbound Malware and C2 by Internal Host</span>
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
                 <span class="cmd-prompt">SIEM></span>
-                <span class="cmd-line-content">source="suricata" event_type="alert" alert.category="A Network Trojan was detected" src_ip IN (10.0.0.0/8) | stats count, values(alert.signature), dc(dest_ip) by src_ip | sort - count</span>
+                <span class="cmd-line-content">event_type="alert" category IN ("*Trojan*","*Malware*","*Command and Control*","spyware") src_ip IN (10.0.0.0/8,192.168.0.0/16) | stats count, values(signature), dc(dest_ip) by src_ip | sort - count</span>
               </div>
-              <div class="cmd-output">Filtering to internal sources turns a noisy category into a list of probably-compromised hosts. Outbound direction is what makes this high confidence.</div>
+              <div class="cmd-output">Filtering to internal sources turns a noisy category into a list of probably compromised hosts. Outbound direction is what makes this high confidence, and the wildcards absorb the naming differences between vendors.</div>
             </div>
           </div>
 
@@ -664,10 +771,10 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
-                <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.event_type=="alert") | "\(.alert.action) \(.alert.signature)"' /var/log/suricata/eve.json | sort | uniq -c | sort -rn | head -20</span>
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">event_type="alert" | stats count by action, signature | eventstats sum(count) as total by signature | eval enforced=round(count/total*100,1) | where action IN ("blocked","drop","reset","deny")</span>
               </div>
-              <div class="cmd-output">Confirms which rules are actually preventing traffic. In inline deployments most rules still run in alert mode unless explicitly converted to drop.</div>
+              <div class="cmd-output">Confirms which rules are actually preventing traffic rather than observing it. Run this on any inline deployment, because most rules ship in alerting state on every platform and are only enforced once explicitly changed.</div>
             </div>
           </div>
 
@@ -679,23 +786,23 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             <div class="cmd-content">
               <div class="cmd-line">
                 <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.event_type=="stats") | [.timestamp, .stats.capture.kernel_packets, .stats.capture.kernel_drops] | @tsv' /var/log/suricata/eve.json | tail -10</span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="stats") | [.timestamp, .stats.capture.kernel_packets, .stats.capture.kernel_drops] | @tsv' eve.json | tail -10   # PAN: show running resource-monitor | FTD: show snort statistics | FortiGate: diagnose ips status</span>
               </div>
-              <div class="cmd-output">Drops divided by packets is your blind spot percentage. Anything sustained above one percent means the sensor is missing attacks it has signatures for.</div>
+              <div class="cmd-output">Drops divided by packets is your blind spot percentage. Anything sustained above one percent means the sensor is missing attacks it has signatures for. Every platform exposes this counter somewhere, and on all of them it is the single most under-monitored metric.</div>
             </div>
           </div>
 
           <div class="cmd-card warning">
             <div class="cmd-header">
               <i class="fas fa-fingerprint"></i>
-              <span class="cmd-title">Suspicious TLS Fingerprints</span>
+              <span class="cmd-title">Rare TLS Fingerprints and Destinations</span>
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
-                <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.event_type=="tls") | [.tls.ja3.hash, .tls.sni, .dest_ip] | @tsv' /var/log/suricata/eve.json | sort | uniq -c | sort -rn | head -30</span>
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">event_type="tls" OR event_type="ssl" | stats count, dc(src_ip) as hosts, values(sni) by ja3_hash, dest_ip | where hosts &lt;= 2 AND count &gt; 50 | sort - count</span>
               </div>
-              <div class="cmd-output">JA3 hashes fingerprint the client TLS stack, identifying malware families inside encrypted traffic without decryption.</div>
+              <div class="cmd-output">Client TLS fingerprints identify malware families inside encrypted traffic without decryption. Where your platform does not expose JA3, substitute the certificate subject and SNI, which are available on every product that inspects TLS metadata.</div>
             </div>
           </div>
 
@@ -706,24 +813,24 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
-                <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.event_type=="fileinfo" and (.fileinfo.magic // "" | test("executable|PE32|ELF"))) | [.timestamp, .src_ip, .dest_ip, .fileinfo.filename, .fileinfo.sha256] | @tsv' /var/log/suricata/eve.json</span>
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">event_type IN ("fileinfo","file","wildfire") file_type IN ("*executable*","PE32","ELF","*msdownload*") | table _time, src_ip, dest_ip, filename, sha256, verdict | sort - _time</span>
               </div>
-              <div class="cmd-output">Every executable observed crossing the sensor with its hash, ready to check against threat intelligence.</div>
+              <div class="cmd-output">Every executable observed crossing the sensor with its hash, ready to check against threat intelligence. Platforms with a sandbox attach a verdict to the same record, which turns this from a hunting query into a detection.</div>
             </div>
           </div>
 
           <div class="cmd-card info">
             <div class="cmd-header">
               <i class="fas fa-link"></i>
-              <span class="cmd-title">Full Flow Context for an Alert</span>
+              <span class="cmd-title">Full Session Context for an Alert</span>
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
-                <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">jq -r 'select(.flow_id==1874203911402318) | [.timestamp, .event_type, (.alert.signature // .http.url // .tls.sni // "")] | @tsv' /var/log/suricata/eve.json</span>
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">session_id="1874203911402318" OR community_id="1:LQU9qZlK+B5F3KDmev6m5PMibrg=" | table _time, event_type, signature, url, sni, filename, action | sort _time</span>
               </div>
-              <div class="cmd-output">Pivoting on flow_id reconstructs every record for a single connection: the alert, the HTTP request, the TLS handshake, and the file transfer.</div>
+              <div class="cmd-output">Pivoting on the session identifier reconstructs every record for one connection: the alert, the HTTP request, the TLS handshake, and the file transfer. Community ID is the better key when the connection crosses several products, because it is computed identically by each of them.</div>
             </div>
           </div>
 
@@ -735,7 +842,7 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
             <div class="cmd-content">
               <div class="cmd-line">
                 <span class="cmd-prompt">SIEM></span>
-                <span class="cmd-line-content">source="suricata" event_type="alert" | stats dc(alert.category) as stages, values(alert.category), min(_time) as first, max(_time) as last by src_ip | where stages &gt;= 3 | sort - stages</span>
+                <span class="cmd-line-content">event_type="alert" | stats dc(category) as stages, values(category), min(_time) as first, max(_time) as last by src_ip | where stages &gt;= 3 | sort - stages</span>
               </div>
               <div class="cmd-output">Sources triggering three or more distinct alert categories are progressing through an attack rather than generating incidental noise.</div>
             </div>
@@ -744,14 +851,14 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="cmd-card info">
             <div class="cmd-header">
               <i class="fas fa-list-ol"></i>
-              <span class="cmd-title">Verify Loaded Rule Count</span>
+              <span class="cmd-title">Verify the Ruleset Actually Loaded</span>
             </div>
             <div class="cmd-content">
               <div class="cmd-line">
                 <span class="cmd-prompt">bash></span>
-                <span class="cmd-line-content">suricatasc -c "ruleset-stats" ; grep -E "rules successfully loaded|rules failed" /var/log/suricata/suricata.log | tail -3</span>
+                <span class="cmd-line-content">suricatasc -c "ruleset-stats"   # PAN: show system info | match threat-version | FTD: show snort counters | FortiGate: diagnose autoupdate versions</span>
               </div>
-              <div class="cmd-output">Rules that fail to load are reported once at startup and never mentioned again. Check this after every ruleset update.</div>
+              <div class="cmd-output">Rules that fail to load are reported once at startup and never mentioned again. Check the loaded count and the installed content version after every update, and on managed platforms confirm the policy was redeployed, since a downloaded update that was never pushed changes nothing.</div>
             </div>
           </div>
         </div>
@@ -768,15 +875,15 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="practice-item">
             <div class="practice-number">01</div>
             <div class="practice-content">
-              <h3>Set HOME_NET Correctly</h3>
-              <p>Nearly every rule is written in terms of HOME_NET and EXTERNAL_NET. A wrong or default value silently breaks directionality across the entire ruleset, which is the most common serious misconfiguration in the field.</p>
+              <h3>Define Your Internal Boundary Correctly</h3>
+              <p>Nearly every rule is written in terms of internal versus external. Whether the platform calls it HOME_NET, a trusted zone, or a variable set, a wrong or default value silently breaks directionality across the entire ruleset. This is the most common serious misconfiguration in the field.</p>
             </div>
           </div>
           <div class="practice-item">
             <div class="practice-number">02</div>
             <div class="practice-content">
               <h3>Monitor Packet Drop as an Outage</h3>
-              <p>A saturated sensor produces fewer alerts, which resembles a quiet network. Alert on kernel_drops and treat sustained loss with the same urgency as a sensor being offline.</p>
+              <p>A saturated sensor produces fewer alerts, which resembles a quiet network. Alert on whichever drop counter your platform exposes and treat sustained loss with the same urgency as a sensor being offline.</p>
             </div>
           </div>
           <div class="practice-item">
@@ -796,8 +903,8 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
           <div class="practice-item">
             <div class="practice-number">05</div>
             <div class="practice-content">
-              <h3>Enable community_id</h3>
-              <p>A single field that makes Suricata, Zeek, and firewall records join on the same connection. It costs nothing and removes most of the pain from network correlation.</p>
+              <h3>Normalise Fields at Ingestion</h3>
+              <p>Map every sensor onto one schema for rule identifier, severity, action, and direction, and enable a portable flow identifier such as community ID where the platform supports it. Detection content written once then works across every sensor you own, including the one you replace this vendor with.</p>
             </div>
           </div>
           <div class="practice-item">
@@ -827,17 +934,17 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
       <!-- Log Examples -->
       <div id="log-examples" class="card">
         <h2>Common IDS and IPS Log Examples</h2>
-        <p>Real sensor output from reconnaissance through to command and control, in both fast log and EVE JSON form.</p>
+        <p>Sensor output from reconnaissance through to command and control. The same detection is shown first in the three formats you will meet in practice, plain text alert, structured JSON, and syslog CEF from a commercial appliance, so you can recognise it whichever product produced it.</p>
 
         <div class="implementation-steps">
-          <h3>Fast Log: Exploit Attempt Against SMB</h3>
+          <h3>Text Alert Format: Exploit Attempt Against SMB</h3>
           <div class="config-snippet">
 07/14/2025-09:41:22.481203  [**] [1:2024897:3] ET EXPLOIT SMB Remote Code Execution Attempt (EternalBlue) [**] [Classification: Attempted Administrator Privilege Gain] [Priority: 1] {TCP} 203.0.113.44:52144 -&gt; 10.20.5.40:445</div>
           <div class="cmd-output">The compact format: sid 2024897 revision 3, priority 1, external source to an internal host on SMB. Priority 1 plus attempted-admin means this goes to the top of the queue.</div>
         </div>
 
         <div class="implementation-steps">
-          <h3>EVE JSON: The Same Alert with Full Context</h3>
+          <h3>Structured JSON: The Same Alert with Full Context</h3>
           <div class="config-snippet">
 {"timestamp":"2025-07-14T09:41:22.481203+0000","flow_id":1874203911402318,"event_type":"alert",
  "src_ip":"203.0.113.44","src_port":52144,"dest_ip":"10.20.5.40","dest_port":445,"proto":"TCP",
@@ -847,7 +954,18 @@ grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div
    "category":"Attempted Administrator Privilege Gain","severity":1,
    "metadata":{"attack_target":["Server"],"mitre_technique_id":["T1210"],"cve":["CVE-2017-0144"]}},
  "flow":{"pkts_toserver":14,"pkts_toclient":9,"bytes_toserver":4218,"bytes_toclient":1902}}</div>
-          <div class="cmd-output">The action field confirms the traffic was blocked, and the metadata maps directly to CVE-2017-0144 and MITRE technique T1210. This is why EVE JSON is preferred over the fast log.</div>
+          <div class="cmd-output">The action field confirms the traffic was blocked, and the metadata maps directly to CVE-2017-0144 and MITRE technique T1210. This is why the structured format is always preferred over the text one.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Syslog CEF: The Same Detection From a Commercial Appliance</h3>
+          <div class="config-snippet">
+CEF:0|Palo Alto Networks|PAN-OS|10.2|vulnerability|Microsoft SMB Remote Code Execution|9|
+ rt=Jul 14 2025 09:41:22 src=203.0.113.44 spt=52144 dst=10.20.5.40 dpt=445 proto=tcp
+ act=reset-both cs1Label=Rule cs1=Inbound-DC-Access cn1Label=ThreatID cn1=51234
+ cat=vulnerability cs2Label=Severity cs2=critical cs3Label=Direction cs3=client-to-server
+ externalId=7714029183 cs4Label=CVE cs4=CVE-2017-0144</div>
+          <div class="cmd-output">The same event, different vocabulary. threatid replaces signature_id, act replaces action, and severity is a word rather than a number. Everything an analyst needs is present, which is why normalising these three fields at ingestion lets one detection rule cover every sensor in the estate.</div>
         </div>
 
         <div class="implementation-steps">
