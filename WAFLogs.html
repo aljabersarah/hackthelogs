@@ -230,7 +230,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">stats count by dest_ip | sort - count</span>
         </div>
-        <div class="cmd-output">Finds servers receiving the highest traffic — useful in load-balanced environments.</div>
+        <div class="cmd-output">Finds servers receiving the highest traffic, useful in load-balanced environments.</div>
       </div>
     </div>
 
@@ -245,7 +245,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">search method="POST" status=200 | stats count by src_ip, uri_path | sort - count</span>
         </div>
-        <div class="cmd-output">Detects successful POST requests — may indicate abuse or data exfiltration.</div>
+        <div class="cmd-output">Detects successful POST requests, may indicate abuse or data exfiltration.</div>
       </div>
     </div>
 
@@ -260,7 +260,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">search method="POST" NOT (http_user_agent="*Mozilla*" OR http_user_agent="*Chrome*" OR http_user_agent="*Safari*") | fields _time, src_ip, http_user_agent, uri_path</span>
         </div>
-        <div class="cmd-output">Detects non-browser POSTs — typical of automation, bots, and exploit tools.</div>
+        <div class="cmd-output">Detects non-browser POSTs, typical of automation, bots, and exploit tools.</div>
       </div>
     </div>
 
@@ -275,7 +275,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">search uri_path="*.exe" | fields _time, src_ip, uri_path</span>
         </div>
-        <div class="cmd-output">Flags requests targeting `.exe` files — potential malware hosting or downloads.</div>
+        <div class="cmd-output">Flags requests targeting `.exe` files, potential malware hosting or downloads.</div>
       </div>
     </div>
 
@@ -305,7 +305,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">stats count by uri_path | sort - count | head 5</span>
         </div>
-        <div class="cmd-output">Highlights endpoints with the highest traffic — useful to monitor popular or vulnerable paths.</div>
+        <div class="cmd-output">Highlights endpoints with the highest traffic, useful to monitor popular or vulnerable paths.</div>
       </div>
     </div>
 
@@ -320,7 +320,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">stats dc(http_user_agent) as UniqueAgents by src_ip | sort - UniqueAgents</span>
         </div>
-        <div class="cmd-output">Reveals IPs using multiple user agents — may indicate obfuscation or botnet behavior.</div>
+        <div class="cmd-output">Reveals IPs using multiple user agents, may indicate obfuscation or botnet behavior.</div>
       </div>
     </div>
   </div>

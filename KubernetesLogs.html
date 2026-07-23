@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Kubernetes Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Kubernetes Logs</div>
+      <a href="#overview" class="nav-item active">Kubernetes Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Kubernetes Log Types</a>
+      <a href="#log-locations" class="nav-item">Log Locations by Platform</a>
+      <a href="#enable-logging" class="nav-item">Configuring Kubernetes Auditing</a>
+      <a href="#threat-patterns" class="nav-item">Kubernetes Threat Patterns</a>
+      <a href="#log-format" class="nav-item">Audit Event Format</a>
+      <a href="#verbs" class="nav-item">Critical Verbs and Resources</a>
+      <a href="#analysis-queries" class="nav-item">Kubernetes Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Kubernetes Logging</a>
+      <a href="#log-examples" class="nav-item">Common Kubernetes Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Kubernetes and Container Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Kubernetes Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Everything in Kubernetes passes through the API server, which makes the <code>audit log</code> the equivalent of CloudTrail for a cluster. Creating a pod, reading a secret, opening a shell inside a running container, and modifying a role binding are all API requests, and all of them can be recorded with the requesting identity, the source address, the object affected, and the authorisation decision. Without the audit log, a cluster is genuinely opaque: container logs show what applications printed, but nothing shows who instructed the cluster to do what.</p>
+            <p>The critical fact is that audit logging is <strong>off by default</strong> in a self-managed cluster. It requires an audit policy file and API server flags, and if either is missing the cluster runs perfectly while recording nothing. Managed platforms differ: EKS control plane logging must be explicitly enabled per log type, AKS requires a diagnostic setting, and GKE enables Admin Activity audit logs automatically while leaving Data Access logging off. In every case the default state leaves at least one significant gap.</p>
+            <p>The audit policy itself is where most of the value is decided. Each rule assigns a level of <code>None</code>, <code>Metadata</code>, <code>Request</code>, or <code>RequestResponse</code>, controlling how much of the request and response body is captured. Recording RequestResponse for everything produces unusable volume and writes secret contents into the log. Recording only Metadata for everything means you know a secret was read but not which one. A workable policy captures Metadata broadly, escalates to Request for security-relevant resources, and drops the high-volume noise from system components entirely.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Kubernetes Log Types</h2>
+        </div>
+        <p>Cluster visibility spans the control plane, the nodes, and the workloads themselves:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">API Server Audit Log</td>
+                <td>The authoritative record of every request to the cluster, including the identity, verb, resource, namespace, source address, user agent, and authorisation decision. Disabled by default in self-managed clusters. The single most important cluster log.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Container and Pod Logs</td>
+                <td>Standard output and error from every container, collected by the kubelet. Application-level visibility rather than cluster-level, but essential for understanding what a compromised workload actually did.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Kubelet Log</td>
+                <td>The node agent, recording pod lifecycle, volume mounts, image pulls, and requests received on the kubelet API. Where node-level compromise and unauthorised kubelet access appear.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Admission Controller Decisions</td>
+                <td>Output from validating and mutating webhooks such as OPA Gatekeeper or Kyverno. Records policy violations that were blocked, which is a direct feed of attempted misconfiguration and attack.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">etcd Log</td>
+                <td>The cluster datastore. Direct etcd access bypasses the API server and all of its auditing entirely, so authentication events here are high value and low volume.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Controller Manager and Scheduler</td>
+                <td>Control plane components recording reconciliation and pod placement decisions. Mostly operational, but useful when investigating why a workload landed on a particular node.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Container Runtime Log</td>
+                <td>containerd or CRI-O output covering image pulls, container creation, and runtime errors. Shows images pulled from unexpected registries.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Runtime Security Events</td>
+                <td>Syscall-level detections from Falco, Tetragon, or a commercial sensor. The only source that sees what happens inside a container after it starts, which the audit log never does.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The audit log records that a shell was opened into a pod through <code>pods/exec</code>, but never what was typed. Commands executed inside the container are visible only to a runtime sensor. Pairing audit logging with a runtime tool closes the largest single gap in container visibility.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log Locations by Platform</h2>
+        <p>Self-managed clusters write to the filesystem, while managed platforms deliver to the cloud provider's logging service.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Audit Log (self-managed)</td>
+                <td>Path set by --audit-log-path, commonly /var/log/kubernetes/audit/audit.log</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Audit Policy File</td>
+                <td>/etc/kubernetes/audit-policy.yaml, referenced by --audit-policy-file</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">API Server Manifest</td>
+                <td>/etc/kubernetes/manifests/kube-apiserver.yaml on control plane nodes</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Container Logs</td>
+                <td>/var/log/containers/ (symlinks) and /var/log/pods/&lt;namespace&gt;_&lt;pod&gt;_&lt;uid&gt;/</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Kubelet Log</td>
+                <td>journalctl -u kubelet on the node</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Amazon EKS</td>
+                <td>CloudWatch log group /aws/eks/&lt;cluster&gt;/cluster, one stream per component</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Google GKE</td>
+                <td>Cloud Logging, resource type k8s_cluster with logName cloudaudit.googleapis.com%2Factivity</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Azure AKS</td>
+                <td>Log Analytics table AzureDiagnostics with Category kube-audit or kube-audit-admin</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">etcd Data and Logs</td>
+                <td>/var/lib/etcd/ with logs in the etcd pod or journal</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> On AKS, the <code>kube-audit-admin</code> category excludes read-only <code>get</code> and <code>list</code> requests and is typically a fraction of the volume of full <code>kube-audit</code>. It is the pragmatic default when full audit volume is unaffordable, though it loses visibility into reconnaissance.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Auditing -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Kubernetes Auditing</h2>
+        <p>A self-managed cluster needs both a policy file and API server flags. Managed platforms need their log types enabling explicitly.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Write a Practical Audit Policy</h3>
+          <div class="config-snippet">
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: ["RequestReceived"]
+rules:
+  # Never log the high volume, low value noise
+  - level: None
+    users: ["system:kube-proxy","system:apiserver"]
+    verbs: ["watch","list"]
+  - level: None
+    nonResourceURLs: ["/healthz*","/readyz*","/livez*","/version","/metrics"]
+
+  # Full request body for the resources that matter
+  - level: Request
+    resources:
+      - group: ""              # core
+        resources: ["pods/exec","pods/attach","pods/portforward","pods/ephemeralcontainers"]
+      - group: "rbac.authorization.k8s.io"
+        resources: ["roles","rolebindings","clusterroles","clusterrolebindings"]
+
+  # Metadata only for secrets: never write their contents to the log
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["secrets","configmaps","serviceaccounts"]
+
+  # Everything else at metadata level
+  - level: Metadata
+    omitStages: ["RequestReceived"]</div>
+          <div class="cmd-output">Order matters: the first matching rule wins. Secrets are deliberately kept at Metadata level, because Request or RequestResponse would write the secret values themselves into the audit log in cleartext.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable Auditing on the API Server</h3>
+          <div class="config-snippet">
+# /etc/kubernetes/manifests/kube-apiserver.yaml
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    - --audit-policy-file=/etc/kubernetes/audit-policy.yaml
+    - --audit-log-path=/var/log/kubernetes/audit/audit.log
+    - --audit-log-maxage=30
+    - --audit-log-maxbackup=10
+    - --audit-log-maxsize=500
+    - --audit-log-format=json
+    volumeMounts:
+    - name: audit-policy
+      mountPath: /etc/kubernetes/audit-policy.yaml
+      readOnly: true
+    - name: audit-log
+      mountPath: /var/log/kubernetes/audit/</div>
+          <div class="cmd-output">Both the policy file and the log directory must be mounted into the static pod. Forgetting the volume mounts is the most common reason auditing appears configured but produces nothing.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Enable Managed Platform Audit Logs</h3>
+          <div class="config-snippet">
+# Amazon EKS
+aws eks update-cluster-config --name htl-prod \
+  --logging '{"clusterLogging":[{"types":["api","audit","authenticator","controllerManager","scheduler"],"enabled":true}]}'
+
+# Azure AKS
+az monitor diagnostic-settings create --name aks-audit \
+  --resource $(az aks show -g rg-prod -n htl-prod --query id -o tsv) \
+  --workspace &lt;workspace-id&gt; \
+  --logs '[{"category":"kube-audit","enabled":true},
+           {"category":"kube-audit-admin","enabled":true},
+           {"category":"kube-apiserver","enabled":true},
+           {"category":"guard","enabled":true}]'
+
+# Google GKE: Admin Activity is automatic, Data Access must be enabled
+gcloud container clusters update htl-prod --region me-central1 \
+  --logging=SYSTEM,WORKLOAD,API_SERVER,CONTROLLER_MANAGER,SCHEDULER</div>
+          <div class="cmd-output">EKS logging is off entirely by default, and the authenticator stream is the one that records IAM identity mapping. Enabling only api and audit leaves that gap open.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Deploy a Runtime Security Sensor</h3>
+          <div class="config-snippet">
+helm repo add falcosecurity https://falcosecurity.github.io/charts
+helm install falco falcosecurity/falco --namespace falco --create-namespace \
+  --set driver.kind=modern_ebpf \
+  --set falcosidekick.enabled=true \
+  --set "falco.json_output=true"
+
+# Example rule: shell spawned inside a container
+# - rule: Terminal shell in container
+#   condition: spawned_process and container and shell_procs and proc.tty != 0
+#   output: Shell in container (user=%user.name container=%container.name)
+#   priority: WARNING</div>
+          <div class="cmd-output">The audit log records that pods/exec occurred but never the commands typed. A runtime sensor is the only source that observes activity inside a running container.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enforce Policy at Admission</h3>
+          <div class="config-snippet">
+# Pod Security Admission, the built-in baseline
+kubectl label namespace production \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=latest \
+  pod-security.kubernetes.io/audit=restricted \
+  pod-security.kubernetes.io/warn=restricted
+
+# Verify what would be blocked before enforcing
+kubectl label namespace legacy pod-security.kubernetes.io/warn=restricted --overwrite</div>
+          <div class="cmd-output">The audit and warn labels report violations without blocking, which lets you measure impact before enforcement. Admission denials are themselves a valuable detection feed.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Ship Audit Logs Off the Cluster</h3>
+          <div class="config-snippet">
+# Fluent Bit input for the audit log on control plane nodes
+[INPUT]
+    Name              tail
+    Path              /var/log/kubernetes/audit/audit.log
+    Parser            json
+    Tag               k8s.audit
+    Refresh_Interval  5
+    Mem_Buf_Limit     50MB
+    Skip_Long_Lines   On
+
+[OUTPUT]
+    Name  forward
+    Match k8s.audit
+    Host  siem-collector.corp.local
+    Port  24224
+    tls   On</div>
+          <div class="cmd-output">Audit logs live on the control plane nodes, which an attacker with cluster-admin can reach. Shipping them off cluster is what preserves the evidence of the compromise.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Never set audit level to <code>Request</code> or <code>RequestResponse</code> for the <code>secrets</code> resource. Doing so writes every secret value into the audit log in cleartext, turning your security log into the highest value credential store in the environment.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Kubernetes Threat Patterns</h2>
+        </div>
+        <p class="description">Container attacks follow a consistent path: get into a pod, escape to the node, then escalate across the cluster.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-terminal"></i>
+              <h4>Exec into Pod</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Opening an interactive shell in a running container via pods/exec. Legitimate for debugging but the primary hands-on-keyboard technique. Commands typed are not recorded by the audit log.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-door-open"></i>
+              <h4>Privileged Pod Escape</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Creating a pod with privileged true, hostPID, hostNetwork, or a hostPath mount of the root filesystem. Grants root on the node itself, escaping the container boundary entirely.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>RBAC Escalation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Binding a service account to cluster-admin, or exploiting the escalate and bind verbs. One ClusterRoleBinding is full control of every namespace and workload.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>Secret Harvesting</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Listing or reading secrets across namespaces. Kubernetes secrets are base64 encoded, not encrypted, unless encryption at rest is configured, so a list request returns usable credentials.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-id-badge"></i>
+              <h4>Service Account Token Abuse</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Using a token mounted into a compromised pod to call the API. Signature: requests from a service account identity originating from a pod address rather than an administrator workstation.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-coins"></i>
+              <h4>Cryptomining Workloads</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Deploying pods pulling images from public registries with high resource requests. The most common outcome of an exposed dashboard or unauthenticated API server.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The <code>system:anonymous</code> user and the <code>system:unauthenticated</code> group appearing in audit logs with successful authorisation decisions means the cluster accepts unauthenticated API requests. This is how exposed clusters are mass-compromised, and it should be treated as an active incident.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Audit Event Format</h2>
+        <p>Every Kubernetes audit event is a JSON object with a stable schema. These are the fields detections are built on.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>requestReceivedTimestamp</td>
+                <td>Time the API server received the request</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22.481Z</td>
+              </tr>
+              <tr>
+                <td>verb</td>
+                <td>Action requested</td>
+                <td>Action</td>
+                <td>create</td>
+              </tr>
+              <tr>
+                <td>user.username</td>
+                <td>Authenticated identity</td>
+                <td>Identity</td>
+                <td>system:serviceaccount:default:build-sa</td>
+              </tr>
+              <tr>
+                <td>user.groups</td>
+                <td>Groups the identity belongs to</td>
+                <td>Identity</td>
+                <td>["system:serviceaccounts","system:authenticated"]</td>
+              </tr>
+              <tr>
+                <td>impersonatedUser</td>
+                <td>Identity impersonated, when the impersonate verb is used</td>
+                <td>Identity</td>
+                <td>system:admin</td>
+              </tr>
+              <tr>
+                <td>sourceIPs</td>
+                <td>Client addresses including proxies</td>
+                <td>Source</td>
+                <td>["10.244.3.17"]</td>
+              </tr>
+              <tr>
+                <td>userAgent</td>
+                <td>Client tool and version</td>
+                <td>Source</td>
+                <td>kubectl/v1.29.3 (linux/amd64)</td>
+              </tr>
+              <tr>
+                <td>objectRef.resource</td>
+                <td>Resource type targeted</td>
+                <td>Target</td>
+                <td>secrets</td>
+              </tr>
+              <tr>
+                <td>objectRef.subresource</td>
+                <td>Subresource such as exec or portforward</td>
+                <td>Target</td>
+                <td>exec</td>
+              </tr>
+              <tr>
+                <td>objectRef.namespace</td>
+                <td>Namespace of the target object</td>
+                <td>Target</td>
+                <td>kube-system</td>
+              </tr>
+              <tr>
+                <td>objectRef.name</td>
+                <td>Name of the specific object</td>
+                <td>Target</td>
+                <td>db-credentials</td>
+              </tr>
+              <tr>
+                <td>responseStatus.code</td>
+                <td>HTTP status returned</td>
+                <td>Result</td>
+                <td>201</td>
+              </tr>
+              <tr>
+                <td>annotations.authorization.k8s.io/decision</td>
+                <td>allow or forbid, with the reason alongside</td>
+                <td>Authorization</td>
+                <td>allow</td>
+              </tr>
+              <tr>
+                <td>stage</td>
+                <td>Point in request handling</td>
+                <td>Metadata</td>
+                <td>ResponseComplete</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The <code>authorization.k8s.io/reason</code> annotation names the exact RBAC binding that permitted a request. When investigating how an identity was able to act, this field answers the question immediately rather than requiring you to reconstruct the role graph.
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical Verbs and Resources -->
+      <div id="verbs" class="card">
+        <h2>Critical Verbs and Resources</h2>
+        <p>A short list of verb and resource combinations covers most Kubernetes attack activity.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Verb and Resource</th>
+                <th>Stage</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">create pods/exec</td>
+                <td>Execution</td>
+                <td>Interactive shell in a running container. The commands typed are not audited, only the fact that a session opened</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">create pods (privileged)</td>
+                <td>Escape</td>
+                <td>A pod with privileged, hostPID, or a hostPath root mount gives root on the node and escapes the container boundary</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">create clusterrolebindings</td>
+                <td>Escalation</td>
+                <td>Binding any identity to cluster-admin grants total control of the cluster in a single object</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">get / list secrets</td>
+                <td>Credential Access</td>
+                <td>Secrets are base64 encoded, not encrypted by default. A list across namespaces returns immediately usable credentials</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">create pods/portforward</td>
+                <td>Lateral Movement</td>
+                <td>Tunnels traffic from a workstation directly to a pod, bypassing network policy and ingress controls entirely</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">impersonate users or groups</td>
+                <td>Escalation</td>
+                <td>Acting as another identity. Legitimate for some controllers, but impersonating system:admin is escalation</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">create serviceaccounts/token</td>
+                <td>Persistence</td>
+                <td>Minting a token for a privileged service account produces a credential that survives pod deletion</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">patch daemonsets</td>
+                <td>Persistence</td>
+                <td>A DaemonSet runs on every node, including nodes added later. Ideal placement for a persistent implant</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">delete events</td>
+                <td>Evasion</td>
+                <td>Removing Kubernetes events destroys the cluster's own activity record, though not the audit log</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">create validatingwebhookconfigurations</td>
+                <td>Evasion</td>
+                <td>A malicious webhook can intercept every API request, and a failurePolicy of Ignore lets an attacker silently drop admission controls</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">any verb as system:anonymous</td>
+                <td>Initial Access</td>
+                <td>Unauthenticated API access. If this appears with an allow decision, the cluster is open to the world</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Kubernetes Log Analysis Queries</h2>
+        <p>These jq and SIEM queries cover the container attack chain from access through escalation to persistence.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">Exec into Pods</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.objectRef.subresource=="exec") | [.requestReceivedTimestamp, .user.username, .objectRef.namespace, .objectRef.name, .sourceIPs[0]] | @tsv' audit.log</span>
+              </div>
+              <div class="cmd-output">Every interactive session opened into a container. In a mature GitOps environment this should be rare enough to review individually.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-door-open"></i>
+              <span class="cmd-title">Privileged Pod Creation</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.verb=="create" and .objectRef.resource=="pods") | select(.requestObject.spec.containers[]?.securityContext.privileged==true or .requestObject.spec.hostPID==true or .requestObject.spec.hostNetwork==true) | [.requestReceivedTimestamp, .user.username, .objectRef.namespace] | @tsv' audit.log</span>
+              </div>
+              <div class="cmd-output">Requires Request level auditing on pods. A privileged pod is root on the node, so this is container escape by design.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Cluster Admin Binding</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.objectRef.resource=="clusterrolebindings" and (.verb=="create" or .verb=="update")) | [.requestReceivedTimestamp, .user.username, .objectRef.name, (.requestObject.roleRef.name // "")] | @tsv' audit.log | grep -i "cluster-admin"</span>
+              </div>
+              <div class="cmd-output">One ClusterRoleBinding to cluster-admin is complete cluster takeover. Every occurrence needs a matching change record.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-key"></i>
+              <span class="cmd-title">Secret Enumeration</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="k8s:audit" objectRef.resource="secrets" verb IN ("get","list") | stats count, dc(objectRef.namespace) as namespaces by user.username, sourceIPs{} | where count &gt; 20 OR namespaces &gt; 3</span>
+              </div>
+              <div class="cmd-output">An identity reading secrets across multiple namespaces is harvesting credentials. Application service accounts should touch only their own namespace.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">Anonymous API Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.user.username=="system:anonymous" or (.user.groups[]? == "system:unauthenticated")) | [.requestReceivedTimestamp, .verb, .requestURI, .responseStatus.code, .sourceIPs[0]] | @tsv' audit.log</span>
+              </div>
+              <div class="cmd-output">Any result with a 2xx status means the cluster served an unauthenticated request. This is how exposed clusters are mass-compromised.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-id-badge"></i>
+              <span class="cmd-title">Service Account Token Abuse</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="k8s:audit" user.username="system:serviceaccount:*" | stats dc(objectRef.resource) as resources, values(verb), count by user.username, sourceIPs{} | where resources &gt; 5</span>
+              </div>
+              <div class="cmd-output">A service account touching many resource types is behaving like an administrator, not an application. Usually means its token was stolen from a pod.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Authorisation Failures</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.annotations["authorization.k8s.io/decision"]=="forbid") | [.user.username, .verb, .objectRef.resource] | @tsv' audit.log | sort | uniq -c | sort -rn | head -25</span>
+              </div>
+              <div class="cmd-output">Repeated forbidden requests from one identity is permission enumeration, an attacker mapping what a compromised token can reach.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Port Forwarding</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.objectRef.subresource=="portforward") | [.requestReceivedTimestamp, .user.username, .objectRef.namespace, .objectRef.name] | @tsv' audit.log</span>
+              </div>
+              <div class="cmd-output">Port forwarding tunnels directly to a pod, bypassing network policy, ingress rules, and service mesh controls entirely.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-box"></i>
+              <span class="cmd-title">Images from Untrusted Registries</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.spec.containers[*].image}{"\n"}{end}' | grep -vE "registry.corp.local|gcr.io/htl-prod"</span>
+              </div>
+              <div class="cmd-output">Workloads pulling from Docker Hub or unknown registries. Cryptomining deployments are almost always public images.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-clipboard-check"></i>
+              <span class="cmd-title">Verify Auditing Is Active</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">kubectl -n kube-system get pod -l component=kube-apiserver -o yaml | grep -E "audit-policy-file|audit-log-path|audit-log-maxage"</span>
+              </div>
+              <div class="cmd-output">If these flags are absent, the cluster is recording nothing at all while running perfectly. Check this first on any cluster you inherit.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Kubernetes Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so a cluster is not opaque at the moment you most need to see into it:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Turn Auditing On Before You Need It</h3>
+              <p>Self-managed clusters record nothing by default and give no warning. A cluster without an audit policy file cannot answer a single question about who did what.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Never Log Secret Contents</h3>
+              <p>Keep the secrets resource at Metadata level. Request or RequestResponse writes secret values into the audit log, turning it into the richest credential store you own.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Drop the Noise in the Policy, Not the SIEM</h3>
+              <p>Health probes, metrics scrapes, and system component watches dominate volume and carry no signal. Filtering them at the policy avoids paying to ingest them at all.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Pair Audit Logs with a Runtime Sensor</h3>
+              <p>The audit log stops at the container boundary. It records that a shell was opened but never what was typed, and only a runtime tool closes that gap.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Ship Logs Off the Control Plane</h3>
+              <p>Audit logs live on control plane nodes that a cluster-admin can reach. Forwarding them elsewhere is what preserves evidence of the compromise that granted that access.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Enable Every Managed Log Type</h3>
+              <p>EKS logging is entirely off by default, and enabling only api and audit misses the authenticator stream that maps IAM identities to cluster users.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Treat Admission Denials as Detections</h3>
+              <p>Pod Security Admission and policy engines log every blocked request. That is a direct feed of attempted misconfiguration and attack, already filtered for you.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Baseline Service Account Behaviour</h3>
+              <p>Application service accounts should touch a small, predictable set of resources in one namespace. Deviation from that is the clearest sign a pod token has been stolen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Kubernetes Log Examples</h2>
+        <p>A cluster compromise from stolen service account token to node-level persistence.</p>
+
+        <div class="implementation-steps">
+          <h3>Permission Enumeration with a Stolen Token</h3>
+          <div class="config-snippet">
+{"kind":"Event","verb":"list","requestReceivedTimestamp":"2025-07-14T09:41:22.481Z",
+ "user":{"username":"system:serviceaccount:default:build-sa",
+         "groups":["system:serviceaccounts","system:authenticated"]},
+ "sourceIPs":["10.244.3.17"],"userAgent":"kubectl/v1.29.3 (linux/amd64)",
+ "objectRef":{"resource":"secrets","namespace":"kube-system"},
+ "responseStatus":{"code":403},
+ "annotations":{"authorization.k8s.io/decision":"forbid",
+   "authorization.k8s.io/reason":"no RBAC policy matched"}}</div>
+          <div class="cmd-output">A build service account using kubectl from a pod address to list kube-system secrets. Build automation does not run kubectl interactively, so the token has been stolen from inside a container.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Successful Secret Harvesting</h3>
+          <div class="config-snippet">
+{"verb":"list","requestReceivedTimestamp":"2025-07-14T09:44:07.229Z",
+ "user":{"username":"system:serviceaccount:default:build-sa"},
+ "sourceIPs":["10.244.3.17"],
+ "objectRef":{"resource":"secrets","namespace":"default"},
+ "responseStatus":{"code":200},
+ "annotations":{"authorization.k8s.io/decision":"allow",
+   "authorization.k8s.io/reason":"RBAC: allowed by RoleBinding \"build-sa-secrets\"/\"default\""}}</div>
+          <div class="cmd-output">The reason annotation names the exact binding that permitted this, which answers the how question immediately. Kubernetes secrets are base64 encoded, so the response contained usable credentials.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Privilege Escalation to Cluster Admin</h3>
+          <div class="config-snippet">
+{"verb":"create","requestReceivedTimestamp":"2025-07-14T09:52:10.774Z",
+ "user":{"username":"system:serviceaccount:default:build-sa"},
+ "sourceIPs":["10.244.3.17"],
+ "objectRef":{"resource":"clusterrolebindings","name":"debug-access"},
+ "requestObject":{"roleRef":{"kind":"ClusterRole","name":"cluster-admin"},
+   "subjects":[{"kind":"ServiceAccount","name":"build-sa","namespace":"default"}]},
+ "responseStatus":{"code":201},
+ "annotations":{"authorization.k8s.io/decision":"allow"}}</div>
+          <div class="cmd-output">The service account binds itself to cluster-admin using a benign-sounding binding name. One object, and it now controls every namespace and workload in the cluster.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Container Escape via Privileged Pod</h3>
+          <div class="config-snippet">
+{"verb":"create","requestReceivedTimestamp":"2025-07-14T09:55:41.118Z",
+ "user":{"username":"system:serviceaccount:default:build-sa"},
+ "objectRef":{"resource":"pods","namespace":"kube-system","name":"node-debug"},
+ "requestObject":{"spec":{
+   "hostPID":true,"hostNetwork":true,
+   "containers":[{"name":"shell","image":"alpine:latest",
+     "command":["nsenter","--target","1","--mount","--uts","--ipc","--net","--pid","--","bash"],
+     "securityContext":{"privileged":true}}],
+   "volumes":[{"name":"host","hostPath":{"path":"/"}}]}},
+ "responseStatus":{"code":201}}</div>
+          <div class="cmd-output">Privileged, hostPID, hostNetwork, and a hostPath mount of the entire root filesystem. The nsenter command enters the host's namespaces directly, giving a root shell on the node itself.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Interactive Shell in a Production Pod</h3>
+          <div class="config-snippet">
+{"verb":"create","requestReceivedTimestamp":"2025-07-14T09:58:02.114Z",
+ "user":{"username":"system:serviceaccount:default:build-sa"},
+ "sourceIPs":["10.244.3.17"],
+ "objectRef":{"resource":"pods","subresource":"exec",
+   "namespace":"production","name":"payments-api-7d9f4b8c5-x2n4k"},
+ "requestURI":"/api/v1/namespaces/production/pods/payments-api-7d9f4b8c5-x2n4k/exec?command=%2Fbin%2Fsh&stdin=true&tty=true",
+ "responseStatus":{"code":101}}</div>
+          <div class="cmd-output">Status 101 is the WebSocket upgrade that carries the session. The audit log proves a shell was opened into the payments API, but records nothing of what was typed inside it.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Runtime Sensor Fills the Gap</h3>
+          <div class="config-snippet">
+{"output":"09:58:14.882 Notice Terminal shell in container
+  (user=root container=payments-api pod=payments-api-7d9f4b8c5-x2n4k
+   ns=production shell=sh parent=runc cmdline=sh)",
+ "priority":"Notice","rule":"Terminal shell in container"}
+{"output":"09:58:41.229 Warning Sensitive file opened for reading
+  (file=/var/run/secrets/kubernetes.io/serviceaccount/token
+   proc=cat container=payments-api)",
+ "priority":"Warning","rule":"Read sensitive file untrusted"}</div>
+          <div class="cmd-output">Falco records what the audit log cannot: a shell spawned inside the container and the service account token being read from the mounted volume, ready to be reused elsewhere.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Persistence via DaemonSet</h3>
+          <div class="config-snippet">
+{"verb":"create","requestReceivedTimestamp":"2025-07-14T10:04:55.229Z",
+ "user":{"username":"system:serviceaccount:default:build-sa"},
+ "objectRef":{"resource":"daemonsets","namespace":"kube-system","name":"node-metrics-agent"},
+ "requestObject":{"spec":{"template":{"spec":{
+   "hostNetwork":true,"tolerations":[{"operator":"Exists"}],
+   "containers":[{"image":"docker.io/xmrig/xmrig:latest",
+     "resources":{"requests":{"cpu":"3500m"}}}]}}}},
+ "responseStatus":{"code":201}}</div>
+          <div class="cmd-output">A DaemonSet named to look like monitoring runs on every node, including nodes added later. The toleration for all taints ensures it reaches control plane nodes too, and the image name gives the purpose away.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Anonymous Access to an Exposed Cluster</h3>
+          <div class="config-snippet">
+{"verb":"get","requestReceivedTimestamp":"2025-07-14T08:14:02.117Z",
+ "user":{"username":"system:anonymous","groups":["system:unauthenticated"]},
+ "sourceIPs":["203.0.113.44"],"userAgent":"Go-http-client/2.0",
+ "requestURI":"/api/v1/namespaces/kube-system/secrets",
+ "responseStatus":{"code":200},
+ "annotations":{"authorization.k8s.io/decision":"allow",
+   "authorization.k8s.io/reason":"RBAC: allowed by ClusterRoleBinding \"anonymous-discovery\""}}</div>
+          <div class="cmd-output">An unauthenticated request from the internet returning 200 for kube-system secrets. A ClusterRoleBinding granting rights to system:unauthenticated is how clusters get mass-compromised within hours of exposure.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="VirtualizationCloud.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

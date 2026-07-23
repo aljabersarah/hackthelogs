@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - VMware vSphere Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">vSphere Logs</div>
+      <a href="#overview" class="nav-item active">vSphere Log Overview</a>
+      <a href="#log-types" class="nav-item">Key vSphere Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring vSphere Logging</a>
+      <a href="#threat-patterns" class="nav-item">vSphere Threat Patterns</a>
+      <a href="#log-format" class="nav-item">vSphere Log Format</a>
+      <a href="#events" class="nav-item">Critical vCenter Events</a>
+      <a href="#analysis-queries" class="nav-item">vSphere Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for vSphere Logging</a>
+      <a href="#log-examples" class="nav-item">Common vSphere Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> VMware vSphere Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>vSphere Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>A vSphere environment concentrates enormous risk into a small number of hosts. Compromise a single ESXi server and every virtual machine on it becomes accessible at the disk level, bypassing every guest operating system control, endpoint agent, and disk encryption scheme that depends on the guest being running. Compromise vCenter and the same applies across the entire estate. This is why ransomware groups shifted to targeting hypervisors directly: encrypting a datastore takes out hundreds of servers at once, and the guest agents that would have detected it are inside the machines being encrypted.</p>
+            <p>Logging spans two layers. Each <code>ESXi host</code> writes a set of plain text logs under <code>/var/log</code>, with <code>hostd.log</code> recording host agent operations and authentication, <code>vmkernel.log</code> recording kernel and storage events, <code>auth.log</code> recording SSH and shell authentication, and <code>shell.log</code> recording every command typed in the ESXi shell. Above that, <code>vCenter Server</code> maintains <code>vpxd.log</code> plus a structured events and tasks database that records every administrative action performed through the management interface, attributed to a named user.</p>
+            <p>The critical operational weakness is retention. ESXi logs live on a small local scratch partition and rotate aggressively, and on hosts booting from SD card or USB the logs may be held in a RAM disk that is lost entirely on reboot. An attacker who reboots a host after acting on it destroys the evidence without needing any anti-forensic tooling. Configuring a remote syslog target is therefore not a refinement but the precondition for any hypervisor investigation being possible at all.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key vSphere Log Types</h2>
+        </div>
+        <p>ESXi and vCenter produce complementary streams. Host logs show what happened on the hypervisor, vCenter events show who requested it:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">hostd.log</td>
+                <td>The ESXi host agent log, recording virtual machine power operations, configuration changes, datastore activity, and local authentication. The primary host-level security log and the first place to look after a host compromise.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">auth.log</td>
+                <td>Authentication to the host itself over SSH, the Direct Console interface, and the shell. Where brute force against ESXi and successful attacker logins appear.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">shell.log</td>
+                <td>Every command executed in the ESXi shell, with timestamps and the invoking user. The single most valuable forensic artifact on a compromised host, since ransomware operators work almost entirely through the shell.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">vpxd.log</td>
+                <td>The vCenter Server daemon log, covering all management operations, host connectivity, and API sessions. Correlates administrative intent with the host-level actions that resulted.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">vCenter Events and Tasks</td>
+                <td>Structured records in the vCenter database exposed through the UI and API. Every virtual machine creation, clone, deletion, permission change, and login is recorded here with the responsible user. The most queryable vSphere source.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">vmkernel.log</td>
+                <td>VMkernel messages covering storage paths, device events, and resource conditions. Mostly operational, but datastore access errors during mass encryption surface here first.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">vpxa.log</td>
+                <td>The vCenter agent running on each ESXi host, showing tasks pushed down from vCenter. Useful for distinguishing actions taken through vCenter from actions taken directly on the host.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">SSO and Identity Logs</td>
+                <td>vmware-sts-idmd.log and related files recording Single Sign-On authentication against vCenter, including failures. Where credential attacks against the management plane appear.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Virtual Machine Logs</td>
+                <td>A vmware.log file alongside each virtual machine on the datastore, recording power events, snapshot operations, and device changes for that specific machine.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Actions taken directly on an ESXi host through SSH do not appear in vCenter events at all. An attacker who bypasses vCenter and works on the host leaves traces only in <code>shell.log</code> and <code>auth.log</code>, which is precisely why those two files must be forwarded off the host.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>ESXi paths are consistent across versions. vCenter Server Appliance paths differ from the older Windows-based installations.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">ESXi Host Agent</td>
+                <td>/var/log/hostd.log</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ESXi Authentication</td>
+                <td>/var/log/auth.log</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ESXi Shell Commands</td>
+                <td>/var/log/shell.log</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">ESXi VMkernel</td>
+                <td>/var/log/vmkernel.log and /var/log/vmkwarning.log</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">ESXi vCenter Agent</td>
+                <td>/var/log/vpxa.log</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">vCenter Daemon</td>
+                <td>/var/log/vmware/vpxd/vpxd.log on the appliance</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">vCenter SSO</td>
+                <td>/var/log/vmware/sso/vmware-sts-idmd.log</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">vCenter Events Database</td>
+                <td>Embedded PostgreSQL, queried through the UI, PowerCLI, or the vSphere API</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Per Virtual Machine</td>
+                <td>/vmfs/volumes/&lt;datastore&gt;/&lt;vm-name&gt;/vmware.log</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Support Bundle</td>
+                <td>Generated with vm-support on a host or the vCenter UI, collecting all of the above</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Check whether the host has persistent scratch storage with <code>vim-cmd hostsvc/advopt/view ScratchConfig.CurrentScratchLocation</code>. If it points at <code>/tmp</code> or a RAM disk, all host logs are lost on every reboot and remote syslog is your only source of history.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring vSphere Logging</h2>
+        <p>These commands establish remote syslog from every host and raise the retention of the vCenter events database beyond its defaults.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Configure ESXi Remote Syslog</h3>
+          <div class="config-snippet">
+esxcli system syslog config set --loghost='tcp://10.50.9.20:1514' \
+                                --logdir-unique=true \
+                                --default-rotate=20 \
+                                --default-size=10240
+esxcli system syslog reload
+
+# Verify
+esxcli system syslog config get</div>
+          <div class="cmd-output">Use TCP rather than UDP so that log loss under load is detectable. The logdir-unique flag gives each host its own directory, which matters when several hosts share a scratch datastore.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Open the Firewall for Syslog</h3>
+          <div class="config-snippet">
+esxcli network firewall ruleset set --ruleset-id=syslog --enabled=true
+esxcli network firewall refresh
+esxcli network firewall ruleset list --ruleset-id=syslog</div>
+          <div class="cmd-output">The ESXi firewall blocks outbound syslog by default. Configuring a loghost without opening this ruleset produces a configuration that looks correct and delivers nothing.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Apply Syslog Settings Across the Cluster</h3>
+          <div class="config-snippet">
+# PowerCLI, applied to every host at once
+Get-VMHost | Foreach-Object {
+    Set-VMHostAdvancedConfiguration -VMHost $_ -Name Syslog.global.logHost `
+        -Value "tcp://10.50.9.20:1514"
+    Get-VMHostFirewallException -VMHost $_ -Name "syslog" |
+        Set-VMHostFirewallException -Enabled $true
+}
+
+# Confirm none were missed
+Get-VMHost | Select Name, @{N="LogHost";E={
+    ($_ | Get-AdvancedSetting -Name Syslog.global.logHost).Value }}</div>
+          <div class="cmd-output">Host profiles or PowerCLI loops are essential. A single host added to the cluster without syslog configured becomes a blind spot an attacker can operate from freely.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Increase vCenter Event Retention</h3>
+          <div class="config-snippet">
+# vCenter UI: Configure, Settings, General, Database
+#   Event retention : 365 days   (default 30)
+#   Task retention  : 365 days   (default 30)
+
+# Equivalent via PowerCLI advanced settings
+Get-AdvancedSetting -Entity $vcenter -Name event.maxAge |
+    Set-AdvancedSetting -Value 365
+Get-AdvancedSetting -Entity $vcenter -Name event.maxAgeEnabled |
+    Set-AdvancedSetting -Value $true</div>
+          <div class="cmd-output">Thirty days of event retention is the default and is shorter than typical time to detection. Raising it costs only database storage.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enforce Lockdown Mode and Restrict Shell Access</h3>
+          <div class="config-snippet">
+# Strict lockdown blocks all direct host access including DCUI
+vim-cmd hostsvc/advopt/update UserVars.SuppressShellWarning long 0
+esxcli system settings advanced set -o /UserVars/ESXiShellTimeOut -i 600
+esxcli system settings advanced set -o /UserVars/ESXiShellInteractiveTimeOut -i 600
+
+# PowerCLI: enable lockdown across the cluster
+Get-VMHost | ForEach-Object {
+    ($_ | Get-View).EnterLockdownMode()
+}
+Get-VMHost | Get-VMHostService | Where-Object {$_.Key -eq "TSM-SSH"} | Stop-VMHostService</div>
+          <div class="cmd-output">Lockdown mode forces all administration through vCenter, which means all administration is logged and attributed. SSH left enabled is the most common finding on compromised ESXi hosts.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Forward vCenter Appliance Logs</h3>
+          <div class="config-snippet">
+# vCenter UI: Administration, System Configuration, Syslog Configuration
+#   Add up to three remote syslog targets
+
+# Or via the appliance shell
+/opt/vmware/share/vami/vami_set_syslog 10.50.9.20 1514 tcp
+systemctl restart rsyslog
+
+# Confirm vpxd and SSO logs are included
+grep -E "vpxd|sso" /etc/vmware-syslog/syslog.conf</div>
+          <div class="cmd-output">vCenter is a Photon OS appliance running rsyslog. Forwarding its own logs is separate from forwarding ESXi host logs and is frequently overlooked.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> On hosts booting from SD card or USB, ESXi places logs on a RAM disk unless persistent scratch is configured. Every log is lost on reboot, and a reboot is trivially disguised as maintenance. Verify persistent scratch on every host, then forward remotely regardless.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>vSphere Threat Patterns</h2>
+        </div>
+        <p class="description">Hypervisor attacks bypass every guest control at once. These are the patterns that define real vSphere incidents.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-lock"></i>
+              <h4>Datastore Ransomware</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Encrypting VMDK files directly on the datastore after powering off every virtual machine. Signature: mass power-off events, SSH enabled, and shell commands iterating over /vmfs/volumes.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-terminal"></i>
+              <h4>SSH and Shell Enablement</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Starting the TSM-SSH service or disabling lockdown mode to gain direct host access. Almost always the first step, because actions taken on the host bypass vCenter logging entirely.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-clone"></i>
+              <h4>Virtual Machine Cloning and Export</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Cloning a domain controller or database server and exporting it as OVF. Copies an entire system including its disk contents without any guest-side agent noticing.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-download"></i>
+              <h4>Datastore Browsing and Download</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Downloading VMDK files through the datastore browser or HTTPS file API. Extracts a full disk image that can be mounted offline, defeating guest access controls entirely.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-box"></i>
+              <h4>Malicious VIB Installation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Installing an unsigned installation bundle to persist on the hypervisor across reboots and updates. Requires the acceptance level to be lowered, which is itself logged.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>vCenter Permission Escalation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Granting the Administrator role at the root folder, or adding an account to the SSO administrators group. Yields control of every host and virtual machine in the inventory.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Encrypting a datastore defeats guest disk encryption because BitLocker and LUKS protect data at rest inside a powered-off machine, not the VMDK container itself. Hypervisor-level backup and immutable snapshots are the only controls that meaningfully address this.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>vSphere Log Format</h2>
+        <p>ESXi logs follow a consistent structure. vCenter events are structured objects with a richer field set.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>UTC time with milliseconds</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22.481Z</td>
+              </tr>
+              <tr>
+                <td>severity</td>
+                <td>Message level</td>
+                <td>Severity</td>
+                <td>info / warning / error</td>
+              </tr>
+              <tr>
+                <td>process</td>
+                <td>Emitting component and thread</td>
+                <td>Metadata</td>
+                <td>Hostd[2098412]</td>
+              </tr>
+              <tr>
+                <td>opID</td>
+                <td>Operation identifier linking related entries</td>
+                <td>Session</td>
+                <td>opID=8f2a1c04</td>
+              </tr>
+              <tr>
+                <td>user</td>
+                <td>Account performing the operation</td>
+                <td>Identity</td>
+                <td>VSPHERE.LOCAL\administrator</td>
+              </tr>
+              <tr>
+                <td>eventType</td>
+                <td>vCenter structured event class</td>
+                <td>Action</td>
+                <td>VmClonedEvent</td>
+              </tr>
+              <tr>
+                <td>vm.name</td>
+                <td>Virtual machine involved</td>
+                <td>Target</td>
+                <td>DC01-PROD</td>
+              </tr>
+              <tr>
+                <td>host.name</td>
+                <td>ESXi host involved</td>
+                <td>Target</td>
+                <td>esxi-prod-04.corp.local</td>
+              </tr>
+              <tr>
+                <td>datastore</td>
+                <td>Datastore path referenced</td>
+                <td>Target</td>
+                <td>[SAN-VOL-02] DC01-PROD/DC01-PROD.vmdk</td>
+              </tr>
+              <tr>
+                <td>ipAddress</td>
+                <td>Source of the management session</td>
+                <td>Source</td>
+                <td>10.99.4.117</td>
+              </tr>
+              <tr>
+                <td>userAgent</td>
+                <td>Client that issued the API call</td>
+                <td>Source</td>
+                <td>pyvmomi Python/3.11</td>
+              </tr>
+              <tr>
+                <td>result</td>
+                <td>Task outcome</td>
+                <td>Result</td>
+                <td>success</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Critical Events -->
+      <div id="events" class="card">
+        <h2>Critical vCenter Events</h2>
+        <p>vCenter event types are stable identifiers, making them precise detection anchors in a SIEM.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Event Type</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">UserLoginSessionEvent</td>
+                <td>A user authenticated to vCenter</td>
+                <td>Baseline for detecting logins from unexpected addresses, at unusual hours, or with scripted user agents</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">BadUsernameSessionEvent</td>
+                <td>Failed authentication to vCenter</td>
+                <td>Bursts against the SSO administrator account are brute force against the entire virtual estate</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">PermissionAddedEvent</td>
+                <td>A role was granted on an inventory object</td>
+                <td>Administrator role at the root folder is total control. Every occurrence needs a matching change ticket</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">VmClonedEvent</td>
+                <td>A virtual machine was cloned</td>
+                <td>Cloning a domain controller copies the entire directory database including every credential hash</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">DatastoreFileDownloadEvent</td>
+                <td>A file was downloaded from a datastore</td>
+                <td>VMDK download is full disk exfiltration that no guest agent will observe</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">VmPoweredOffEvent</td>
+                <td>A virtual machine was powered off</td>
+                <td>Individually routine. Dozens within minutes is the opening move of datastore ransomware</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">VmRemovedEvent</td>
+                <td>A virtual machine was deleted from inventory</td>
+                <td>Destructive action, and also used to hide a cloned machine after its disks have been copied</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">HostServiceStartedEvent</td>
+                <td>A host service such as SSH was started</td>
+                <td>TSM-SSH starting is the precursor to direct host access that bypasses vCenter logging</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">LockdownModeDisabledEvent</td>
+                <td>Lockdown mode was turned off on a host</td>
+                <td>Re-opens direct host administration. Effectively never legitimate outside a documented break-glass procedure</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">VmAcquiredTicketEvent</td>
+                <td>A console or MKS ticket was acquired</td>
+                <td>Someone opened the virtual console of a machine, which provides keyboard access with no guest authentication logging</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">HostEsxAdminsGrantedEvent</td>
+                <td>A group was granted host admin rights</td>
+                <td>Adding a group named ESX Admins in Active Directory historically granted automatic host administrator access</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> <code>VmAcquiredTicketEvent</code> is heavily underused. Console access means an attacker can interact with a machine at the keyboard level, and nothing inside the guest records how that session arrived. Alert on console access to tier zero systems.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>vSphere Log Analysis Queries</h2>
+        <p>These PowerCLI, shell, and SIEM queries cover hypervisor compromise from host access through to mass encryption.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">SSH Enabled on a Host</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PowerCLI></span>
+                <span class="cmd-line-content">Get-VMHost | Get-VMHostService | Where-Object {$_.Key -eq "TSM-SSH" -and $_.Running -eq $true} | Select-Object VMHost, Label, Running, Policy</span>
+              </div>
+              <div class="cmd-output">SSH running on a production host is either a forgotten troubleshooting session or an attacker. Both need closing.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-power-off"></i>
+              <span class="cmd-title">Mass Power-Off (Ransomware Precursor)</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vcenter" eventType="VmPoweredOffEvent" | bucket _time span=10m | stats dc(vm_name) as vms, values(user) by _time, host_name | where vms &gt; 10</span>
+              </div>
+              <div class="cmd-output">More than ten machines powered off in ten minutes is either a major outage or the opening move of datastore encryption. Both warrant an immediate page.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-history"></i>
+              <span class="cmd-title">Shell Commands on the Host</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "esxcli|vim-cmd|vmkfstools|find /vmfs|chmod \+x|wget|curl|python" /var/log/shell.log</span>
+              </div>
+              <div class="cmd-output">shell.log records every command typed on the host. Ransomware operators work almost entirely here, so this file is the highest value forensic artifact on a compromised ESXi server.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Host Authentication Failures</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "authentication failed|Failed password|Cannot login" /var/log/auth.log | awk '{print $NF}' | sort | uniq -c | sort -rn</span>
+              </div>
+              <div class="cmd-output">Brute force against the root account of an ESXi host. Since ESXi root has no lockout by default, this can continue indefinitely.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-clone"></i>
+              <span class="cmd-title">Virtual Machine Cloning and Export</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PowerCLI></span>
+                <span class="cmd-line-content">Get-VIEvent -MaxSamples 100000 -Start (Get-Date).AddDays(-30) | Where-Object {$_ -is [VMware.Vim.VmClonedEvent] -or $_ -is [VMware.Vim.VmBeingDeployedEvent]} | Select-Object CreatedTime, UserName, @{N="Source";E={$_.SourceVm.Name}}, @{N="Clone";E={$_.Vm.Name}}</span>
+              </div>
+              <div class="cmd-output">Cloning a domain controller copies the entire Active Directory database. Reconcile every clone against a change request.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-download"></i>
+              <span class="cmd-title">Datastore File Downloads</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vcenter" eventType="DatastoreFileDownloadEvent" | search datastore="*.vmdk" OR datastore="*.vmx" | table _time, user, ipAddress, datastore</span>
+              </div>
+              <div class="cmd-output">Downloading a VMDK extracts a complete disk image that can be mounted offline, bypassing every access control inside the guest.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Permission Grants</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PowerCLI></span>
+                <span class="cmd-line-content">Get-VIEvent -MaxSamples 100000 -Start (Get-Date).AddDays(-30) | Where-Object {$_ -is [VMware.Vim.PermissionAddedEvent]} | Select-Object CreatedTime, UserName, @{N="Grantee";E={$_.Principal}}, @{N="Role";E={$_.Role.Name}}, @{N="On";E={$_.Entity.Name}}</span>
+              </div>
+              <div class="cmd-output">Administrator role granted at the root folder is control of the entire virtual estate in a single action.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-unlock"></i>
+              <span class="cmd-title">Lockdown Mode Changes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PowerCLI></span>
+                <span class="cmd-line-content">Get-VMHost | Select-Object Name, @{N="Lockdown";E={(Get-View $_).Config.LockdownMode}}, ConnectionState | Where-Object {$_.Lockdown -eq "lockdownDisabled"}</span>
+              </div>
+              <div class="cmd-output">Any host with lockdown disabled permits direct administration that never reaches vCenter events. Track this as a configuration drift metric.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-box"></i>
+              <span class="cmd-title">Unsigned VIB Installation</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">esxcli software acceptance get ; esxcli software vib list | grep -viE "VMware|VMwareCertified|VMwareAccepted"</span>
+              </div>
+              <div class="cmd-output">An acceptance level of CommunitySupported combined with an unrecognised VIB is hypervisor-level persistence surviving reboots and patches.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-heartbeat"></i>
+              <span class="cmd-title">Syslog Configuration Drift</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PowerCLI></span>
+                <span class="cmd-line-content">Get-VMHost | Select Name, @{N="LogHost";E={($_ | Get-AdvancedSetting -Name Syslog.global.logHost).Value}} | Where-Object {[string]::IsNullOrEmpty($_.LogHost)}</span>
+              </div>
+              <div class="cmd-output">Any host returned here keeps its logs only locally, where a reboot destroys them. Run this as a scheduled control check.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for vSphere Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so hypervisor evidence survives the incident it is meant to document:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Configure Remote Syslog on Every Host</h3>
+              <p>ESXi logs rotate quickly and may live on a RAM disk. Without remote syslog, a reboot erases the entire history and an attacker needs no anti-forensic tooling at all.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Open the Syslog Firewall Ruleset</h3>
+              <p>ESXi blocks outbound syslog by default. Setting a loghost without enabling the ruleset produces a configuration that appears correct and delivers nothing.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Collect shell.log and auth.log Specifically</h3>
+              <p>Direct host activity never appears in vCenter events. These two files are the only record of an attacker who bypassed the management plane.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Enable Lockdown Mode and Disable SSH</h3>
+              <p>Forcing administration through vCenter means every action is attributed to a named user. SSH left running is the single most common finding on compromised hosts.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Raise vCenter Event Retention</h3>
+              <p>Thirty days is the default and is shorter than typical dwell time. Increasing it to a year costs only database storage and preserves the attribution layer.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Alert on Mass Power-Off</h3>
+              <p>Bulk power-off precedes datastore encryption. It is one of the few detections that can catch hypervisor ransomware in the window before damage becomes irreversible.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Treat vCenter as a Tier Zero Asset</h3>
+              <p>It controls every virtual machine including domain controllers. Separate administrative accounts, require MFA, and never join it to the domain it manages.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Verify Persistent Scratch Storage</h3>
+              <p>Hosts booting from SD or USB may keep logs in memory only. Check ScratchConfig on every host, because the failure is silent and total.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common vSphere Log Examples</h2>
+        <p>A hypervisor ransomware incident traced from stolen vCenter credentials to encrypted datastores.</p>
+
+        <div class="implementation-steps">
+          <h3>vCenter Brute Force</h3>
+          <div class="config-snippet">
+2025-07-14T09:12:04.117Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84210 :
+  Cannot login administrator@vsphere.local@10.99.4.117
+2025-07-14T09:12:09.882Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84211 :
+  Cannot login administrator@vsphere.local@10.99.4.117
+2025-07-14T09:12:15.229Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84212 :
+  Cannot login root@10.99.4.117</div>
+          <div class="cmd-output">Repeated failures against the SSO administrator from a VPN pool address. Cross-referencing the VPN session log identifies whose credentials were used to reach this point.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Successful Login from a Scripted Client</h3>
+          <div class="config-snippet">
+2025-07-14T09:40:53.221Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84290 :
+  User administrator@VSPHERE.LOCAL@10.99.4.117 logged in as pyvmomi Python/3.11.6 (Linux; x86_64)
+2025-07-14T09:40:54.118Z info vpxd[07412] [Originator@6876 sub=Vimsvc] [Auth]: User VSPHERE.LOCAL\administrator</div>
+          <div class="cmd-output">The user agent is the tell. Administrators use the HTML5 client or PowerCLI, so a raw pyvmomi session against the SSO administrator account is scripted tooling.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>SSH Enabled to Bypass vCenter Logging</h3>
+          <div class="config-snippet">
+2025-07-14T09:44:07.229Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84302 :
+  The service TSM-SSH has been started on esxi-prod-04.corp.local
+2025-07-14T09:44:12.881Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84303 :
+  Lockdown mode disabled for host esxi-prod-04.corp.local</div>
+          <div class="cmd-output">Two events that together mean everything after this point happens directly on the host and will not appear in vCenter. From here only shell.log tells the story.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Host Login and Reconnaissance in shell.log</h3>
+          <div class="config-snippet">
+2025-07-14T09:47:33Z auth.log: SSH login for 'root' from 10.99.4.117
+2025-07-14T09:47:41Z shell[2104881]: [root]: esxcli vm process list
+2025-07-14T09:47:52Z shell[2104881]: [root]: df -h
+2025-07-14T09:48:04Z shell[2104881]: [root]: ls -lah /vmfs/volumes/
+2025-07-14T09:48:19Z shell[2104881]: [root]: find /vmfs/volumes/ -name "*.vmdk" | wc -l</div>
+          <div class="cmd-output">Enumerating running machines, storage capacity, and counting VMDK files. This is target assessment: the attacker is measuring how much damage a single command can do.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Domain Controller Cloned for Credential Theft</h3>
+          <div class="config-snippet">
+2025-07-14T09:52:10.774Z info vpxd[07412] [Originator@6876 sub=Vimsvc.ha-eventmgr] Event 84350 :
+  Task: Clone virtual machine
+  Source: DC01-PROD on esxi-prod-04.corp.local
+  Target: temp-restore-01 in datastore [SAN-VOL-02]
+  Initiated by: VSPHERE.LOCAL\administrator from 10.99.4.117
+2025-07-14T09:58:02.114Z info vpxd[07412] Event 84361 :
+  DatastoreFileDownloadEvent: [SAN-VOL-02] temp-restore-01/temp-restore-01-flat.vmdk downloaded from 10.99.4.117</div>
+          <div class="cmd-output">A domain controller cloned then its flat disk downloaded. That file contains NTDS.dit and every credential hash in the domain. No agent inside DC01-PROD observed any of this.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Mass Power-Off Preceding Encryption</h3>
+          <div class="config-snippet">
+2025-07-14T10:02:44Z shell[2104881]: [root]: esxcli vm process list | grep 'World ID' | awk '{print $3}' &gt; /tmp/w
+2025-07-14T10:02:51Z shell[2104881]: [root]: for w in $(cat /tmp/w); do esxcli vm process kill -t=force -w=$w; done
+2025-07-14T10:02:58.229Z info hostd[2098412] Event: VmPoweredOffEvent DC01-PROD
+2025-07-14T10:02:58.441Z info hostd[2098412] Event: VmPoweredOffEvent SQL-PROD-01
+2025-07-14T10:02:58.662Z info hostd[2098412] Event: VmPoweredOffEvent APP-PROD-03
+2025-07-14T10:02:59.118Z info hostd[2098412] Event: VmPoweredOffEvent FILE-PROD-02</div>
+          <div class="cmd-output">Forced termination of every running machine in under a second. Machines must be powered off before their VMDK files can be encrypted, which is what makes bulk power-off the last useful warning.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Datastore Encryption</h3>
+          <div class="config-snippet">
+2025-07-14T10:04:55Z shell[2104881]: [root]: chmod +x /tmp/.x/encrypt
+2025-07-14T10:04:58Z shell[2104881]: [root]: /tmp/.x/encrypt -p /vmfs/volumes/SAN-VOL-02 -t 40
+2025-07-14T10:05:31.882Z warning vmkernel: WARNING: FS3J: Failed to lock file
+  /vmfs/volumes/SAN-VOL-02/DC01-PROD/DC01-PROD-flat.vmdk
+2025-07-14T10:06:14.229Z info shell[2104881]: [root]: echo 'READ_ME.txt' &gt; /vmfs/volumes/SAN-VOL-02/READ_ME.txt</div>
+          <div class="cmd-output">An unsigned binary staged in a hidden temp directory encrypting the datastore with 40 parallel threads. Guest disk encryption offers no protection here, because the VMDK container itself is what gets encrypted.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Evidence Destruction: Log Clearing and Reboot</h3>
+          <div class="config-snippet">
+2025-07-14T10:11:03Z shell[2104881]: [root]: esxcli system syslog config set --loghost=''
+2025-07-14T10:11:09Z shell[2104881]: [root]: &gt; /var/log/shell.log
+2025-07-14T10:11:12Z shell[2104881]: [root]: &gt; /var/log/auth.log
+2025-07-14T10:11:18Z shell[2104881]: [root]: reboot</div>
+          <div class="cmd-output">The loghost is cleared, local logs truncated, and the host rebooted. Everything above survived only because it had already been forwarded to the syslog collector before line one of this block executed.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="VirtualizationCloud.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

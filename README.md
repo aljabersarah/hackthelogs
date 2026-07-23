@@ -18,7 +18,7 @@ Whether you're a SOC analyst, security engineer, or student, this resource offer
 
 ## Community
 
-> "زكاة العلم نشره" – *Knowledge grows when shared.*
+> "زكاة العلم نشره" : *Knowledge grows when shared.*
 
 This is a community-driven initiative. Your feedback and future contributions are highly appreciated.
 

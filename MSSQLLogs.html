@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Microsoft SQL Server Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">SQL Server Logs</div>
+      <a href="#overview" class="nav-item active">SQL Server Log Overview</a>
+      <a href="#log-types" class="nav-item">Key SQL Server Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-audit" class="nav-item">Enabling SQL Server Auditing</a>
+      <a href="#audit-groups" class="nav-item">Recommended Audit Action Groups</a>
+      <a href="#log-format" class="nav-item">SQL Server Audit Log Format</a>
+      <a href="#event-ids" class="nav-item">Critical SQL Server Event IDs</a>
+      <a href="#analysis-queries" class="nav-item">SQL Server Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for SQL Server Logging</a>
+      <a href="#log-examples" class="nav-item">Common SQL Server Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Microsoft SQL Server Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- SQL Server Log Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>SQL Server Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Microsoft SQL Server produces several independent streams of log data, and no single one of them tells the whole story. The <code>SQL Server Error Log</code> records engine health, startup parameters, and by default every failed login. <code>SQL Server Audit</code>, built on Extended Events, is the purpose-built security auditing framework that writes structured records of logons, permission changes, schema modifications, and data access. The <code>Default Trace</code> quietly captures a small set of high-value configuration and DDL events even when nothing else is enabled, and the Windows <code>Application</code> and <code>Security</code> event logs receive a mirrored copy of login auditing.</p>
+            <p>The distinction matters operationally. A default SQL Server installation logs failed logins only, which means an attacker who successfully authenticates with stolen credentials, escalates privileges, and exfiltrates a customer table produces almost no evidence. Turning on SQL Server Audit with the correct action groups is what converts the database from a blind spot into a monitored asset. Both NIST SP 800-92 and the Saudi NCA Essential Cybersecurity Controls require auditing of privileged account activity and access to sensitive data, and for a database tier that requirement is satisfied by a server audit specification, not by the error log alone.</p>
+            <p>SQL Server Audit writes to one of three targets: a binary <code>.sqlaudit</code> file, the Windows Application log, or the Windows Security log. The file target is the most reliable and the highest performing, and it can be read back into T-SQL through <code>sys.fn_get_audit_file</code> or shipped to a SIEM. The Security log target offers the strongest tamper resistance because a database administrator cannot clear it without Windows-level privileges, which is precisely why it is preferred in high-assurance environments where the DBA is inside the threat model.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key SQL Server Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key SQL Server Log Types</h2>
+        </div>
+        <p>SQL Server generates several distinct log types that serve different monitoring and forensic purposes. Understanding which stream holds which evidence is essential when reconstructing an incident:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">SQL Server Error Log</td>
+                <td>The primary operational log, written as a plain text file (ERRORLOG) and cycled on every service restart. Records service startup and shutdown, database recovery, backup and restore operations, memory and I/O warnings, and login auditing messages such as error 18456. This is the first log to check when the instance behaves abnormally.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">SQL Server Audit</td>
+                <td>The dedicated security audit framework introduced in SQL Server 2008 and available in all editions since 2016 SP1. Writes structured, tamper-evident records for server-level and database-level actions defined by audit specifications. This is the authoritative source for privileged activity, permission changes, and sensitive data access.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Default Trace</td>
+                <td>A lightweight server-side trace enabled by default that retains a rolling set of five 20&nbsp;MB trace files. Captures object creation and deletion, database changes, security-relevant configuration modifications, log file growth, and audit changes. Extremely valuable in incident response because it is often the only evidence present on an unmonitored server.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Extended Events (XEvents)</td>
+                <td>The modern, low-overhead event tracing engine that replaced SQL Trace and Profiler. Highly flexible sessions can capture statement execution, errors, deadlocks, and login activity with fine-grained filtering. The <code>system_health</code> session runs by default and retains recent errors, deadlocks, and severity 20+ events.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows Application / Security Log</td>
+                <td>SQL Server mirrors login auditing and severe engine errors into the Windows Application log under the source MSSQLSERVER or MSSQL$&lt;InstanceName&gt;. SQL Server Audit can additionally target the Windows Security log, which cannot be cleared by a DBA and is therefore the tamper-resistant option.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">SQL Server Agent Log</td>
+                <td>Records job execution history, job step failures, alert firing, and Agent service events. Frequently overlooked, yet SQL Agent jobs are a common persistence mechanism because they run under privileged service accounts and can execute operating system commands or PowerShell.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Transaction Log (LDF)</td>
+                <td>The write-ahead log that guarantees durability and supports point-in-time recovery. Not a security log and not human readable, but forensically valuable: with the right tooling it can reveal DELETE and UPDATE operations that were never captured by any audit, provided the log has not yet been truncated.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The Default Trace is the single highest-value artifact on an otherwise unmonitored SQL Server. Before an attacker has a chance to overwrite it, query <code>sys.fn_trace_gettable</code> for event class 164 (Object:Altered) and 46 (Object:Created) to see what changed and when.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Default paths vary by SQL Server version because the instance directory encodes the internal version number. The table below uses SQL Server 2022 (MSSQL16) as the reference; substitute the correct number for your version.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Error Log</td>
+                <td>C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\Log\ERRORLOG</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Audit Files</td>
+                <td>Defined by the FILEPATH argument of CREATE SERVER AUDIT, commonly a dedicated volume such as D:\SQLAudit\ containing .sqlaudit files</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Default Trace</td>
+                <td>C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\Log\log_&lt;n&gt;.trc</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">system_health XEvent</td>
+                <td>C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\Log\system_health_*.xel</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">SQL Agent Log</td>
+                <td>C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\Log\SQLAGENT.OUT</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows Application Log</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Application.evtx (source: MSSQLSERVER)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Setup / Patch Logs</td>
+                <td>C:\Program Files\Microsoft SQL Server\160\Setup Bootstrap\Log\Summary.txt</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Do not guess the path. Run <code>SELECT SERVERPROPERTY('ErrorLogFileName')</code> to get the exact error log location for the running instance, and query <code>sys.server_file_audits</code> for the configured audit file path.
+          </div>
+        </div>
+      </div>
+
+      <!-- Enabling SQL Server Auditing -->
+      <div id="enable-audit" class="card">
+        <h2>Enabling SQL Server Auditing</h2>
+        <p>SQL Server Audit is created in three steps: define the audit object and its destination, attach a server audit specification listing the action groups to capture, then enable both. All statements below require CONTROL SERVER permission.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Create the Server Audit Object</h3>
+          <div class="config-snippet">
+USE master;
+GO
+CREATE SERVER AUDIT [HTL_Security_Audit]
+TO FILE
+(   FILEPATH = 'D:\SQLAudit\'
+,   MAXSIZE = 256 MB
+,   MAX_ROLLOVER_FILES = 50
+,   RESERVE_DISK_SPACE = OFF )
+WITH
+(   QUEUE_DELAY = 1000
+,   ON_FAILURE = CONTINUE
+,   AUDIT_GUID = NEWID() );
+GO</div>
+          <div class="cmd-output">Creates a file-based audit retaining up to 50 rollover files of 256 MB each. QUEUE_DELAY of 1000 ms buffers writes for performance; set it to 0 for synchronous, guaranteed-write auditing at the cost of throughput.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Create the Server Audit Specification</h3>
+          <div class="config-snippet">
+CREATE SERVER AUDIT SPECIFICATION [HTL_Server_Spec]
+FOR SERVER AUDIT [HTL_Security_Audit]
+    ADD (FAILED_LOGIN_GROUP),
+    ADD (SUCCESSFUL_LOGIN_GROUP),
+    ADD (LOGOUT_GROUP),
+    ADD (SERVER_ROLE_MEMBER_CHANGE_GROUP),
+    ADD (DATABASE_ROLE_MEMBER_CHANGE_GROUP),
+    ADD (SERVER_PERMISSION_CHANGE_GROUP),
+    ADD (DATABASE_PERMISSION_CHANGE_GROUP),
+    ADD (SERVER_PRINCIPAL_CHANGE_GROUP),
+    ADD (DATABASE_PRINCIPAL_CHANGE_GROUP),
+    ADD (SCHEMA_OBJECT_CHANGE_GROUP),
+    ADD (DATABASE_CHANGE_GROUP),
+    ADD (SERVER_OBJECT_CHANGE_GROUP),
+    ADD (AUDIT_CHANGE_GROUP),
+    ADD (BACKUP_RESTORE_GROUP),
+    ADD (DBCC_GROUP)
+WITH (STATE = ON);
+GO</div>
+          <div class="cmd-output">Captures authentication, privilege and role changes, schema modifications, backup activity, and any attempt to tamper with the audit configuration itself. AUDIT_CHANGE_GROUP is mandatory: it is what tells you the attacker disabled your auditing.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Enable the Audit</h3>
+          <div class="config-snippet">
+ALTER SERVER AUDIT [HTL_Security_Audit] WITH (STATE = ON);
+GO
+
+-- Verify the audit is running
+SELECT a.name, a.is_state_enabled, a.on_failure_desc, f.log_file_path
+FROM sys.server_audits a
+LEFT JOIN sys.server_file_audits f ON a.audit_id = f.audit_id;</div>
+          <div class="cmd-output">The audit object must be enabled separately from the specification. Confirm is_state_enabled returns 1 for both the audit and the specification, otherwise records are silently discarded.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Audit Sensitive Data Access at the Database Level</h3>
+          <div class="config-snippet">
+USE [CustomerDB];
+GO
+CREATE DATABASE AUDIT SPECIFICATION [HTL_PII_Access]
+FOR SERVER AUDIT [HTL_Security_Audit]
+    ADD (SELECT, UPDATE, DELETE ON dbo.Customers BY public),
+    ADD (SELECT ON dbo.PaymentCards BY public),
+    ADD (EXECUTE ON SCHEMA::dbo BY public)
+WITH (STATE = ON);
+GO</div>
+          <div class="cmd-output">Server-level auditing does not record row access. To satisfy sensitive-data monitoring requirements you must add a database audit specification naming the specific tables that hold regulated data.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Set Login Auditing to Capture Both Success and Failure</h3>
+          <div class="config-snippet">
+EXEC xp_instance_regwrite
+     N'HKEY_LOCAL_MACHINE',
+     N'Software\Microsoft\MSSQLServer\MSSQLServer',
+     N'AuditLevel', REG_DWORD, 3;
+GO
+-- 0 = None, 1 = Successful logins, 2 = Failed logins (default), 3 = Both
+-- Requires a service restart to take effect</div>
+          <div class="cmd-output">Sets the legacy login auditing level that writes to the error log and Windows Application log. This is independent of SQL Server Audit and provides a useful secondary source, but it requires a service restart.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> <code>ON_FAILURE = CONTINUE</code> keeps the instance available if the audit target becomes unwritable, but it means auditing can silently stop. In regulated environments consider <code>ON_FAILURE = SHUTDOWN</code> or <code>FAIL_OPERATION</code> so that loss of audit capability is treated as a failure condition rather than an inconvenience.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Audit Action Groups -->
+      <div id="audit-groups" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Recommended Audit Action Groups</h2>
+        </div>
+        <p class="description">SQL Server exposes more than eighty audit action groups. Enabling all of them generates unusable volume. The groups below represent a balanced baseline that satisfies common regulatory requirements while keeping event rates manageable.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sign-in-alt"></i>
+              <h4>FAILED_LOGIN_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records every unsuccessful authentication attempt against the instance. The foundation for brute force and password spraying detection.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-check"></i>
+              <h4>SUCCESSFUL_LOGIN_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records successful authentications. High volume on busy instances, but without it a compromised credential is invisible. Filter rather than disable.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>SERVER_ROLE_MEMBER_CHANGE_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Fires when a login is added to or removed from a fixed server role. Adding an account to sysadmin is the single most important privilege escalation event on the instance.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-cogs"></i>
+              <h4>AUDIT_CHANGE_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Captures creation, modification, and deletion of audit objects and specifications. This is the anti-tampering control that reveals an attacker turning your logging off.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>SERVER_PERMISSION_CHANGE_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records GRANT, REVOKE, and DENY of server-scoped permissions such as CONTROL SERVER, IMPERSONATE, and ALTER ANY LOGIN.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-table"></i>
+              <h4>SCHEMA_OBJECT_CHANGE_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Captures CREATE, ALTER, and DROP against schema objects. Detects malicious stored procedures, trigger-based persistence, and destructive DDL.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-plus"></i>
+              <h4>SERVER_PRINCIPAL_CHANGE_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Fires on creation, alteration, and deletion of logins, including password changes and account enabling. Detects attacker-created backdoor accounts.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-save"></i>
+              <h4>BACKUP_RESTORE_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records BACKUP and RESTORE operations. An unscheduled backup written to a network share or local temp folder is a classic bulk exfiltration technique.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-terminal"></i>
+              <h4>DBCC_GROUP</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Captures DBCC command execution. Undocumented DBCC commands are used to read memory, dump page contents, and manipulate the engine in ways that bypass normal access control.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Action groups are all-or-nothing at the server level and cannot be filtered by login inside the specification. If SUCCESSFUL_LOGIN_GROUP volume is unmanageable, apply a WHERE predicate on the audit object using <code>ALTER SERVER AUDIT ... WHERE server_principal_name &lt;&gt; 'app_service_account'</code> rather than dropping the group entirely.
+          </div>
+        </div>
+      </div>
+
+      <!-- SQL Server Audit Log Format -->
+      <div id="log-format" class="card">
+        <h2>SQL Server Audit Log Format</h2>
+        <p>Audit records read through <code>sys.fn_get_audit_file</code> expose a consistent set of columns regardless of the action being audited. These are the fields that matter for detection engineering and SIEM field mapping.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>event_time</td>
+                <td>UTC timestamp of the audited action</td>
+                <td>Timestamp</td>
+                <td>2025-07-14 09:41:22.813</td>
+              </tr>
+              <tr>
+                <td>action_id</td>
+                <td>Four-character code identifying the action</td>
+                <td>Detection</td>
+                <td>LGIF</td>
+              </tr>
+              <tr>
+                <td>succeeded</td>
+                <td>Whether the action completed successfully</td>
+                <td>Result</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>server_principal_name</td>
+                <td>Login that performed the action</td>
+                <td>Identity</td>
+                <td>svc_reporting</td>
+              </tr>
+              <tr>
+                <td>database_principal_name</td>
+                <td>Database user context of the action</td>
+                <td>Identity</td>
+                <td>dbo</td>
+              </tr>
+              <tr>
+                <td>client_ip</td>
+                <td>Source IP address of the session</td>
+                <td>Source</td>
+                <td>10.20.4.87</td>
+              </tr>
+              <tr>
+                <td>application_name</td>
+                <td>Client application string supplied by the driver</td>
+                <td>Source</td>
+                <td>sqlcmd</td>
+              </tr>
+              <tr>
+                <td>host_name</td>
+                <td>Client workstation name</td>
+                <td>Source</td>
+                <td>WKS-FIN-014</td>
+              </tr>
+              <tr>
+                <td>database_name</td>
+                <td>Database in which the action occurred</td>
+                <td>Target</td>
+                <td>CustomerDB</td>
+              </tr>
+              <tr>
+                <td>object_name</td>
+                <td>Securable that was acted upon</td>
+                <td>Target</td>
+                <td>PaymentCards</td>
+              </tr>
+              <tr>
+                <td>statement</td>
+                <td>The T-SQL statement executed</td>
+                <td>Action</td>
+                <td>SELECT * FROM dbo.PaymentCards</td>
+              </tr>
+              <tr>
+                <td>session_id</td>
+                <td>SPID of the session</td>
+                <td>Session</td>
+                <td>73</td>
+              </tr>
+              <tr>
+                <td>permission_bitmask</td>
+                <td>Permissions granted, denied, or revoked</td>
+                <td>Authorization</td>
+                <td>0x00000000000001</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Critical SQL Server Event IDs -->
+      <div id="event-ids" class="card">
+        <h2>Critical SQL Server Event IDs</h2>
+        <p>These error numbers appear in the SQL Server Error Log and the Windows Application log. Error 18456 in particular carries a state code that reveals exactly why authentication failed, which is what separates a mistyped password from a targeted attack.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Event / Error</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">18456 State 5</td>
+                <td>Login attempted with a user name that does not exist</td>
+                <td>Username enumeration or password spraying against guessed account names</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">18456 State 8</td>
+                <td>Password mismatch for a valid login</td>
+                <td>Classic brute force indicator when repeated against the same account</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">18456 State 11 / 12</td>
+                <td>Valid Windows login but server access denied</td>
+                <td>A domain account probing the instance without an explicit grant, common in lateral movement</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">18456 State 18</td>
+                <td>Password must be changed</td>
+                <td>Indicates use of a stale or newly provisioned account, often a forgotten default</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">18456 State 38</td>
+                <td>Login valid but the requested database is inaccessible</td>
+                <td>Reconnaissance enumerating which databases a compromised account can reach</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">18453 / 18454</td>
+                <td>Successful login using Windows or SQL authentication</td>
+                <td>Baseline for detecting logons from unexpected hosts, applications, or hours</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">17806</td>
+                <td>SSPI handshake failed</td>
+                <td>Kerberos or NTLM failure, frequently seen during relay attacks and misconfigured SPNs</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">15457</td>
+                <td>Configuration option changed</td>
+                <td>Fires when sp_configure alters a setting such as xp_cmdshell or CLR enabled</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">3041</td>
+                <td>Backup failed to complete</td>
+                <td>May indicate ransomware interfering with backups or an attacker probing backup paths</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">825</td>
+                <td>Read-retry required on a page</td>
+                <td>Early warning of storage corruption that can also result from destructive tampering</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> SQL Server deliberately reports state 1 to the client for almost every 18456 failure to avoid leaking information to an attacker. The real state code is only written to the error log, so client-side application logs are useless for this analysis.
+          </div>
+        </div>
+      </div>
+
+      <!-- SQL Server Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>SQL Server Log Analysis Queries</h2>
+        <p>Use these T-SQL and SIEM queries to hunt for authentication attacks, privilege escalation, configuration tampering, and bulk data access on SQL Server.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-file-alt"></i>
+              <span class="cmd-title">Read the Audit File</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_time, action_id, succeeded, server_principal_name, client_ip, statement FROM sys.fn_get_audit_file('D:\SQLAudit\*.sqlaudit', DEFAULT, DEFAULT) ORDER BY event_time DESC;</span>
+              </div>
+              <div class="cmd-output">Reads the binary audit files back into a queryable result set. Wildcards let you span all rollover files at once.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Brute Force Detection</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT client_ip, server_principal_name, COUNT(*) AS Failures FROM sys.fn_get_audit_file('D:\SQLAudit\*.sqlaudit', DEFAULT, DEFAULT) WHERE action_id = 'LGIF' AND event_time > DATEADD(HOUR, -1, GETUTCDATE()) GROUP BY client_ip, server_principal_name HAVING COUNT(*) > 10;</span>
+              </div>
+              <div class="cmd-output">Surfaces source IPs generating more than ten failed logins in an hour, the signature of credential guessing.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Sysadmin Role Additions</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_time, server_principal_name, target_server_principal_name, statement FROM sys.fn_get_audit_file('D:\SQLAudit\*.sqlaudit', DEFAULT, DEFAULT) WHERE action_id IN ('APRL','ADSP') AND statement LIKE '%sysadmin%';</span>
+              </div>
+              <div class="cmd-output">Detects any login being granted membership in the sysadmin fixed server role, the top privilege escalation event.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">xp_cmdshell Enabled</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT name, value_in_use FROM sys.configurations WHERE name IN ('xp_cmdshell','Ole Automation Procedures','clr enabled','Ad Hoc Distributed Queries') AND value_in_use = 1;</span>
+              </div>
+              <div class="cmd-output">Any of these returning 1 means the instance can execute code outside the database engine. Alert on the change event, not just the state.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-history"></i>
+              <span class="cmd-title">Default Trace: Object Changes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT StartTime, LoginName, HostName, ApplicationName, DatabaseName, ObjectName, EventClass FROM sys.fn_trace_gettable(CONVERT(VARCHAR(500), (SELECT TOP 1 [path] FROM sys.traces WHERE is_default = 1)), DEFAULT) WHERE EventClass IN (46, 47, 164) ORDER BY StartTime DESC;</span>
+              </div>
+              <div class="cmd-output">Pulls object created (46), deleted (47), and altered (164) events from the Default Trace. Often the only DDL evidence on an unaudited server.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Error Log Failed Logins</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">EXEC xp_readerrorlog 0, 1, N'Login failed', NULL, NULL, NULL, N'desc';</span>
+              </div>
+              <div class="cmd-output">Searches the current error log for failed logins including the true state code. Change the first parameter to read archived logs.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-database"></i>
+              <span class="cmd-title">Unexpected Backup Activity</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT bs.database_name, bs.backup_start_date, bs.user_name, bmf.physical_device_name FROM msdb.dbo.backupset bs JOIN msdb.dbo.backupmediafamily bmf ON bs.media_set_id = bmf.media_set_id WHERE bmf.physical_device_name LIKE '\\\\%' OR bmf.physical_device_name LIKE 'C:\Users\%' ORDER BY bs.backup_start_date DESC;</span>
+              </div>
+              <div class="cmd-output">Finds backups written to UNC paths or user profile folders instead of the approved backup target, a strong exfiltration indicator.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-link"></i>
+              <span class="cmd-title">Linked Server Inventory</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT s.name, s.data_source, s.is_rpc_out_enabled, l.remote_name FROM sys.servers s LEFT JOIN sys.linked_logins l ON s.server_id = l.server_id WHERE s.is_linked = 1;</span>
+              </div>
+              <div class="cmd-output">Linked servers with RPC out enabled allow command execution to pivot between instances. Any unexpected entry warrants investigation.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-clock"></i>
+              <span class="cmd-title">Off-Hours Sensitive Table Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="mssql:audit" object_name IN ("PaymentCards","Customers") | eval hr=strftime(_time,"%H") | where hr&lt;6 OR hr&gt;20 | stats count by server_principal_name, client_ip, object_name</span>
+              </div>
+              <div class="cmd-output">Correlates access to regulated tables outside business hours, one of the highest fidelity insider threat signals.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Audit Tampering</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="mssql:audit" action_id IN ("AUSC","AUAC","ASSC") | table _time, server_principal_name, client_ip, statement</span>
+              </div>
+              <div class="cmd-output">Any change to an audit object or specification should be alerted on immediately. Legitimate changes are rare and scheduled.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for SQL Server Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices to make SQL Server logging complete, durable, and actually usable during an investigation:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Forward Audit Logs Off the Host</h3>
+              <p>An attacker with sysadmin can delete .sqlaudit files. Ship audit records to a SIEM continuously, or target the Windows Security log, so that evidence survives compromise of the database itself.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Increase Error Log Retention</h3>
+              <p>SQL Server keeps only six archived error logs by default and cycles on every restart. Raise the count to at least 30 and schedule sp_cycle_errorlog nightly so a restart cannot destroy weeks of history.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Always Audit the Auditors</h3>
+              <p>Include AUDIT_CHANGE_GROUP in every server audit specification and alert on it in real time. Disabling auditing is a standard step in the attacker playbook and should never happen silently.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Audit Sensitive Tables Explicitly</h3>
+              <p>Server-level audit specifications never record row access. Identify tables holding personal, financial, or health data and create database audit specifications naming those objects directly.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Separate the Audit Volume</h3>
+              <p>Write audit files to a dedicated disk with its own capacity monitoring. If the audit target fills up under ON_FAILURE = CONTINUE, auditing stops while the database happily keeps serving queries.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Baseline Application Identities</h3>
+              <p>Record which application names, host names, and source IPs each service account normally uses. A service account logging in from sqlcmd or SSMS instead of its application is an immediate red flag.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Synchronize Time to a Trusted Source</h3>
+              <p>SQL Server Audit stamps events in UTC while the error log uses local server time. Ensure NTP synchronization and normalize both to UTC at ingest so correlation across sources holds up.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Preserve the Default Trace</h3>
+              <p>Do not disable the Default Trace for performance reasons. Its overhead is negligible and it regularly provides the only surviving record of schema and configuration changes on unmonitored instances.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common SQL Server Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common SQL Server Log Examples</h2>
+        <p>Recognising how attacks appear in real SQL Server log output is what turns configuration into detection. Below are representative entries from the error log and SQL Server Audit.</p>
+
+        <div class="implementation-steps">
+          <h3>Failed Login: Password Mismatch (Brute Force)</h3>
+          <div class="config-snippet">
+2025-07-14 09:41:22.81 Logon       Error: 18456, Severity: 14, State: 8.
+2025-07-14 09:41:22.81 Logon       Login failed for user 'sa'. Reason: Password did not match that for the login provided. [CLIENT: 203.0.113.77]</div>
+          <div class="cmd-output">State 8 confirms the login exists and the password was wrong. Repeated entries for 'sa' from a single external IP is textbook brute force against the built-in administrator account.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Failed Login: Unknown User (Account Enumeration)</h3>
+          <div class="config-snippet">
+2025-07-14 09:43:07.12 Logon       Error: 18456, Severity: 14, State: 5.
+2025-07-14 09:43:07.12 Logon       Login failed for user 'admin'. Reason: Could not find a login matching the name provided. [CLIENT: 203.0.113.77]</div>
+          <div class="cmd-output">State 5 means the account name itself does not exist. A rapid series of state 5 events with different usernames from one source is enumeration, not a user error.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Privilege Escalation: Sysadmin Role Granted</h3>
+          <div class="config-snippet">
+event_time              action_id  succeeded  server_principal_name  target_server_principal_name  statement
+2025-07-14 10:02:55.447 APRL       1          svc_reporting          bkp_admin                     ALTER SERVER ROLE [sysadmin] ADD MEMBER [bkp_admin];
+                        client_ip = 10.20.4.87   application_name = Microsoft SQL Server Management Studio   host_name = WKS-FIN-014</div>
+          <div class="cmd-output">A service account (svc_reporting) adding another login to sysadmin from an interactive SSMS session on a finance workstation. Service accounts should never perform role changes interactively.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Command Execution: xp_cmdshell Enabled</h3>
+          <div class="config-snippet">
+2025-07-14 10:05:31.09 spid73      Configuration option 'show advanced options' changed from 0 to 1. Run the RECONFIGURE statement to install.
+2025-07-14 10:05:31.44 spid73      Configuration option 'xp_cmdshell' changed from 0 to 1. Run the RECONFIGURE statement to install.</div>
+          <div class="cmd-output">The two-step pattern of enabling advanced options followed immediately by xp_cmdshell is the standard route from SQL injection or a compromised sysadmin account to operating system command execution.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Data Exfiltration: Bulk Read of a Sensitive Table</h3>
+          <div class="config-snippet">
+event_time              action_id  succeeded  server_principal_name  database_name  object_name    statement
+2025-07-14 02:17:44.902 SL         1          svc_reporting          CustomerDB     PaymentCards   SELECT * FROM dbo.PaymentCards
+                        client_ip = 10.20.4.87   application_name = sqlcmd   host_name = WKS-FIN-014   session_id = 73</div>
+          <div class="cmd-output">An unfiltered SELECT against a payment card table at 02:17 using sqlcmd rather than the reporting application. Time of day, tool, and lack of a WHERE clause together make this high confidence.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Anti-Forensics: Audit Specification Disabled</h3>
+          <div class="config-snippet">
+event_time              action_id  succeeded  server_principal_name  statement
+2025-07-14 10:11:03.276 ASSC       1          bkp_admin              ALTER SERVER AUDIT SPECIFICATION [HTL_Server_Spec] WITH (STATE = OFF);
+                        client_ip = 10.20.4.87   application_name = Microsoft SQL Server Management Studio</div>
+          <div class="cmd-output">The newly escalated account immediately turns off auditing. Because AUDIT_CHANGE_GROUP was enabled, this final action was itself recorded before logging stopped.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Persistence: SQL Agent Job Running OS Commands</h3>
+          <div class="config-snippet">
+2025-07-14 10:24:18 - ! [298] SQLServer Error: 22022, Job 'IndexMaintenance_Nightly' step 2 subsystem 'CmdExec' command: powershell.exe -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA...
+2025-07-14 10:24:19 - + [396] An idle CPU condition has not been defined - OnIdle job schedules will have no effect</div>
+          <div class="cmd-output">A maintenance job modified to run base64-encoded PowerShell through the CmdExec subsystem. SQL Agent jobs execute under the Agent service account and are a durable persistence mechanism that survives reboots.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Databaseslogs.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

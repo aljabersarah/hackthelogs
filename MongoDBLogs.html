@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - MongoDB Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">MongoDB Logs</div>
+      <a href="#overview" class="nav-item active">MongoDB Log Overview</a>
+      <a href="#log-types" class="nav-item">Key MongoDB Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring MongoDB Auditing</a>
+      <a href="#audit-filters" class="nav-item">Recommended Audit Actions</a>
+      <a href="#log-format" class="nav-item">MongoDB Log Format</a>
+      <a href="#components" class="nav-item">Critical Log Components and Codes</a>
+      <a href="#analysis-queries" class="nav-item">MongoDB Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for MongoDB Logging</a>
+      <a href="#log-examples" class="nav-item">Common MongoDB Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> MongoDB Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- MongoDB Log Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>MongoDB Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Since version 4.4 MongoDB writes its diagnostic log as structured JSON rather than free text, which makes it one of the easiest database logs to ingest into a SIEM without custom parsing. Every line is a complete JSON object carrying a timestamp, severity, component, connection context, and message. The <code>mongod</code> log records startup configuration, connection accept and end events, authentication successes and failures, replication state changes, index builds, and any operation exceeding the slow operation threshold.</p>
+            <p>What the diagnostic log does not provide is auditing. Recording who read which collection, who created a user, or who granted a role requires the separate <code>audit log</code>, available in MongoDB Enterprise, Percona Server for MongoDB, and Atlas. The audit log is configured independently, writes to its own destination, and supports a filter expression so you can capture authentication and authorisation events without recording every CRUD operation on a high-traffic cluster. The third source, the <code>database profiler</code>, writes operation detail into a capped <code>system.profile</code> collection per database, useful for targeted investigation but not a durable audit trail, since it lives inside the database an attacker controls.</p>
+            <p>MongoDB deserves particular attention because of its exposure history. Tens of thousands of instances have been compromised through the same pattern: a deployment bound to <code>0.0.0.0</code> with authorisation disabled, discovered by internet-wide scanning, then emptied and replaced with a ransom note. That entire attack is visible in the diagnostic log (connections from unfamiliar addresses, no authentication events, then <code>dropDatabase</code> commands), but only if the log is being read. Enabling authorisation, binding to a private interface, and forwarding the JSON log off the host addresses the overwhelming majority of real-world MongoDB incidents.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key MongoDB Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key MongoDB Log Types</h2>
+        </div>
+        <p>MongoDB separates diagnostics, auditing, and profiling into three independent mechanisms with very different durability and licensing:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">mongod Diagnostic Log</td>
+                <td>The primary server log, written as structured JSON since MongoDB 4.4. Records startup options, connection accept and end, authentication results, replication events, index builds, and slow operations. Available in every edition and enabled by default.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Audit Log</td>
+                <td>The dedicated security audit trail in MongoDB Enterprise, Percona Server for MongoDB, and Atlas. Records authentication, authorisation checks, user and role management, and optionally CRUD operations. Supports a filter expression and writes to file, syslog, or the console.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">mongos Log</td>
+                <td>In sharded clusters, the router process maintains its own log. Client connections terminate at mongos, so client source addresses appear there rather than on the shards. Collecting only shard logs loses the true client origin.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Database Profiler</td>
+                <td>Writes operation detail including the full query shape, execution time, and originating client into the capped system.profile collection per database. Powerful for investigation but stored inside the database, so an attacker with write access can destroy it.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Oplog</td>
+                <td>The capped replication log in local.oplog.rs containing every write applied to the data set. Not a security log, but it can reconstruct exactly what documents were inserted, updated, or deleted within its retention window.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">FTDC Diagnostic Data</td>
+                <td>Full Time Diagnostic Data Capture, a compressed binary metrics stream in the diagnostic.data directory. Primarily a support artifact, but valuable in forensics for establishing resource and connection patterns over time.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> On a sharded cluster always collect <code>mongos</code> logs. Operations forwarded to shards carry the mongos as their source, so shard logs alone will attribute every client action to your own routers.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Paths follow the distribution packaging. When MongoDB is run in a container, logs go to stdout unless a path is configured explicitly.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">mongod Log (Linux)</td>
+                <td>/var/log/mongodb/mongod.log</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">mongos Log</td>
+                <td>/var/log/mongodb/mongos.log</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Audit Log</td>
+                <td>Defined by auditLog.path, commonly /var/log/mongodb/audit.json</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Configuration File</td>
+                <td>/etc/mongod.conf</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Data Directory</td>
+                <td>/var/lib/mongodb (Debian) or /var/lib/mongo (RHEL)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">FTDC Data</td>
+                <td>&lt;dbPath&gt;/diagnostic.data/</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows</td>
+                <td>C:\Program Files\MongoDB\Server\7.0\log\mongod.log</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Container Deployments</td>
+                <td>stdout by default; retrieve with docker logs or the orchestrator log driver</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Confirm the running configuration rather than reading the file on disk. <code>db.adminCommand({getCmdLineOpts: 1})</code> shows the options the process actually started with, which is what matters if someone edited the config without restarting.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring MongoDB Auditing -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring MongoDB Auditing</h2>
+        <p>Diagnostic logging is configured in the <code>systemLog</code> section of mongod.conf; auditing lives in <code>auditLog</code> and requires an edition that supports it. Both take effect on restart.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Configure the Diagnostic Log</h3>
+          <div class="config-snippet">
+systemLog:
+  destination: file
+  path: /var/log/mongodb/mongod.log
+  logAppend: true                 # never truncate on restart
+  logRotate: reopen               # cooperate with logrotate
+  timeStampFormat: iso8601-utc
+  verbosity: 0
+  component:
+    accessControl:
+      verbosity: 1                # log authentication detail
+    network:
+      verbosity: 1                # log connection detail</div>
+          <div class="cmd-output">logAppend is critical. Without it a restart overwrites the entire log file, and restarting the service is a trivial way for an attacker to destroy evidence.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enforce Authentication and Network Binding</h3>
+          <div class="config-snippet">
+security:
+  authorization: enabled          # the single most important setting
+
+net:
+  bindIp: 127.0.0.1,10.40.1.15    # never 0.0.0.0 on an internet-reachable host
+  port: 27017
+  tls:
+    mode: requireTLS
+    certificateKeyFile: /etc/ssl/mongodb.pem</div>
+          <div class="cmd-output">Without authorization enabled, MongoDB grants every connection full administrative access and produces no authentication events at all. This is the root cause of nearly every mass MongoDB compromise.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Enable the Audit Log</h3>
+          <div class="config-snippet">
+auditLog:
+  destination: file
+  format: JSON
+  path: /var/log/mongodb/audit.json</div>
+          <div class="cmd-output">Available in MongoDB Enterprise, Percona Server for MongoDB, and Atlas. Without a filter, every auditable action is recorded, which is appropriate to start with before tuning.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Apply an Audit Filter for Security Events</h3>
+          <div class="config-snippet">
+auditLog:
+  destination: file
+  format: JSON
+  path: /var/log/mongodb/audit.json
+  filter: '{ "atype": { "$in": [
+      "authenticate", "authCheck",
+      "createUser", "dropUser", "updateUser",
+      "createRole", "dropRole", "updateRole",
+      "grantRolesToUser", "revokeRolesFromUser",
+      "grantPrivilegesToRole", "revokePrivilegesFromRole",
+      "createCollection", "dropCollection", "dropDatabase",
+      "shutdown", "replSetReconfig"
+    ] } }'</div>
+          <div class="cmd-output">Captures authentication, the complete user and role lifecycle, destructive DDL, and cluster reconfiguration (the security-relevant subset) while excluding routine CRUD volume.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Audit Reads on Sensitive Collections Only</h3>
+          <div class="config-snippet">
+filter: '{ "$or": [
+    { "atype": { "$in": ["authenticate","createUser","grantRolesToUser","dropDatabase"] } },
+    { "atype": "authCheck",
+      "param.command": { "$in": ["find","aggregate","count"] },
+      "param.ns": { "$in": ["hrdb.employees","paydb.cards"] } }
+  ] }'</div>
+          <div class="cmd-output">Combines instance-wide security auditing with read auditing scoped to two named namespaces. This is how you meet sensitive-data monitoring requirements without auditing every find on the cluster.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Enable the Profiler for Targeted Investigation</h3>
+          <div class="config-snippet">
+// Log operations slower than 100 ms in the current database
+db.setProfilingLevel(1, { slowms: 100 })
+
+// Full capture for a short investigation window, then revert
+db.setProfilingLevel(2)
+db.setProfilingLevel(1, { slowms: 100 })
+
+// Review recent profiled operations
+db.system.profile.find().sort({ ts: -1 }).limit(20).pretty()</div>
+          <div class="cmd-output">Profiling level 2 captures every operation and grows the capped collection quickly. Use it for bounded investigation windows, never as a permanent configuration.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> If your MongoDB edition has no audit log, the diagnostic log plus the profiler is all you have, and the profiler is stored in the database itself. In that case, forwarding the JSON diagnostic log off the host is not an optimisation, it is your only durable evidence.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Audit Actions -->
+      <div id="audit-filters" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Recommended Audit Actions</h2>
+        </div>
+        <p class="description">MongoDB audit records are identified by their action type, or atype. These are the atypes that carry the highest security value and belong in any filter you deploy.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sign-in-alt"></i>
+              <h4>authenticate</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records every authentication attempt with the mechanism, user, database, and result code. Result 18 is AuthenticationFailed and is the core brute force signal.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>grantRolesToUser</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Fires when roles are assigned to a user. Granting root, dbOwner, or userAdminAnyDatabase is full privilege escalation on the deployment.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-plus"></i>
+              <h4>createUser / dropUser</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>The user lifecycle. Attacker-created accounts in MongoDB frequently carry innocuous names such as backup or admin2 and are granted root immediately.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-trash-alt"></i>
+              <h4>dropDatabase / dropCollection</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Destructive DDL. In MongoDB ransom campaigns, dropDatabase followed by insertion of a ransom document is the entire attack payload.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>authCheck</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records authorisation decisions for individual commands including the namespace. The mechanism for auditing reads on sensitive collections, but extremely high volume unfiltered.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Filter</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-project-diagram"></i>
+              <h4>replSetReconfig</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Changes to replica set membership. Adding an attacker-controlled node to a replica set is a stealthy way to obtain a continuous copy of all data.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The audit filter is fixed at startup and cannot be changed at runtime, which is a genuine security advantage: an attacker cannot quietly narrow your auditing. It also means testing a filter requires a restart, so validate it in a non-production deployment first.
+          </div>
+        </div>
+      </div>
+
+      <!-- MongoDB Log Format -->
+      <div id="log-format" class="card">
+        <h2>MongoDB Log Format</h2>
+        <p>Every diagnostic log line since MongoDB 4.4 is a single JSON object with a consistent set of top-level keys. These are the fields to map when building a SIEM integration.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>t.$date</td>
+                <td>Event timestamp in ISO 8601</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22.481+00:00</td>
+              </tr>
+              <tr>
+                <td>s</td>
+                <td>Severity: F, E, W, I, or D1-D5</td>
+                <td>Severity</td>
+                <td>I</td>
+              </tr>
+              <tr>
+                <td>c</td>
+                <td>Component that emitted the message</td>
+                <td>Metadata</td>
+                <td>ACCESS</td>
+              </tr>
+              <tr>
+                <td>id</td>
+                <td>Stable numeric message identifier</td>
+                <td>Detection</td>
+                <td>20249</td>
+              </tr>
+              <tr>
+                <td>ctx</td>
+                <td>Context, usually the connection thread</td>
+                <td>Session</td>
+                <td>conn8412</td>
+              </tr>
+              <tr>
+                <td>msg</td>
+                <td>Human-readable message text</td>
+                <td>Action</td>
+                <td>Authentication failed</td>
+              </tr>
+              <tr>
+                <td>attr.remote</td>
+                <td>Client address and port</td>
+                <td>Source</td>
+                <td>203.0.113.44:52144</td>
+              </tr>
+              <tr>
+                <td>attr.user</td>
+                <td>Authenticating user name</td>
+                <td>Identity</td>
+                <td>admin</td>
+              </tr>
+              <tr>
+                <td>attr.db</td>
+                <td>Authentication or target database</td>
+                <td>Target</td>
+                <td>admin</td>
+              </tr>
+              <tr>
+                <td>attr.mechanism</td>
+                <td>Authentication mechanism used</td>
+                <td>Authorization</td>
+                <td>SCRAM-SHA-256</td>
+              </tr>
+              <tr>
+                <td>attr.result</td>
+                <td>MongoDB error code, 0 on success</td>
+                <td>Result</td>
+                <td>18</td>
+              </tr>
+              <tr>
+                <td>attr.ns</td>
+                <td>Namespace in database.collection form</td>
+                <td>Target</td>
+                <td>hrdb.employees</td>
+              </tr>
+              <tr>
+                <td>attr.durationMillis</td>
+                <td>Operation duration in milliseconds</td>
+                <td>Performance</td>
+                <td>38812</td>
+              </tr>
+              <tr>
+                <td>attr.docsExamined</td>
+                <td>Documents scanned by the operation</td>
+                <td>Performance</td>
+                <td>2841776</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The <code>id</code> field is a stable message identifier that does not change when MongoDB rewords a message. Build detections on <code>id</code> rather than on <code>msg</code> text and they will survive version upgrades.
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical Log Components and Codes -->
+      <div id="components" class="card">
+        <h2>Critical Log Components and Codes</h2>
+        <p>The component field routes each message to a subsystem, and the error code identifies the specific condition. Together they make precise filtering straightforward.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Component / Code</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">ACCESS, code 18</td>
+                <td>AuthenticationFailed</td>
+                <td>The core failed-authentication signal. Repetition from one address is brute force; across many users it is spraying</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ACCESS, code 13</td>
+                <td>Unauthorized</td>
+                <td>An authenticated session attempting an action beyond its role, indicating post-compromise privilege probing</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">NETWORK, id 22943</td>
+                <td>Connection accepted</td>
+                <td>Every new client connection with its source address. The baseline for detecting connections from unexpected networks</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">NETWORK, id 22944</td>
+                <td>Connection ended</td>
+                <td>Pairs with acceptance to reconstruct session duration and detect very short scanning connections</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">COMMAND, id 51803</td>
+                <td>Slow query</td>
+                <td>Any operation over the slow threshold, including docsExamined. Bulk collection scans surface here</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">CONTROL</td>
+                <td>Startup and shutdown</td>
+                <td>Records the effective startup options, which reveals whether authorization was enabled and what bindIp was in force</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">STARTUP WARNINGS</td>
+                <td>Insecure configuration</td>
+                <td>MongoDB explicitly warns at startup when access control is disabled and the server is not bound to localhost</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">REPL</td>
+                <td>Replication state changes</td>
+                <td>Elections and reconfiguration. An unexpected member joining a replica set is a data exfiltration vector</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">STORAGE, dropDatabase</td>
+                <td>Database dropped</td>
+                <td>Destructive activity. In the ransom campaigns this is the payload itself</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Search any MongoDB log for the string "Access control is not enabled for the database". If it is present, the instance grants full administrative rights to anyone who can reach the port, so treat it as an active incident, not a configuration backlog item.
+          </div>
+        </div>
+      </div>
+
+      <!-- MongoDB Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>MongoDB Log Analysis Queries</h2>
+        <p>Use these jq, shell, and mongosh commands to extract authentication attacks, privilege changes, destructive operations, and bulk reads.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Failed Authentication by Source</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.c=="ACCESS" and .attr.result==18) | .attr.remote' /var/log/mongodb/mongod.log | cut -d: -f1 | sort | uniq -c | sort -rn | head -20</span>
+              </div>
+              <div class="cmd-output">Ranks source addresses by authentication failures. Result code 18 is AuthenticationFailed.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span class="cmd-title">Access Control Disabled</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -i "access control is not enabled" /var/log/mongodb/mongod.log</span>
+              </div>
+              <div class="cmd-output">A single hit means the instance accepts unauthenticated administrative access. This is the highest severity finding on any MongoDB deployment.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-trash-alt"></i>
+              <span class="cmd-title">Destructive Operations</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.atype=="dropDatabase" or .atype=="dropCollection") | [.ts["$date"], .users[0].user, .param.ns, .remote.ip] | @tsv' /var/log/mongodb/audit.json</span>
+              </div>
+              <div class="cmd-output">Extracts every database and collection drop with the responsible user and source address from the audit log.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Role Grants</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.atype=="grantRolesToUser" or .atype=="createUser") | [.ts["$date"], .users[0].user, .param.user, (.param.roles|tostring), .remote.ip] | @tsv' /var/log/mongodb/audit.json</span>
+              </div>
+              <div class="cmd-output">Shows who granted what to whom. Any grant of root, __system, or userAdminAnyDatabase should be alerted on immediately.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-download"></i>
+              <span class="cmd-title">Bulk Collection Scans</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.attr.docsExamined != null and .attr.docsExamined > 100000) | [.t["$date"], .attr.ns, .attr.docsExamined, .attr.durationMillis, .attr.remote] | @tsv' /var/log/mongodb/mongod.log</span>
+              </div>
+              <div class="cmd-output">Finds operations scanning more than 100,000 documents, the signature of a full collection extraction.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Connections from Unexpected Networks</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.id==22943) | .attr.remote' /var/log/mongodb/mongod.log | cut -d: -f1 | sort -u | grep -vE "^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.)"</span>
+              </div>
+              <div class="cmd-output">Lists every non-RFC1918 address that opened a connection. On an internal database this list should be empty.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-users"></i>
+              <span class="cmd-title">Enumerate Privileged Users</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">mongosh></span>
+                <span class="cmd-line-content">db.getSiblingDB("admin").system.users.find({ "roles.role": { $in: ["root","userAdminAnyDatabase","dbOwner","__system"] } }, { user:1, db:1, roles:1 })</span>
+              </div>
+              <div class="cmd-output">Lists every account holding a superuser-equivalent role. Baseline this and alert on additions.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-cogs"></i>
+              <span class="cmd-title">Verify Effective Configuration</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">mongosh></span>
+                <span class="cmd-line-content">db.adminCommand({ getCmdLineOpts: 1 }).parsed</span>
+              </div>
+              <div class="cmd-output">Returns the options the running process actually started with, including security.authorization and net.bindIp. More trustworthy than the config file on disk.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Profiler Review</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">mongosh></span>
+                <span class="cmd-line-content">db.system.profile.find({ ns: /employees|cards/ }).sort({ ts: -1 }).limit(20).pretty()</span>
+              </div>
+              <div class="cmd-output">Reviews recent operations against sensitive collections including the full query shape and originating client.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-project-diagram"></i>
+              <span class="cmd-title">Replica Set Tampering</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="mongodb:audit" atype IN ("replSetReconfig","shutdown","setParameter") | table ts, users{}.user, remote.ip, param</span>
+              </div>
+              <div class="cmd-output">An unplanned replica set reconfiguration can silently add an attacker-controlled node that continuously receives all data.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for MongoDB Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices to make MongoDB logging complete and to close the exposure that drives most real MongoDB incidents:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable Authorization First</h3>
+              <p>No amount of logging helps an instance that grants everyone administrative access. security.authorization enabled is the prerequisite for every authentication event you would want to detect.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Always Set logAppend</h3>
+              <p>Without logAppend, MongoDB truncates the log file on every restart. Restarting the service is a one-command way to destroy the entire diagnostic history.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Ingest the JSON Log Natively</h3>
+              <p>MongoDB 4.4 and later emit one JSON object per line. Parse it as JSON rather than with regular expressions, and build detections on the stable numeric id field.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Filter the Audit Log Deliberately</h3>
+              <p>Unfiltered auditCheck on a busy cluster produces enormous volume. Filter to authentication, user and role management, destructive DDL, and reads on named sensitive namespaces.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Collect mongos Logs in Sharded Clusters</h3>
+              <p>Client sessions terminate at the router. Without mongos logs every operation appears to originate from your own infrastructure and true client attribution is lost.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Do Not Rely on the Profiler as an Audit Trail</h3>
+              <p>system.profile is a capped collection inside the database. An attacker with write access can drop it, and it rolls over quickly under load.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Alert on Startup Warnings</h3>
+              <p>MongoDB explicitly logs when access control is disabled or the server is bound to all interfaces. Turn those specific startup warnings into alerts rather than ignoring them.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Forward Logs Off the Host</h3>
+              <p>Both the diagnostic and audit logs are ordinary files owned by the mongod user. Ship them continuously so a compromise of the database does not also destroy the record of it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common MongoDB Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common MongoDB Log Examples</h2>
+        <p>These entries trace the classic MongoDB compromise: an exposed instance, discovery by scanning, then either exfiltration or a ransom drop.</p>
+
+        <div class="implementation-steps">
+          <h3>Startup Warning: Unauthenticated Instance</h3>
+          <div class="config-snippet">
+{"t":{"$date":"2025-07-14T08:02:11.334+00:00"},"s":"W","c":"CONTROL","id":22120,"ctx":"initandlisten","msg":"Access control is not enabled for the database. Read and write access to data and configuration is unrestricted","tags":["startupWarnings"]}
+{"t":{"$date":"2025-07-14T08:02:11.334+00:00"},"s":"W","c":"CONTROL","id":22140,"ctx":"initandlisten","msg":"This server is bound to localhost. Remote systems will be unable to connect to this server","tags":["startupWarnings"]}</div>
+          <div class="cmd-output">The first warning is the critical one. Combined with a bindIp of 0.0.0.0 instead of localhost, it means anyone who can route to port 27017 has full administrative control.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Authentication Failure (Code 18)</h3>
+          <div class="config-snippet">
+{"t":{"$date":"2025-07-14T09:41:22.481+00:00"},"s":"I","c":"ACCESS","id":20249,"ctx":"conn8412","msg":"Authentication failed","attr":{"mechanism":"SCRAM-SHA-256","speculative":false,"principalName":"admin","authenticationDatabase":"admin","remote":"203.0.113.44:52144","extraInfo":{},"error":"AuthenticationFailed: SCRAM authentication failed, storedKey mismatch"}}</div>
+          <div class="cmd-output">A storedKey mismatch means the account exists and the password was wrong. Repeated at high rate from one address, this is credential guessing against the admin user.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Connection Flood from Scanning Infrastructure</h3>
+          <div class="config-snippet">
+{"t":{"$date":"2025-07-14T09:38:02.117+00:00"},"s":"I","c":"NETWORK","id":22943,"ctx":"listener","msg":"Connection accepted","attr":{"remote":"198.51.100.203:44120","uuid":"5c1f...","connectionId":8390,"connectionCount":41}}
+{"t":{"$date":"2025-07-14T09:38:02.169+00:00"},"s":"I","c":"NETWORK","id":22944,"ctx":"conn8390","msg":"Connection ended","attr":{"remote":"198.51.100.203:44120","connectionId":8390,"connectionCount":40}}</div>
+          <div class="cmd-output">A connection accepted and closed 52 milliseconds later with no authentication in between. Hundreds of these from consecutive addresses is internet-wide scanning identifying exposed MongoDB instances.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Audit Log: Backdoor Account with Root</h3>
+          <div class="config-snippet">
+{"atype":"createUser","ts":{"$date":"2025-07-14T09:52:10.774+00:00"},"local":{"ip":"10.40.1.15","port":27017},"remote":{"ip":"203.0.113.44","port":52190},"users":[{"user":"admin","db":"admin"}],"roles":[{"role":"root","db":"admin"}],"param":{"user":"mongobackup","db":"admin","roles":[{"role":"root","db":"admin"}]},"result":0}</div>
+          <div class="cmd-output">A new account named to look like a backup service, granted root on the admin database. Result 0 confirms it succeeded.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Bulk Extraction: Full Collection Scan</h3>
+          <div class="config-snippet">
+{"t":{"$date":"2025-07-14T09:58:02.114+00:00"},"s":"I","c":"COMMAND","id":51803,"ctx":"conn8419","msg":"Slow query","attr":{"type":"command","ns":"shopdb.customers","command":{"find":"customers","filter":{},"batchSize":101},"planSummary":"COLLSCAN","keysExamined":0,"docsExamined":2841776,"nreturned":101,"durationMillis":38812,"remote":"203.0.113.44:52190"}}</div>
+          <div class="cmd-output">An empty filter with a COLLSCAN plan examining 2.8 million documents. The batched cursor means the client is paging through the entire customer collection.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Ransom Attack: Database Dropped</h3>
+          <div class="config-snippet">
+{"atype":"dropDatabase","ts":{"$date":"2025-07-14T10:04:55.229+00:00"},"remote":{"ip":"203.0.113.44","port":52190},"users":[],"roles":[],"param":{"ns":"shopdb"},"result":0}
+{"t":{"$date":"2025-07-14T10:05:01.882+00:00"},"s":"I","c":"COMMAND","id":51803,"ctx":"conn8419","msg":"Slow query","attr":{"type":"command","ns":"READ__ME_TO_RECOVER_YOUR_DATA.Warning","command":{"insert":"Warning"},"remote":"203.0.113.44:52190"}}</div>
+          <div class="cmd-output">An empty users array on the dropDatabase record proves the operation was unauthenticated. The ransom note database created seconds later completes the pattern that has hit tens of thousands of exposed instances.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Unauthorized Access Attempt (Code 13)</h3>
+          <div class="config-snippet">
+{"t":{"$date":"2025-07-14T10:09:14.006+00:00"},"s":"I","c":"ACCESS","id":20436,"ctx":"conn8433","msg":"Checking authorization failed","attr":{"error":{"code":13,"codeName":"Unauthorized","errmsg":"not authorized on hrdb to execute command { find: \"employees\", filter: {} }"},"remote":"10.30.2.61:52240"}}</div>
+          <div class="cmd-output">An authenticated but under-privileged account probing a collection it cannot read. A burst of code 13 events across many namespaces is systematic privilege mapping after a credential compromise.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Databaseslogs.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

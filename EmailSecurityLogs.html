@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Email Security Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Email Security Logs</div>
+      <a href="#overview" class="nav-item active">Email Security Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Email Security Log Types</a>
+      <a href="#log-locations" class="nav-item">Log Locations by Platform</a>
+      <a href="#enable-logging" class="nav-item">Configuring Email Security Logging</a>
+      <a href="#threat-patterns" class="nav-item">Email Threat Patterns</a>
+      <a href="#log-format" class="nav-item">Email Security Log Format</a>
+      <a href="#auth-results" class="nav-item">Authentication Results and Verdicts</a>
+      <a href="#analysis-queries" class="nav-item">Email Security Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Email Security Logging</a>
+      <a href="#log-examples" class="nav-item">Common Email Security Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Email Security Gateway Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Email Security Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Email remains the most common route into an organisation. Phishing for credentials, malicious attachments, and business email compromise together account for the majority of initial access in real intrusions, which makes the email security gateway one of the highest value log sources a SOC can collect. Unlike most controls, it sees the attack before it succeeds: the message arrives, is scanned, and is delivered or blocked, and every one of those decisions is recorded with the sender, the recipient, the subject, the attachment hashes, and the URLs contained in the body.</p>
+            <p>Three distinct record types matter, and they are frequently confused. <code>Message tracking</code> records the journey of every message through the mail flow, whether malicious or not, and is what lets you answer who else received a phishing email. <code>Verdict and quarantine</code> records document what the gateway decided and why, including the specific detection that fired. <code>Post-delivery</code> records cover what happened after the message landed: whether a user clicked a link, whether an attachment was opened, and whether the platform later retracted the message once new intelligence arrived.</p>
+            <p>That last category is the one most often overlooked and the most operationally important. Attackers routinely send a benign link that is weaponised hours later, precisely because the message passes inspection at delivery time. Microsoft's Safe Links and equivalent features from Proofpoint and Mimecast rewrite URLs so that each click is evaluated at click time rather than delivery time, and the resulting click logs are frequently the only evidence that a user actually engaged with a phishing message. Zero-hour Auto Purge and its equivalents then retroactively remove messages from mailboxes, and those retraction events tell you a threat reached users before it was recognised.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Email Security Log Types</h2>
+        </div>
+        <p>An email security platform produces several streams covering delivery, verdicts, and user interaction:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Message Tracking Log</td>
+                <td>One record per message per hop, containing the envelope sender, recipients, subject, size, message identifier, and the action taken. The foundation of every phishing investigation because it answers who else received the same message.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Threat Verdict Log</td>
+                <td>The security decision for each message: spam, phish, malware, or clean, with the confidence level and the specific detection technology that fired. Distinguishes a bulk marketing block from a targeted credential phish.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">URL Click Log</td>
+                <td>Records each time a user clicks a rewritten link, with the verdict at click time and whether the user proceeded past a warning page. Frequently the only proof that a user actually engaged with a phishing message.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Attachment Detonation Log</td>
+                <td>Sandbox analysis results for attachments, including file hashes, observed behaviour, and the verdict. Provides the hashes needed to hunt for the same file elsewhere in the estate.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Authentication Results</td>
+                <td>SPF, DKIM, DMARC, and ARC evaluation for each inbound message. The basis for detecting domain spoofing and for measuring whether your own outbound authentication is correctly configured.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Quarantine and Release Log</td>
+                <td>Messages held, and critically, messages released by administrators or users. A released phishing message is a control that was overridden and warrants review.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Post-Delivery Events</td>
+                <td>Retroactive actions such as Zero-hour Auto Purge removing a message from mailboxes after delivery. Each one means a threat reached users before it was recognised.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Mail Flow Rule and DLP Log</td>
+                <td>Transport rule matches and data loss prevention verdicts on outbound mail. Detects both policy violations and attacker-created forwarding rules.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Outbound Spam Log</td>
+                <td>Messages sent from your tenant that were flagged as spam or phishing. Almost always the sign of an internally compromised account being used to attack others.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Outbound spam detection is the most under-monitored email log. When your own users start sending phishing, the account is compromised and the attacker is using your domain reputation to attack partners and customers. Alert on it as an account compromise indicator, not as a mail hygiene issue.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log Locations by Platform</h2>
+        <p>Cloud platforms expose logs through APIs and hunting tables, while appliances write to local files.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Defender for Office 365</td>
+                <td>Advanced Hunting tables: EmailEvents, EmailAttachmentInfo, EmailUrlInfo, EmailPostDeliveryEvents, UrlClickEvents</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Exchange Online</td>
+                <td>Message Trace in the Defender portal, or Get-MessageTraceV2 via PowerShell, retained 90 days</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Exchange Server on premises</td>
+                <td>%ExchangeInstallPath%\TransportRoles\Logs\MessageTracking\MSGTRK*.log</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Proofpoint</td>
+                <td>Smart Search in the console, or the SIEM API endpoints for messages blocked and delivered</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Mimecast</td>
+                <td>SIEM logs API providing receipt, delivery, process, and internal email protect events</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Cisco Secure Email</td>
+                <td>/data/log/mail_logs on the appliance, plus AMP and URL filtering logs, exported over SCP or syslog</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Google Workspace</td>
+                <td>Email Log Search in the Admin console, and the Reports API activity feed for Gmail</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Postfix and Sendmail</td>
+                <td>/var/log/maillog or /var/log/mail.log, typically alongside a content filter such as Rspamd or Amavis</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Exchange Online Message Trace holds only 90 days, and detailed reports are available for a shorter window still. Export message tracking data to a SIEM continuously, because phishing investigations routinely reach back further than the platform retains.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Email Security Logging</h2>
+        <p>Several of the most valuable email logs require explicit enabling. These steps cover the common gaps.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Enable Safe Links Click Tracking</h3>
+          <div class="config-snippet">
+Connect-ExchangeOnline
+New-SafeLinksPolicy -Name "HTL-SafeLinks" `
+  -EnableSafeLinksForEmail $true `
+  -EnableSafeLinksForTeams $true `
+  -EnableSafeLinksForOffice $true `
+  -TrackClicks $true `
+  -AllowClickThrough $false `
+  -ScanUrls $true `
+  -DeliverMessageAfterScan $true `
+  -EnableForInternalSenders $true
+
+New-SafeLinksRule -Name "HTL-SafeLinks-All" `
+  -SafeLinksPolicy "HTL-SafeLinks" -RecipientDomainIs corp.com</div>
+          <div class="cmd-output">TrackClicks is what produces the click log. AllowClickThrough set to false prevents users bypassing the warning page, and EnableForInternalSenders catches phishing sent from already-compromised internal accounts.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable Safe Attachments Detonation</h3>
+          <div class="config-snippet">
+New-SafeAttachmentPolicy -Name "HTL-SafeAttach" `
+  -Enable $true -Action Block -Redirect $false `
+  -QuarantineTag DefaultFullAccessPolicy
+
+New-SafeAttachmentRule -Name "HTL-SafeAttach-All" `
+  -SafeAttachmentPolicy "HTL-SafeAttach" -RecipientDomainIs corp.com
+
+# Dynamic Delivery avoids the delay while detonation completes
+Set-SafeAttachmentPolicy -Identity "HTL-SafeAttach" -Action DynamicDelivery</div>
+          <div class="cmd-output">Detonation produces the file hashes that let you hunt for the same attachment elsewhere. Dynamic Delivery delivers the body immediately and attaches the file once analysis finishes, removing the usual objection to enabling this.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Enforce Inbound Authentication Checks</h3>
+          <div class="config-snippet">
+# Publish your own DMARC record in DNS
+# _dmarc.corp.com TXT "v=DMARC1; p=reject; rua=mailto:dmarc@corp.com; pct=100"
+
+# Honour DMARC on inbound mail rather than ignoring it
+Set-AntiPhishPolicy -Identity "Office365 AntiPhish Default" `
+  -HonorDmarcPolicy $true `
+  -DmarcRejectAction Reject `
+  -DmarcQuarantineAction Quarantine `
+  -EnableSpoofIntelligence $true `
+  -EnableUnauthenticatedSender $true `
+  -EnableViaTag $true</div>
+          <div class="cmd-output">The unauthenticated sender indicator and the via tag are user-visible warnings on messages that fail authentication. Publishing your own DMARC record at p=reject stops others being phished using your domain.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Configure Impersonation Protection</h3>
+          <div class="config-snippet">
+New-AntiPhishPolicy -Name "HTL-AntiPhish" `
+  -EnableTargetedUserProtection $true `
+  -TargetedUsersToProtect "Sarah Aljaber;s.aljaber@corp.com","CFO Name;cfo@corp.com" `
+  -EnableTargetedDomainsProtection $true `
+  -TargetedDomainsToProtect corp.com,corp-group.com `
+  -EnableMailboxIntelligence $true `
+  -EnableMailboxIntelligenceProtection $true `
+  -TargetedUserProtectionAction Quarantine `
+  -PhishThresholdLevel 3</div>
+          <div class="cmd-output">Impersonation protection is what catches business email compromise. Protect executives, finance staff, and anyone with payment authority by name, because these attacks target roles rather than systems.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable Mailbox and Outbound Auditing</h3>
+          <div class="config-snippet">
+Set-OrganizationConfig -AuditDisabled $false
+Get-Mailbox -ResultSize Unlimited | Set-Mailbox -AuditEnabled $true `
+  -AuditOwner @{Add="MailItemsAccessed","Send","SoftDelete","HardDelete","UpdateInboxRules"}
+
+# Alert on outbound spam, which signals internal compromise
+Set-HostedOutboundSpamFilterPolicy -Identity Default `
+  -BccSuspiciousOutboundMail $true `
+  -NotifyOutboundSpam $true `
+  -NotifyOutboundSpamRecipients soc@corp.com `
+  -AutoForwardingMode Off</div>
+          <div class="cmd-output">Setting AutoForwardingMode to Off blocks the external forwarding rules attackers create to maintain visibility of a mailbox after losing access to it.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Export Logs to a SIEM</h3>
+          <div class="config-snippet">
+# Office 365 Management Activity API subscriptions
+POST /api/v1.0/{tenant}/activity/feed/subscriptions/start?contentType=Audit.Exchange
+POST /api/v1.0/{tenant}/activity/feed/subscriptions/start?contentType=Audit.General
+POST /api/v1.0/{tenant}/activity/feed/subscriptions/start?contentType=DLP.All
+
+# Or stream Defender hunting tables into Sentinel
+# Microsoft 365 Defender connector, tables:
+#   EmailEvents, EmailUrlInfo, EmailAttachmentInfo,
+#   EmailPostDeliveryEvents, UrlClickEvents</div>
+          <div class="cmd-output">Message Trace holds 90 days and hunting tables hold 30. Continuous export is the only way to answer questions about a phishing campaign that began months earlier.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Email logs contain subjects, sender and recipient addresses, and often attachment names. That is sensitive business and personal data subject to the same regulatory obligations as the mailboxes themselves. Restrict access and set retention deliberately rather than by storage cost alone.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Email Threat Patterns</h2>
+        </div>
+        <p class="description">Email attacks divide into those carrying a payload and those carrying only words. The second kind defeats most technical controls.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-fish"></i>
+              <h4>Credential Phishing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>A link to a fake login page harvesting credentials. Signature: newly registered sender domain, urgency in the subject, and a URL whose display text does not match its destination.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-tie"></i>
+              <h4>Business Email Compromise</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>No link and no attachment, just a request to change payment details or make a transfer. Nothing for a scanner to detect, so display name spoofing and reply-to mismatch are the only signals.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-clock"></i>
+              <h4>Delayed Weaponisation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>A benign link that becomes malicious hours after delivery, defeating inspection at delivery time. Only click-time evaluation and post-delivery retraction catch this.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-reply-all"></i>
+              <h4>Thread Hijacking</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Replying into a genuine existing conversation from a compromised account. Extremely convincing because the context is real, and the sender is legitimately who they claim to be.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-paperclip"></i>
+              <h4>Malicious Attachments</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Container formats such as ISO, IMG, and password-protected archives that evade scanning, or documents with embedded scripts. Detonation verdicts and file hashes are the detection.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-share"></i>
+              <h4>Malicious Inbox Rules</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Post-compromise persistence: rules that forward mail externally or delete replies so the victim never sees the fraud they are part of. Often named with a single character.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Business email compromise carries no payload at all, which means attachment sandboxing and URL rewriting are irrelevant to it. The only technical signals are envelope versus header sender mismatch, reply-to pointing elsewhere, lookalike domains, and a display name matching a real executive from an unfamiliar address.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Email Security Log Format</h2>
+        <p>These fields appear across all major platforms under different names. Normalising them once makes detections portable.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Timestamp</td>
+                <td>Time the message was received or processed</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22Z</td>
+              </tr>
+              <tr>
+                <td>NetworkMessageId</td>
+                <td>Platform identifier linking all records for one message</td>
+                <td>Session</td>
+                <td>8f2a1c04-1122-4e91-b7d2-0010f4e21b00</td>
+              </tr>
+              <tr>
+                <td>SenderFromAddress</td>
+                <td>Header From address shown to the user</td>
+                <td>Identity</td>
+                <td>finance@corp-invoices.top</td>
+              </tr>
+              <tr>
+                <td>SenderMailFromAddress</td>
+                <td>Envelope sender used for SPF, often different</td>
+                <td>Identity</td>
+                <td>bounce@mailer-9f2a.top</td>
+              </tr>
+              <tr>
+                <td>SenderDisplayName</td>
+                <td>Friendly name displayed in the client</td>
+                <td>Identity</td>
+                <td>Sarah Aljaber</td>
+              </tr>
+              <tr>
+                <td>RecipientEmailAddress</td>
+                <td>Delivery target</td>
+                <td>Target</td>
+                <td>r.almutairi@corp.com</td>
+              </tr>
+              <tr>
+                <td>Subject</td>
+                <td>Message subject line</td>
+                <td>Content</td>
+                <td>Urgent: Updated Bank Details</td>
+              </tr>
+              <tr>
+                <td>SenderIPv4</td>
+                <td>Connecting mail server address</td>
+                <td>Source</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>ThreatTypes</td>
+                <td>Verdict assigned by the gateway</td>
+                <td>Detection</td>
+                <td>Phish</td>
+              </tr>
+              <tr>
+                <td>DetectionMethods</td>
+                <td>Technology that produced the verdict</td>
+                <td>Detection</td>
+                <td>Impersonation domain, URL detonation</td>
+              </tr>
+              <tr>
+                <td>DeliveryAction</td>
+                <td>What happened to the message</td>
+                <td>Response</td>
+                <td>Delivered / Blocked / Quarantined</td>
+              </tr>
+              <tr>
+                <td>DeliveryLocation</td>
+                <td>Where it landed</td>
+                <td>Response</td>
+                <td>Inbox / Junk / Quarantine</td>
+              </tr>
+              <tr>
+                <td>AuthenticationDetails</td>
+                <td>SPF, DKIM, DMARC, and composite results</td>
+                <td>Authorization</td>
+                <td>SPF=fail; DKIM=none; DMARC=fail; compauth=fail</td>
+              </tr>
+              <tr>
+                <td>SHA256</td>
+                <td>Attachment hash from detonation</td>
+                <td>Evidence</td>
+                <td>a1b2c3d4e5f6...</td>
+              </tr>
+              <tr>
+                <td>UrlClickAction</td>
+                <td>Outcome when a user clicked a rewritten link</td>
+                <td>Response</td>
+                <td>ClickedThrough / Blocked</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Authentication Results -->
+      <div id="auth-results" class="card">
+        <h2>Authentication Results and Verdicts</h2>
+        <p>Email authentication results are the most reliable structured signal available on inbound mail. These are the values worth building detections around.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Result</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">SPF fail</td>
+                <td>Sending server not authorised by the domain</td>
+                <td>Direct domain spoofing, though forwarding legitimately breaks SPF so it cannot be used alone</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">DKIM fail</td>
+                <td>Message signature invalid or absent</td>
+                <td>The message was altered in transit or was never signed by the claimed domain</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">DMARC fail</td>
+                <td>Neither SPF nor DKIM aligned with the header From domain</td>
+                <td>The strongest single spoofing indicator, because alignment is what SPF and DKIM alone do not check</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">compauth fail</td>
+                <td>Microsoft composite authentication failed</td>
+                <td>Combines all signals plus sender reputation and history. A fail with reason 000 or 001 means implicit authentication failed outright</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">ARC pass</td>
+                <td>Authenticated Received Chain intact</td>
+                <td>Preserves original authentication results through legitimate forwarding, reducing false positives from mailing lists</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Spoof intelligence</td>
+                <td>Sender spoofing an internal or known domain</td>
+                <td>Detects the case where an external server sends mail claiming to be from your own domain</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Impersonation domain</td>
+                <td>Sender domain visually similar to a protected one</td>
+                <td>Lookalike domains such as corp-invoices.top or rn instead of m. The primary business email compromise vector</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Mailbox intelligence</td>
+                <td>Sender unusual for this specific recipient</td>
+                <td>Uses each user's own communication history, catching first contact from an unfamiliar party mid-conversation</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">ZAP removed</td>
+                <td>Message retracted after delivery</td>
+                <td>A threat reached the mailbox before it was recognised. Check whether the user interacted before removal</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">ClickedThrough</td>
+                <td>User proceeded past a block warning</td>
+                <td>The user was warned and continued anyway. Treat as a confirmed compromise until proven otherwise</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Never alert on SPF failure alone. Legitimate forwarding, mailing lists, and third party senders break SPF constantly. DMARC failure combined with a composite authentication failure is far more precise, because alignment and reputation are evaluated together.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Email Security Log Analysis Queries</h2>
+        <p>These KQL and PowerShell queries cover phishing campaigns, business email compromise, and post-compromise mailbox activity.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-mouse-pointer"></i>
+              <span class="cmd-title">Users Who Clicked Through a Block</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">UrlClickEvents | where ActionType == "ClickAllowed" or IsClickedThrough == 1 | project Timestamp, AccountUpn, Url, ThreatTypes, IPAddress | order by Timestamp desc</span>
+              </div>
+              <div class="cmd-output">The highest priority email query. These users saw a warning page and continued anyway, so treat each as a probable credential compromise.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-users"></i>
+              <span class="cmd-title">Full Campaign Scope</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailEvents | where SenderFromDomain == "corp-invoices.top" or Subject has "Updated Bank Details" | project Timestamp, RecipientEmailAddress, DeliveryAction, DeliveryLocation, NetworkMessageId | order by Timestamp asc</span>
+              </div>
+              <div class="cmd-output">The first question in any phishing investigation is who else received it. Pivot on sender domain, subject, or attachment hash to find every copy.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-tie"></i>
+              <span class="cmd-title">Executive Impersonation</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailEvents | where EmailDirection == "Inbound" | where SenderDisplayName has_any ("Sarah Aljaber","CFO","Chief Financial") | where SenderFromDomain != "corp.com" | project Timestamp, SenderDisplayName, SenderFromAddress, RecipientEmailAddress, Subject</span>
+              </div>
+              <div class="cmd-output">An external sender using an executive display name is business email compromise. Catches the attack even when no link or attachment is present.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-exchange-alt"></i>
+              <span class="cmd-title">Reply-To Mismatch</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailEvents | where EmailDirection == "Inbound" and isnotempty(ReplyToAddress) | extend replyDomain = tostring(split(ReplyToAddress,"@")[1]) | where replyDomain != SenderFromDomain | project Timestamp, SenderFromAddress, ReplyToAddress, Subject, RecipientEmailAddress</span>
+              </div>
+              <div class="cmd-output">A reply-to pointing at a different domain than the sender routes the victim's response to the attacker. One of the highest fidelity BEC signals available.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-share"></i>
+              <span class="cmd-title">Malicious Inbox Rules</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">OfficeActivity | where Operation in ("New-InboxRule","Set-InboxRule") | where Parameters has_any ("ForwardTo","RedirectTo","ForwardAsAttachmentTo","DeleteMessage","MarkAsRead") | project TimeGenerated, UserId, ClientIP, Parameters</span>
+              </div>
+              <div class="cmd-output">Rules forwarding externally or auto-deleting are post-compromise persistence and concealment. Frequently named with a single dot or space to hide in the UI.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-paper-plane"></i>
+              <span class="cmd-title">Outbound Spam (Internal Compromise)</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailEvents | where EmailDirection == "Outbound" and ThreatTypes has_any ("Spam","Phish") | summarize count(), dc(RecipientEmailAddress) as targets by SenderFromAddress | where targets &gt; 10</span>
+              </div>
+              <div class="cmd-output">Your own users sending phishing means their accounts are compromised and your domain reputation is being spent attacking partners.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-undo"></i>
+              <span class="cmd-title">Post-Delivery Retraction</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailPostDeliveryEvents | where ActionType startswith "Zap" | join kind=leftouter (UrlClickEvents) on NetworkMessageId | project Timestamp, RecipientEmailAddress, ActionType, ActionResult, Url, IsClickedThrough</span>
+              </div>
+              <div class="cmd-output">Joining retraction against clicks answers the critical question: did the user interact before the message was pulled back?</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-unlock"></i>
+              <span class="cmd-title">Quarantine Releases</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-QuarantineMessage -StartReceivedDate (Get-Date).AddDays(-7) -ReleaseStatus RELEASED | Select-Object ReceivedTime, SenderAddress, RecipientAddress, Subject, Type, ReleasedUser</span>
+              </div>
+              <div class="cmd-output">A released phishing message is a control that was deliberately overridden. Review who released it and why.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-shield-alt"></i>
+              <span class="cmd-title">Authentication Failures Delivered</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailEvents | where EmailDirection == "Inbound" and DeliveryAction == "Delivered" | where AuthenticationDetails has "DMARC='fail'" and AuthenticationDetails has "compauth=fail" | summarize count() by SenderFromDomain, SenderIPv4 | order by count_ desc</span>
+              </div>
+              <div class="cmd-output">Messages that failed both DMARC and composite authentication yet still reached the inbox. Each represents a policy gap worth closing.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-fingerprint"></i>
+              <span class="cmd-title">Attachment Hash Hunting</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">EmailAttachmentInfo | where SHA256 == "a1b2c3d4e5f6..." | join kind=inner EmailEvents on NetworkMessageId | project Timestamp, RecipientEmailAddress, FileName, DeliveryAction, DeliveryLocation</span>
+              </div>
+              <div class="cmd-output">Detonation supplies the hash, and this query finds everyone who received the same file. Feed that hash to the endpoint platform to find where it executed.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Email Security Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so the most common initial access vector is also your best instrumented one:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable Click Tracking</h3>
+              <p>URL rewriting with click logging is frequently the only proof a user engaged with a phishing message, and it evaluates the destination at click time rather than delivery time.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Export Before Retention Expires</h3>
+              <p>Message Trace holds 90 days and hunting tables 30. Phishing investigations routinely reach further back, so continuous export to a SIEM is essential.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Monitor Outbound as Closely as Inbound</h3>
+              <p>Your own users sending phishing is an account compromise, not a hygiene problem. It is also actively damaging your domain reputation with partners.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Configure Impersonation Protection by Name</h3>
+              <p>Business email compromise carries no payload, so sandboxing and URL rewriting do nothing. Protecting executives and finance staff by name is what catches it.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Publish and Honour DMARC</h3>
+              <p>A DMARC record at p=reject stops others being phished with your domain, and honouring inbound DMARC stops your users receiving spoofed mail. Both directions matter.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Alert on Inbox Rule Creation</h3>
+              <p>Forwarding and auto-delete rules are the standard post-compromise persistence and concealment technique, and they are low volume enough to review individually.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Correlate Retraction Against Clicks</h3>
+              <p>A retracted message tells you a threat got through. Joining it against the click log tells you whether it worked, which is the difference between an alert and an incident.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Never Alert on SPF Alone</h3>
+              <p>Legitimate forwarding breaks SPF constantly. Combine DMARC failure with composite authentication failure for a signal precise enough to act on.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Email Security Log Examples</h2>
+        <p>A phishing campaign from delivery through credential theft to fraudulent payment.</p>
+
+        <div class="implementation-steps">
+          <h3>Credential Phish Delivered to the Inbox</h3>
+          <div class="config-snippet">
+Timestamp: 2025-07-14T09:12:04Z
+NetworkMessageId: 8f2a1c04-1122-4e91-b7d2-0010f4e21b00
+SenderFromAddress: it-support@corp-helpdesk.top
+SenderMailFromAddress: bounce@mailer-9f2a.top
+SenderDisplayName: Corp IT Service Desk
+SenderIPv4: 203.0.113.44
+RecipientEmailAddress: r.almutairi@corp.com
+Subject: Action Required: Your password expires in 24 hours
+ThreatTypes: (empty)   DeliveryAction: Delivered   DeliveryLocation: Inbox
+AuthenticationDetails: SPF=pass; DKIM=pass; DMARC=none; compauth=pass</div>
+          <div class="cmd-output">Authentication passed because the attacker owns corp-helpdesk.top and configured it correctly. Authentication proves who sent it, never whether they are trustworthy. The lookalike domain is the real signal.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>User Clicks the Rewritten Link</h3>
+          <div class="config-snippet">
+Timestamp: 2025-07-14T09:38:02Z
+AccountUpn: r.almutairi@corp.com
+Url: https://corp-helpdesk.top/sso/login?id=a7f3c19e
+ActionType: ClickAllowed
+IsClickedThrough: 1
+ThreatTypes: Phish
+IPAddress: 10.30.2.61
+NetworkMessageId: 8f2a1c04-1122-4e91-b7d2-0010f4e21b00</div>
+          <div class="cmd-output">The verdict changed to Phish between delivery and click, so the warning page appeared. IsClickedThrough of 1 means the user read the warning and proceeded regardless.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Retroactive Removal After the Fact</h3>
+          <div class="config-snippet">
+Timestamp: 2025-07-14T10:04:55Z
+ActionType: ZapPhish
+ActionResult: Success
+RecipientEmailAddress: r.almutairi@corp.com
+NetworkMessageId: 8f2a1c04-1122-4e91-b7d2-0010f4e21b00
+ActionTrigger: Threat intelligence update</div>
+          <div class="cmd-output">The message was pulled from the mailbox 52 minutes after the user had already clicked. Retraction proves a threat got through; only the click log proves it succeeded.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Campaign Scope Across the Organisation</h3>
+          <div class="config-snippet">
+SenderFromDomain: corp-helpdesk.top
+  Delivered to Inbox     : 14 recipients
+  Delivered to Junk      : 31 recipients
+  Blocked                : 88 recipients
+  Clicked link           : 3 recipients
+  Clicked through warning: 1 recipient
+First seen: 2025-07-14T09:08:44Z   Last seen: 2025-07-14T09:22:19Z</div>
+          <div class="cmd-output">133 recipients targeted in 14 minutes, 14 reached the inbox, and one user proceeded past the warning. This summary drives both the containment scope and the awareness follow-up.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Business Email Compromise with No Payload</h3>
+          <div class="config-snippet">
+Timestamp: 2025-07-14T10:18:12Z
+SenderFromAddress: s.aljaber@corp-group.co
+SenderDisplayName: Sarah Aljaber
+ReplyToAddress: accounts.sarah@mailfence-secure.top
+RecipientEmailAddress: finance@corp.com
+Subject: RE: Q3 Supplier Payment Schedule
+ThreatTypes: Phish   DetectionMethods: Impersonation domain, Mailbox intelligence
+DeliveryAction: Quarantined
+AuthenticationDetails: SPF=pass; DKIM=pass; DMARC=pass; compauth=pass</div>
+          <div class="cmd-output">Every authentication check passed. It was caught by impersonation protection noticing corp-group.co against the real corp-group.com, and by the reply-to pointing at a third domain entirely.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Malicious Attachment in a Container Format</h3>
+          <div class="config-snippet">
+Timestamp: 2025-07-14T09:47:33Z
+FileName: Invoice_July_2025.iso
+FileType: iso   FileSize: 1284119
+SHA256: a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+ThreatTypes: Malware   DetectionMethods: Safe Attachments detonation
+DetonationVerdict: Malicious
+DetonationBehaviours: Creates LNK on mount, spawns rundll32.exe, contacts 203.0.113.91
+DeliveryAction: Blocked</div>
+          <div class="cmd-output">ISO files mount as drives and bypass mark-of-the-web, which is why they replaced macro documents. The behaviours recorded here give the endpoint team exactly what to hunt for.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Post-Compromise Inbox Rule</h3>
+          <div class="config-snippet">
+Operation: New-InboxRule   UserId: r.almutairi@corp.com   ClientIP: 203.0.113.44
+Parameters:
+  Name           : "."
+  From           : finance@corp.com; ap@corp.com
+  ForwardTo      : archive-9f2a@mailfence-secure.top
+  DeleteMessage  : True
+  StopProcessingRules : True</div>
+          <div class="cmd-output">A rule named with a single dot so it is nearly invisible in Outlook, forwarding finance correspondence externally and deleting the local copy so the victim never sees the replies.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Outbound Phishing from the Compromised Account</h3>
+          <div class="config-snippet">
+Timestamp: 2025-07-14T11:02:44Z   EmailDirection: Outbound
+SenderFromAddress: r.almutairi@corp.com
+RecipientEmailAddress: [42 external recipients across 18 partner domains]
+Subject: RE: Shared document for your review
+ThreatTypes: Phish   DetectionMethods: URL reputation
+DeliveryAction: Blocked   Reason: Outbound spam policy</div>
+          <div class="cmd-output">The compromised account now attacks partners from a genuine, authenticated corp.com address, replying into real threads. Outbound blocking caught it, and that block is the clearest possible account compromise alert.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="SecuritySolutions.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

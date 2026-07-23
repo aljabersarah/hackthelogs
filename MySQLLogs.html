@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - MySQL and MariaDB Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">MySQL Logs</div>
+      <a href="#overview" class="nav-item active">MySQL Log Overview</a>
+      <a href="#log-types" class="nav-item">Key MySQL Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Enabling MySQL Logging and Auditing</a>
+      <a href="#audit-events" class="nav-item">Recommended Audit Event Classes</a>
+      <a href="#log-format" class="nav-item">MySQL Audit Log Format</a>
+      <a href="#attack-patterns" class="nav-item">Critical MySQL Attack Patterns</a>
+      <a href="#analysis-queries" class="nav-item">MySQL Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for MySQL Logging</a>
+      <a href="#log-examples" class="nav-item">Common MySQL Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> MySQL and MariaDB Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- MySQL Log Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>MySQL Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>MySQL and MariaDB provide five distinct logs, and only one of them is enabled by default. The <code>error log</code> records server startup and shutdown, plugin loading, replication problems, and, depending on verbosity, aborted connections. The <code>general query log</code> captures every statement the server receives, the <code>slow query log</code> captures statements exceeding a duration threshold, and the <code>binary log</code> records every data-modifying statement for replication and point-in-time recovery. Security auditing proper comes from a plugin: MySQL Enterprise Audit on Oracle's commercial edition, or the freely available <code>server_audit</code> plugin bundled with MariaDB and packaged by Percona for MySQL.</p>
+            <p>This split creates a well-known blind spot. The general query log is the only built-in source that shows what an attacker actually ran, but it logs everything from every client with no filtering, writes credentials in cleartext when a user runs <code>SET PASSWORD</code>, and imposes real overhead. As a result it is almost never enabled in production, and most MySQL estates have no record of executed statements at all. The audit plugin exists precisely to close that gap: it can be scoped to connections, queries, and table access, filtered by user, and written in a structured format suitable for a SIEM.</p>
+            <p>MySQL is also unusual in how directly the database maps to operating system compromise. <code>SELECT ... INTO OUTFILE</code> writes attacker-controlled content anywhere the mysql user can write, which is the classic route from SQL injection to a web shell. <code>LOAD DATA LOCAL INFILE</code> can be turned against the client to read files from the connecting host. User-defined functions loaded from a shared library grant direct command execution. Every one of these leaves a trace, but only if the general query log or the audit plugin is capturing statements. Enabling one of them is the single highest-value logging change you can make to a MySQL server.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key MySQL Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key MySQL Log Types</h2>
+        </div>
+        <p>Each MySQL log answers a different question. Understanding the trade-off between coverage and overhead determines which combination is realistic for your environment:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Error Log</td>
+                <td>The only log enabled by default. Records server startup and shutdown, plugin initialisation, InnoDB recovery, replication errors, and aborted connections. At verbosity level 3 it also logs access denied messages, making it a usable authentication failure source without the cost of the general log.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Audit Plugin Log</td>
+                <td>Produced by MariaDB server_audit, Percona Audit Log, or MySQL Enterprise Audit. Records connections, disconnections, executed queries, and table access as structured JSON, XML, or CSV. The only production-appropriate way to get full statement visibility with filtering.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">General Query Log</td>
+                <td>Logs every client connection and every statement received, in the order received, regardless of whether it succeeds. Complete but unfiltered and expensive. Useful for short, targeted investigation windows rather than continuous operation.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Slow Query Log</td>
+                <td>Records statements exceeding long_query_time and, optionally, those not using indexes. Primarily a performance tool, but valuable in security because bulk extraction queries and time-based blind SQL injection are both inherently slow.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Binary Log</td>
+                <td>The replication and recovery stream containing every data-modifying statement or row change. Readable with mysqlbinlog. Frequently the only surviving evidence of an UPDATE or DELETE when no audit plugin was installed.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Relay Log</td>
+                <td>On replicas, the local copy of events received from the source server. Relevant when investigating whether malicious changes originated locally or were replicated in from a compromised primary.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> If you cannot deploy an audit plugin, set <code>log_error_verbosity = 3</code> and <code>log_slow_extra = ON</code>. The combination gives you authentication failures and slow bulk queries at almost no cost, which covers two of the three most common database attack signals.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Paths differ between distributions. Debian and Ubuntu packages use <code>/var/log/mysql/</code>, while Red Hat family packages default to <code>/var/log/</code> and the data directory.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Error Log</td>
+                <td>/var/log/mysql/error.log (Debian) or /var/log/mysqld.log (RHEL)</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">General Query Log</td>
+                <td>/var/log/mysql/mysql.log or &lt;datadir&gt;/&lt;hostname&gt;.log</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Slow Query Log</td>
+                <td>/var/log/mysql/mysql-slow.log or &lt;datadir&gt;/&lt;hostname&gt;-slow.log</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Binary Logs</td>
+                <td>/var/lib/mysql/binlog.000001 (MySQL 8) or /var/log/mysql/mysql-bin.000001 (Debian)</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Audit Plugin Log</td>
+                <td>&lt;datadir&gt;/server_audit.log (MariaDB) or &lt;datadir&gt;/audit.log (Percona / Enterprise)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Configuration File</td>
+                <td>/etc/mysql/my.cnf, /etc/my.cnf, or /etc/mysql/mysql.conf.d/mysqld.cnf</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows Data Directory</td>
+                <td>C:\ProgramData\MySQL\MySQL Server 8.0\Data\</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Never trust the packaged default. Run <code>SHOW VARIABLES WHERE Variable_name IN ('log_error','general_log_file','slow_query_log_file','log_bin_basename','datadir');</code> to get the live paths from the running server.
+          </div>
+        </div>
+      </div>
+
+      <!-- Enabling MySQL Logging and Auditing -->
+      <div id="enable-logging" class="card">
+        <h2>Enabling MySQL Logging and Auditing</h2>
+        <p>Most logging can be switched on at runtime with SET GLOBAL, but the settings must also be written to the configuration file to survive a restart. The audit plugin must be installed before it can be configured.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Configure the Error Log for Full Verbosity</h3>
+          <div class="config-snippet">
+[mysqld]
+log_error               = /var/log/mysql/error.log
+log_error_verbosity     = 3          # 1=errors, 2=+warnings, 3=+notes (includes access denied)
+log_timestamps          = UTC        # normalise timestamps for SIEM correlation
+log_error_services      = 'log_filter_internal; log_sink_internal'</div>
+          <div class="cmd-output">Verbosity 3 is what makes failed connection attempts appear in the error log. UTC timestamps prevent correlation errors when the server is in a non-UTC timezone.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Install and Configure the MariaDB Audit Plugin</h3>
+          <div class="config-snippet">
+-- Install the plugin (MariaDB, or Percona build of MySQL)
+INSTALL PLUGIN server_audit SONAME 'server_audit.so';
+
+-- Verify it loaded
+SELECT plugin_name, plugin_status FROM information_schema.plugins
+WHERE  plugin_name = 'SERVER_AUDIT';</div>
+          <div class="cmd-output">The plugin must be present in the plugin_dir. Confirm with SHOW VARIABLES LIKE 'plugin_dir' if the INSTALL statement fails to find the shared object.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Set the Audit Plugin Parameters</h3>
+          <div class="config-snippet">
+[mysqld]
+plugin_load_add            = server_audit
+server_audit_logging       = ON
+server_audit_events        = CONNECT,QUERY_DDL,QUERY_DML,QUERY_DCL,TABLE
+server_audit_output_type   = FILE
+server_audit_file_path     = /var/log/mysql/server_audit.log
+server_audit_file_rotate_size = 1000000000
+server_audit_file_rotations = 30
+server_audit_excl_users    = app_readonly          # suppress high-volume app noise
+server_audit_query_log_limit = 1024</div>
+          <div class="cmd-output">Capturing CONNECT, DDL, DML, DCL, and TABLE events gives authentication, schema change, data change, and privilege change coverage. Excluding a single read-only application account removes most of the volume without losing security signal.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Enable the Slow Query Log</h3>
+          <div class="config-snippet">
+[mysqld]
+slow_query_log          = ON
+slow_query_log_file     = /var/log/mysql/mysql-slow.log
+long_query_time         = 2
+log_queries_not_using_indexes = ON
+log_slow_extra          = ON        # MySQL 8.0.14+: adds rows_examined, errors, bytes sent</div>
+          <div class="cmd-output">log_slow_extra adds the rows examined and bytes sent counters, which turn the slow log into a practical bulk-extraction detector rather than a pure performance tool.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable the General Query Log Temporarily</h3>
+          <div class="config-snippet">
+-- Runtime only, no restart, no persistence across restart
+SET GLOBAL general_log_file = '/var/log/mysql/investigation.log';
+SET GLOBAL general_log = 'ON';
+
+-- ... capture the window you need, then ...
+SET GLOBAL general_log = 'OFF';</div>
+          <div class="cmd-output">The correct pattern for incident response: turn it on for a bounded window, collect, turn it off. Leaving it on in production degrades throughput and writes sensitive values in cleartext.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Harden File Access Privileges</h3>
+          <div class="config-snippet">
+[mysqld]
+secure_file_priv        = /var/lib/mysql-files    # restrict OUTFILE/INFILE to one directory
+local_infile            = OFF                     # block LOAD DATA LOCAL INFILE
+log_bin                 = /var/lib/mysql/binlog
+binlog_expire_logs_seconds = 2592000              # 30 days of binary log retention</div>
+          <div class="cmd-output">secure_file_priv is the control that prevents SELECT INTO OUTFILE from dropping a web shell into the document root. Setting it to an empty value disables the restriction entirely and should be treated as a finding.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The general query log records statements before they are parsed, which means <code>SET PASSWORD</code>, <code>CREATE USER ... IDENTIFIED BY</code>, and application connection strings appear in cleartext. Treat the file as a credential store: restrict it to mode 0600, exclude it from general log shipping, and purge it after the investigation.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Audit Event Classes -->
+      <div id="audit-events" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Recommended Audit Event Classes</h2>
+        </div>
+        <p class="description">The server_audit plugin groups events into classes controlled by the server_audit_events variable. This baseline balances coverage against volume on a typical production server.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-plug"></i>
+              <h4>CONNECT</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Logs successful connections, failed connections, and disconnections with source host and username. The foundation for brute force detection and session reconstruction.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>QUERY_DCL</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Captures GRANT, REVOKE, CREATE USER, DROP USER, and SET PASSWORD. Every privilege escalation and backdoor account creation passes through this class.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-table"></i>
+              <h4>QUERY_DDL</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records CREATE, ALTER, and DROP of databases, tables, functions, and triggers. Detects malicious UDF creation and destructive schema changes.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-database"></i>
+              <h4>TABLE</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Emits a record naming each table touched by a statement, without the full query text. A compact way to monitor access to sensitive tables at manageable volume.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-edit"></i>
+              <h4>QUERY_DML</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Logs INSERT, UPDATE, DELETE, and optionally SELECT. High volume on transactional systems, so consider QUERY_DML_NO_SELECT to keep writes without the read flood.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Tune</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-filter"></i>
+              <h4>server_audit_excl_users</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Excludes named accounts from auditing. Use it for a single high-volume read-only application user, never for administrative or write-capable accounts.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Tune</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> An attacker with SUPER privilege can disable auditing at runtime with <code>SET GLOBAL server_audit_logging = OFF</code>. The plugin records this change as its final entry, so alert on any audit configuration event rather than assuming a quiet log means a quiet server.
+          </div>
+        </div>
+      </div>
+
+      <!-- MySQL Audit Log Format -->
+      <div id="log-format" class="card">
+        <h2>MySQL Audit Log Format</h2>
+        <p>The server_audit plugin writes comma-separated records with a fixed field order. Mapping these positions correctly is the first step in any MySQL SIEM integration.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>Event time in server timezone</td>
+                <td>Timestamp</td>
+                <td>20250714 09:41:22</td>
+              </tr>
+              <tr>
+                <td>serverhost</td>
+                <td>Hostname of the database server</td>
+                <td>Metadata</td>
+                <td>db-prod-01</td>
+              </tr>
+              <tr>
+                <td>username</td>
+                <td>Account used for the connection</td>
+                <td>Identity</td>
+                <td>app_rw</td>
+              </tr>
+              <tr>
+                <td>host</td>
+                <td>Client hostname or IP address</td>
+                <td>Source</td>
+                <td>10.30.2.61</td>
+              </tr>
+              <tr>
+                <td>connectionid</td>
+                <td>Server-assigned connection identifier</td>
+                <td>Session</td>
+                <td>84213</td>
+              </tr>
+              <tr>
+                <td>queryid</td>
+                <td>Sequential query identifier within the session</td>
+                <td>Session</td>
+                <td>91744</td>
+              </tr>
+              <tr>
+                <td>operation</td>
+                <td>Event class of the record</td>
+                <td>Action</td>
+                <td>QUERY / CONNECT / TABLE</td>
+              </tr>
+              <tr>
+                <td>database</td>
+                <td>Default schema for the statement</td>
+                <td>Target</td>
+                <td>shopdb</td>
+              </tr>
+              <tr>
+                <td>object</td>
+                <td>Statement text, or table name for TABLE events</td>
+                <td>Action</td>
+                <td>SELECT * FROM customers</td>
+              </tr>
+              <tr>
+                <td>retcode</td>
+                <td>MySQL error code, 0 on success</td>
+                <td>Result</td>
+                <td>1045</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Return code 1045 is access denied, 1044 is access denied for a database, and 1142 is a missing table-level privilege. Alerting on 1142 catches an authenticated attacker probing tables their account cannot reach.
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical MySQL Attack Patterns -->
+      <div id="attack-patterns" class="card">
+        <h2>Critical MySQL Attack Patterns</h2>
+        <p>These are the statements and errors most worth building detections around. Each maps to a specific stage of a MySQL compromise.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Pattern</th>
+                <th>Technique</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">SELECT ... INTO OUTFILE</td>
+                <td>File write</td>
+                <td>Writes arbitrary content to any path the mysql user can reach. The standard route from SQL injection to a web shell in the document root</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">LOAD DATA LOCAL INFILE</td>
+                <td>File read</td>
+                <td>A malicious server can request arbitrary files from the connecting client, turning a database connection into client-side file theft</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">CREATE FUNCTION ... SONAME</td>
+                <td>Command execution</td>
+                <td>Loads a user-defined function from a shared library, giving direct operating system command execution as the mysql user</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">GRANT ALL ... WITH GRANT OPTION</td>
+                <td>Privilege escalation</td>
+                <td>Full privilege grant, frequently to a newly created account with an innocuous name such as backup or monitor</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">SELECT ... FROM mysql.user</td>
+                <td>Credential access</td>
+                <td>Reads password hashes directly from the system schema for offline cracking</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Error 1045 bursts</td>
+                <td>Brute force</td>
+                <td>Access denied for user, repeated from one source. The core authentication attack signal</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">UNION SELECT / information_schema</td>
+                <td>SQL injection</td>
+                <td>Schema enumeration through injected queries, usually visible in the general or audit log even when the application logs nothing</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">SLEEP() / BENCHMARK()</td>
+                <td>Blind SQL injection</td>
+                <td>Time-based inference. Appears in the slow query log by definition because the attack works by making queries slow</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">DROP DATABASE / TRUNCATE</td>
+                <td>Destruction</td>
+                <td>Ransom and wiper activity. Also seen as the cleanup stage after exfiltration completes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- MySQL Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>MySQL Log Analysis Queries</h2>
+        <p>Use these shell and SQL commands to extract authentication attacks, file operations, privilege changes, and bulk extraction from MySQL logs.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Failed Logins by Source</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep "Access denied for user" /var/log/mysql/error.log | grep -oP "@'\K[^']+" | sort | uniq -c | sort -rn | head -20</span>
+              </div>
+              <div class="cmd-output">Counts access-denied events per source host. Requires log_error_verbosity set to 3.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-file-code"></i>
+              <span class="cmd-title">Web Shell Drop Attempts</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "into (outfile|dumpfile)" /var/log/mysql/server_audit.log</span>
+              </div>
+              <div class="cmd-output">Any hit deserves immediate investigation. Legitimate applications almost never write files through the database engine.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">UDF Command Execution</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "create function.*soname|sys_exec|sys_eval" /var/log/mysql/server_audit.log</span>
+              </div>
+              <div class="cmd-output">Detects loading of a user-defined function library, the standard MySQL-to-shell escalation. sys_exec and sys_eval are the canonical function names.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-plus"></i>
+              <span class="cmd-title">Privilege and Account Changes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "grant |create user|drop user|set password|alter user" /var/log/mysql/server_audit.log | grep -v "app_deploy"</span>
+              </div>
+              <div class="cmd-output">Filters out the known deployment account so only unexpected privilege changes remain.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-key"></i>
+              <span class="cmd-title">Password Hash Theft</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "from mysql\.(user|global_priv)" /var/log/mysql/server_audit.log</span>
+              </div>
+              <div class="cmd-output">Direct reads of the system credential tables. Only monitoring tools and DBAs should ever appear here.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-syringe"></i>
+              <span class="cmd-title">SQL Injection Indicators</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "union.+select|information_schema\.(tables|columns)|sleep\([0-9]|benchmark\(" /var/log/mysql/server_audit.log</span>
+              </div>
+              <div class="cmd-output">Catches schema enumeration and time-based blind injection reaching the database even when the web tier logs nothing useful.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-download"></i>
+              <span class="cmd-title">Bulk Extraction via Slow Log</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">mysqldumpslow -s c -t 20 /var/log/mysql/mysql-slow.log</span>
+              </div>
+              <div class="cmd-output">Aggregates the slow log by normalised query. With log_slow_extra enabled, look for high Rows_sent values against customer tables.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-history"></i>
+              <span class="cmd-title">Reconstruct Changes from Binlog</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">mysqlbinlog --base64-output=DECODE-ROWS --verbose --start-datetime="2025-07-14 09:00:00" /var/lib/mysql/binlog.000042 | grep -iE "^### (DELETE|UPDATE)" -A 5</span>
+              </div>
+              <div class="cmd-output">Recovers row-level changes when no audit plugin was running. Often the only way to prove what an attacker modified.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-users"></i>
+              <span class="cmd-title">Audit Account Privileges</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT user, host, plugin, account_locked, password_expired FROM mysql.user WHERE Super_priv='Y' OR File_priv='Y' OR Create_user_priv='Y';</span>
+              </div>
+              <div class="cmd-output">Lists every account holding SUPER, FILE, or CREATE USER. FILE privilege is what makes INTO OUTFILE possible and should be held by nobody.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Audit Plugin Disabled</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="mysql:audit" object IN ("SET GLOBAL server_audit_logging=OFF","UNINSTALL PLUGIN server_audit") OR object="*server_audit_events*" | table _time, username, host, object</span>
+              </div>
+              <div class="cmd-output">The plugin logs its own shutdown as the last record written. Treat any gap in audit records as an incident until proven otherwise.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for MySQL Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices to get real security visibility from MySQL without crippling performance:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Deploy an Audit Plugin</h3>
+              <p>The built-in logs were designed for troubleshooting, not security. server_audit or an equivalent plugin is the only way to get filtered, structured statement visibility that a production server can sustain.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Set Error Log Verbosity to 3</h3>
+              <p>At the default verbosity, failed authentication is not recorded at all. This one-line change gives you brute force detection at effectively zero cost.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Restrict secure_file_priv</h3>
+              <p>Point it at a single dedicated directory and never leave it empty. This is the control that stops SELECT INTO OUTFILE from writing a web shell into a web-accessible path.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Keep the General Log for Investigations Only</h3>
+              <p>Enable it at runtime for a bounded window, collect what you need, then disable it. It writes credentials in cleartext and measurably reduces throughput when left running.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Retain Binary Logs for at Least 30 Days</h3>
+              <p>The binary log is frequently the only record of what data an attacker changed. Set binlog_expire_logs_seconds deliberately rather than accepting whatever the distribution shipped.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Ship Logs Off the Host Immediately</h3>
+              <p>MySQL log files are owned by the mysql user and are trivially deleted by anyone who compromises the service. Forward with rsyslog or a log agent so a local wipe does not destroy the evidence.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Normalise Timestamps to UTC</h3>
+              <p>Set log_timestamps to UTC. MySQL defaults vary between versions and distributions, and mixed timezones across a replica set make timeline reconstruction unreliable.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Exclude Only Read-Only Accounts</h3>
+              <p>When tuning audit volume, exclude a single read-only application user at most. Excluding an account that can write, grant, or administer defeats the purpose of auditing entirely.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common MySQL Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common MySQL Log Examples</h2>
+        <p>Real output from the error log, the audit plugin, and the slow query log, showing how a MySQL compromise unfolds across sources.</p>
+
+        <div class="implementation-steps">
+          <h3>Error Log: Brute Force Against root</h3>
+          <div class="config-snippet">
+2025-07-14T09:41:22.481203Z 84210 [Note] [MY-010926] [Server] Access denied for user 'root'@'203.0.113.44' (using password: YES)
+2025-07-14T09:41:22.902118Z 84211 [Note] [MY-010926] [Server] Access denied for user 'root'@'203.0.113.44' (using password: YES)
+2025-07-14T09:41:23.334902Z 84212 [Note] [MY-010926] [Server] Access denied for user 'root'@'203.0.113.44' (using password: YES)</div>
+          <div class="cmd-output">Three failures in under two seconds from one external address. "using password: YES" confirms a password was supplied, distinguishing an attack from a misconfigured client connecting with no credentials.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Audit Log: Successful Connection After Brute Force</h3>
+          <div class="config-snippet">
+20250714 09:44:07,db-prod-01,root,203.0.113.44,84219,0,CONNECT,,,0
+20250714 09:44:11,db-prod-01,root,203.0.113.44,84219,91740,QUERY,,'SELECT @@version, @@datadir, @@secure_file_priv',0
+20250714 09:44:15,db-prod-01,root,203.0.113.44,84219,91741,QUERY,mysql,'SELECT user,host,authentication_string FROM mysql.user',0</div>
+          <div class="cmd-output">Return code 0 on CONNECT means the brute force succeeded. The immediate follow-up queries fingerprint the server and dump password hashes: textbook post-authentication reconnaissance.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Audit Log: Web Shell Written via INTO OUTFILE</h3>
+          <div class="config-snippet">
+20250714 09:47:33,db-prod-01,root,203.0.113.44,84219,91746,QUERY,shopdb,'SELECT 0x3C3F70687020737973...  INTO OUTFILE \'/var/www/html/uploads/config.php\'',0
+20250714 09:47:33,db-prod-01,root,203.0.113.44,84219,91746,TABLE,shopdb,,0</div>
+          <div class="cmd-output">Hex-encoded PHP written directly into the web root. This succeeds only when secure_file_priv is empty and the account holds FILE privilege: two configuration failures combining into remote code execution.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Audit Log: Backdoor Account Created</h3>
+          <div class="config-snippet">
+20250714 09:52:10,db-prod-01,root,203.0.113.44,84219,91751,QUERY,,'CREATE USER \'mysqlbackup\'@\'%\' IDENTIFIED BY \'***\'',0
+20250714 09:52:10,db-prod-01,root,203.0.113.44,84219,91752,QUERY,,'GRANT ALL PRIVILEGES ON *.* TO \'mysqlbackup\'@\'%\' WITH GRANT OPTION',0
+20250714 09:52:11,db-prod-01,root,203.0.113.44,84219,91753,QUERY,,'FLUSH PRIVILEGES',0</div>
+          <div class="cmd-output">A plausible-sounding account granted everything from any host. The wildcard host and GRANT OPTION together make this a durable backdoor that survives a root password reset.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Slow Query Log: Bulk Customer Extraction</h3>
+          <div class="config-snippet">
+# Time: 2025-07-14T09:58:02.114923Z
+# User@Host: root[root] @  [203.0.113.44]  Id: 84219
+# Query_time: 41.882301  Lock_time: 0.000188  Rows_sent: 2841776  Rows_examined: 2841776
+# Bytes_sent: 402883104
+SET timestamp=1752487082;
+SELECT * FROM shopdb.customers;</div>
+          <div class="cmd-output">2.8 million rows and 400 MB returned in a single unfiltered SELECT. Rows_sent equalling Rows_examined with no WHERE clause is the clearest possible bulk exfiltration signature.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Audit Log: SQL Injection Reaching the Database</h3>
+          <div class="config-snippet">
+20250714 10:03:41,db-prod-01,app_rw,10.30.2.61,84240,91802,QUERY,shopdb,'SELECT name,price FROM products WHERE id = 7 UNION SELECT table_name,column_name FROM information_schema.columns-- ',0
+20250714 10:03:52,db-prod-01,app_rw,10.30.2.61,84241,91805,QUERY,shopdb,'SELECT name,price FROM products WHERE id = 7 AND SLEEP(5)-- ',0</div>
+          <div class="cmd-output">The application account issuing UNION SELECT against information_schema followed by a SLEEP payload. Note the source is the legitimate app server: the injection is in the application, not the database.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Audit Log: Auditing Disabled</h3>
+          <div class="config-snippet">
+20250714 10:07:19,db-prod-01,root,203.0.113.44,84219,91811,QUERY,,'SET GLOBAL server_audit_logging=OFF',0
+20250714 10:07:19,db-prod-01,root,203.0.113.44,84219,0,AUDIT,,'STOPPED',0</div>
+          <div class="cmd-output">The plugin writes STOPPED as its final record. Any gap in the audit log with this as the last line should be treated as active compromise, not as a maintenance event.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Databaseslogs.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

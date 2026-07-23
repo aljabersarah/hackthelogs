@@ -1,1 +1,895 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - VPN Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">VPN Logs</div>
+      <a href="#overview" class="nav-item active">VPN Log Overview</a>
+      <a href="#log-types" class="nav-item">Key VPN Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring VPN Logging</a>
+      <a href="#threat-patterns" class="nav-item">VPN Threat Patterns</a>
+      <a href="#log-format" class="nav-item">VPN Log Format</a>
+      <a href="#message-ids" class="nav-item">Critical VPN Message IDs</a>
+      <a href="#analysis-queries" class="nav-item">VPN Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for VPN Logging</a>
+      <a href="#log-examples" class="nav-item">Common VPN Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> VPN Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>VPN Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>The VPN concentrator is the front door to the internal network, and it is exposed to the internet by design. That combination makes it one of the most consistently targeted assets in any environment: credential stuffing against the portal, exploitation of the appliance itself, and abuse of valid stolen credentials all converge here. VPN logs are where those attempts become visible, and they are frequently the earliest evidence available in an intrusion timeline, because remote access is where so many intrusions begin.</p>
+            <p>A VPN log records two distinct things that are easy to conflate. The first is <code>authentication</code>: who attempted to log in, from which public address, using which method, and whether it succeeded. The second is the <code>session</code>: the tunnel that was established, the internal address assigned to the client, how long it lasted, and how much data crossed it. Detection depends on both. Authentication events reveal brute force, password spraying, and multi-factor fatigue, while session events provide the crucial mapping from an assigned internal address to a named user, without which every subsequent internal log entry for that address is unattributable.</p>
+            <p>Because attackers increasingly use valid credentials rather than exploits, the highest value VPN detections are behavioural rather than signature based. Impossible travel between two logins, a successful authentication from a country where the organisation has no presence, an unusual client version, a session at an hour the user has never worked, or a burst of MFA prompts followed by one acceptance are all patterns that only emerge when VPN logs are enriched with geolocation and compared against a per-user baseline. A successful login is not evidence of legitimacy, and treating it as such is why credential-based intrusions persist undetected for so long.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key VPN Log Types</h2>
+        </div>
+        <p>Remote access logging spans the concentrator, the identity provider, and the endpoint posture system. A complete picture requires all three:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Authentication Log</td>
+                <td>Records every login attempt with the username, source public address, authentication method, tunnel group, and result. The primary source for brute force, password spraying, and credential stuffing detection, and the first log to review in any suspected account compromise.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Session Establishment Log</td>
+                <td>Written when a tunnel is created. Contains the assigned internal address, the client software version, the negotiated encryption, and the group policy applied. The assigned address is what links this user to every subsequent internal log entry.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Session Teardown Log</td>
+                <td>Written when a tunnel closes, carrying the session duration, total bytes sent and received, and the reason for disconnection. Byte counts here are the simplest available signal for exfiltration over remote access.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Posture and Compliance Log</td>
+                <td>Results of endpoint health checks performed before access is granted, covering antivirus status, patch level, disk encryption, and certificate presence. Records both which devices failed and which were admitted anyway under a remediation policy.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Multi-Factor Authentication Log</td>
+                <td>Usually produced by the identity provider or RADIUS server rather than the concentrator. Records each factor challenge and its outcome, which is the only way to distinguish a user approving a legitimate prompt from a user approving one under fatigue.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Administrative Access Log</td>
+                <td>Logins to the appliance management interface and configuration changes made there. An attacker who compromises the concentrator itself can create tunnel groups and disable logging, so this stream needs independent monitoring.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Tunnel Traffic Log</td>
+                <td>Connection records for traffic inside the tunnel, subject to the split tunnelling policy. Shows what internal resources the remote user actually reached once connected.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The mapping between assigned tunnel address and username exists only in the session logs, and pools are reused constantly. Without retaining session establishment and teardown records, an internal alert on a VPN pool address cannot be attributed to a person after the fact.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Appliances rarely store logs locally in any useful quantity. Syslog forwarding is not an enhancement here, it is the only viable collection method.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Cisco ASA / Firepower</td>
+                <td>Internal buffer only, viewed with show logging. Forward via syslog to a collector</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Fortinet FortiGate</td>
+                <td>Local disk if fitted, otherwise FortiAnalyzer or syslog. View with execute log display</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Palo Alto GlobalProtect</td>
+                <td>System and GlobalProtect log types in the firewall, forwarded via Log Forwarding Profile</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">OpenVPN</td>
+                <td>/var/log/openvpn.log or /var/log/openvpn/openvpn-status.log</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">OpenVPN Configuration</td>
+                <td>/etc/openvpn/server.conf</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">WireGuard</td>
+                <td>Kernel log via journalctl -u wg-quick@wg0, plus wg show for peer handshake times</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">strongSwan IPsec</td>
+                <td>/var/log/charon.log or the system journal</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Windows Always On VPN</td>
+                <td>RAS logs in %SystemRoot%\tracing and NPS accounting in %SystemRoot%\System32\LogFiles\IN*.log</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> WireGuard is deliberately minimal and logs almost nothing by design. It records handshake times per peer but no session or authentication events, so deployments need external accounting through <code>wg show</code> polling or a management layer on top.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring VPN Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring VPN Logging</h2>
+        <p>Default logging levels on most concentrators are too low to capture authentication detail. These configurations raise them to a useful level without flooding the collector.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Configure Cisco ASA Syslog</h3>
+          <div class="config-snippet">
+logging enable
+logging timestamp rfc5424
+logging host INSIDE 10.50.9.20 6/1514
+logging trap informational
+logging device-id hostname
+no logging message 302013          ! suppress high volume connection build
+no logging message 302014
+
+! Ensure the VPN specific classes are retained
+logging list VPNLOG message 113004-113020
+logging list VPNLOG message 722022-722051
+logging list VPNLOG message 716038-716059</div>
+          <div class="cmd-output">Informational level is required: authentication messages such as 113004 and 113005 are severity 6 and are lost entirely at the default warning level.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Configure FortiGate SSL VPN Logging</h3>
+          <div class="config-snippet">
+config log syslogd setting
+    set status enable
+    set server "10.50.9.20"
+    set port 514
+    set facility local7
+    set format rfc5424
+end
+
+config vpn ssl settings
+    set log-session-info enable
+end
+
+config log setting
+    set fwpolicy-implicit-log enable
+    set resolve-ip enable
+end</div>
+          <div class="cmd-output">log-session-info adds the tunnel address assignment and byte counters to session records, which is what makes user attribution and exfiltration detection possible.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Configure OpenVPN Verbosely Enough</h3>
+          <div class="config-snippet">
+# /etc/openvpn/server.conf
+log-append   /var/log/openvpn.log
+status       /var/log/openvpn/openvpn-status.log 30
+status-version 3
+verb 4                       # 3 is default, 4 adds authentication detail
+mute 0                       # never suppress repeated messages
+
+# Record the real client address and assigned tunnel address
+push "route 10.0.0.0 255.0.0.0"
+client-connect  /etc/openvpn/scripts/log-connect.sh
+client-disconnect /etc/openvpn/scripts/log-disconnect.sh</div>
+          <div class="cmd-output">Verbosity 4 exposes certificate common names and authentication outcomes. Setting mute to 0 matters because the default suppresses repeated messages, which hides brute force bursts.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Capture the Identity Provider Side</h3>
+          <div class="config-snippet">
+# The concentrator sees "authentication succeeded" but not which factors were used.
+# Collect the RADIUS or IdP log alongside it:
+#   Microsoft NPS      : %SystemRoot%\System32\LogFiles\IN*.log (event IDs 6272/6273)
+#   FreeRADIUS         : /var/log/freeradius/radius.log
+#   Entra ID           : SignInLogs table, authenticationDetails field
+#   Okta               : System Log API, eventType user.authentication.auth_via_mfa
+
+# Correlate on username plus timestamp plus source address</div>
+          <div class="cmd-output">MFA fatigue attacks are invisible in concentrator logs, which record only the final successful authentication. The repeated denied prompts that preceded it exist only in the identity provider log.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enrich with Geolocation at Ingest</h3>
+          <div class="config-snippet">
+# Example enrichment pipeline (Logstash)
+filter {
+  if [event_type] == "vpn_auth" {
+    geoip { source =&gt; "src_ip" target =&gt; "geo" }
+    if [geo][country_code2] not in ["SA","AE","GB"] {
+      mutate { add_tag =&gt; ["vpn_unexpected_country"] }
+    }
+  }
+}</div>
+          <div class="cmd-output">Geolocation must be applied at ingest, not at query time. Impossible travel detection requires the country and coordinates to already be on the event when correlation runs.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Retain Address Assignment Mappings</h3>
+          <div class="config-snippet">
+# Build a lookup of tunnel address to user for the retention period
+source="vpn" (event="session_established" OR event="session_terminated")
+| eval end_time=if(event=="session_terminated", _time, now())
+| table username, assigned_ip, src_ip, _time, end_time, bytes_sent, bytes_received
+| outputlookup vpn_session_history.csv</div>
+          <div class="cmd-output">This lookup is what lets an analyst resolve a VPN pool address in an internal alert back to a person weeks later. Pools recycle within hours, so the mapping must be historical.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> VPN appliances have been among the most heavily exploited enterprise products in recent years, with pre-authentication vulnerabilities affecting every major vendor. Monitor the administrative access log and the appliance's own system log as closely as the user authentication log, because a compromised concentrator can issue itself valid sessions.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>VPN Threat Patterns</h2>
+        </div>
+        <p class="description">Remote access attacks follow recognisable shapes. These are the highest value detections to build from VPN telemetry.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-plane"></i>
+              <h4>Impossible Travel</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Two successful authentications for one account from locations too far apart for the elapsed time. Among the highest confidence indicators of credential compromise available.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-bell"></i>
+              <h4>MFA Fatigue</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Repeated push notifications until the user approves one out of irritation. Signature: many denied or timed out factor challenges followed by a single acceptance, all within minutes.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-spray-can"></i>
+              <h4>Password Spraying</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>One or two password attempts against many accounts, staying below lockout thresholds. Signature: a single source address failing against dozens of distinct usernames.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-clock"></i>
+              <h4>Anomalous Session Timing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Connections at hours a user has never worked, or sessions lasting far longer than their norm. Effective precisely because attackers operate in their own timezone, not the victim's.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <h4>Exfiltration Over Tunnel</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Session teardown records showing bytes received by the client far exceeding the user's baseline. A remote session pulling gigabytes from file shares is bulk data theft.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-users"></i>
+              <h4>Concurrent Sessions</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>One account with simultaneous tunnels from different addresses or countries. Either credential sharing or an attacker connected alongside the legitimate user.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Commercial VPN and residential proxy services are widely used to defeat geolocation detections, placing an attacker's apparent source inside the expected country. Maintain a list of known hosting and anonymiser ranges and treat authentications from them as anomalous regardless of the country they resolve to.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>VPN Log Format</h2>
+        <p>These fields appear across all major concentrators under different names. Normalising them is what allows one detection to run against Cisco, Fortinet, and Palo Alto data together.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>Time of the authentication or session event</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22+03:00</td>
+              </tr>
+              <tr>
+                <td>username</td>
+                <td>Account presented for authentication</td>
+                <td>Identity</td>
+                <td>r.almutairi</td>
+              </tr>
+              <tr>
+                <td>src_ip</td>
+                <td>Public address the client connected from</td>
+                <td>Source</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>src_country</td>
+                <td>Geolocated country of the source address</td>
+                <td>Source</td>
+                <td>NL</td>
+              </tr>
+              <tr>
+                <td>assigned_ip</td>
+                <td>Internal address given to the tunnel</td>
+                <td>Target</td>
+                <td>10.99.4.117</td>
+              </tr>
+              <tr>
+                <td>tunnel_group</td>
+                <td>Connection profile or policy applied</td>
+                <td>Policy</td>
+                <td>CORP-SSLVPN</td>
+              </tr>
+              <tr>
+                <td>auth_method</td>
+                <td>Mechanism used to authenticate</td>
+                <td>Authorization</td>
+                <td>RADIUS + Push MFA</td>
+              </tr>
+              <tr>
+                <td>result</td>
+                <td>Outcome of the attempt</td>
+                <td>Result</td>
+                <td>Rejected</td>
+              </tr>
+              <tr>
+                <td>reason</td>
+                <td>Failure or disconnect reason</td>
+                <td>Result</td>
+                <td>AAA failure</td>
+              </tr>
+              <tr>
+                <td>client_version</td>
+                <td>VPN client software and version</td>
+                <td>Source</td>
+                <td>AnyConnect 4.10.06079</td>
+              </tr>
+              <tr>
+                <td>duration</td>
+                <td>Session length in seconds</td>
+                <td>Session</td>
+                <td>29228</td>
+              </tr>
+              <tr>
+                <td>bytes_sent</td>
+                <td>Bytes transferred to the client</td>
+                <td>Volume</td>
+                <td>1884221904</td>
+              </tr>
+              <tr>
+                <td>bytes_received</td>
+                <td>Bytes received from the client</td>
+                <td>Volume</td>
+                <td>3218844</td>
+              </tr>
+              <tr>
+                <td>session_id</td>
+                <td>Unique identifier for the tunnel</td>
+                <td>Session</td>
+                <td>0x000012F4</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Message IDs -->
+      <div id="message-ids" class="card">
+        <h2>Critical VPN Message IDs</h2>
+        <p>Cisco ASA and FortiGate identify events by numeric identifiers that remain stable across software versions, making them reliable detection anchors.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Message ID</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">ASA-6-113005</td>
+                <td>AAA user authentication rejected</td>
+                <td>The core VPN authentication failure. Bursts against one account are brute force, across many accounts is spraying</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">ASA-6-113004</td>
+                <td>AAA user authentication successful</td>
+                <td>The baseline for behavioural detection. Every impossible travel and off-hours alert starts here</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ASA-6-113015</td>
+                <td>AAA user authentication rejected, user not found</td>
+                <td>Distinguishes username enumeration from password guessing against real accounts</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">ASA-6-722022</td>
+                <td>TCP or SSL connection established</td>
+                <td>Tunnel establishment carrying the assigned internal address, the key to user attribution</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">ASA-4-113019</td>
+                <td>Group and user disconnected</td>
+                <td>Session teardown with duration and byte counts, the simplest exfiltration signal available</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ASA-6-716039</td>
+                <td>WebVPN authentication rejected</td>
+                <td>Clientless portal login failure, frequently the target of automated credential stuffing</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">ASA-6-605005</td>
+                <td>Login permitted to the management interface</td>
+                <td>Administrative access to the appliance itself. Should be rare, scheduled, and from known addresses only</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">ASA-3-713061</td>
+                <td>IKE peer rejected, no matching policy</td>
+                <td>IPsec negotiation failures, often scanning of the VPN endpoint by unauthorised peers</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Fortinet 0101039426</td>
+                <td>SSL VPN login failed</td>
+                <td>FortiGate authentication failure. The action field ssl-login-fail is the equivalent detection anchor</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Fortinet 0101039424</td>
+                <td>SSL VPN tunnel up</td>
+                <td>Tunnel establishment with the assigned address and the user group applied</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Suppressing ASA messages 302013 and 302014 is standard practice for volume control, but be careful not to suppress the 7xxxx range along with them. Those are the VPN session messages, and losing them removes address-to-user attribution entirely.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>VPN Log Analysis Queries</h2>
+        <p>These queries surface credential attacks, geographic anomalies, and data theft over remote access.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-plane"></i>
+              <span class="cmd-title">Impossible Travel</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" result="success" | sort username, _time | streamstats current=f last(src_country) as prev_country, last(_time) as prev_time by username | eval gap_hr=(_time-prev_time)/3600 | where prev_country!=src_country AND gap_hr &lt; 4</span>
+              </div>
+              <div class="cmd-output">Two successful logins from different countries within four hours. Whitelist adjacent-country commuting patterns before deploying this.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-spray-can"></i>
+              <span class="cmd-title">Password Spraying</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" result="failed" | bucket _time span=30m | stats dc(username) as targets, count as attempts by src_ip, _time | where targets &gt; 15 AND attempts/targets &lt; 3</span>
+              </div>
+              <div class="cmd-output">Many usernames with few attempts each is the defining spray signature, deliberately staying under account lockout thresholds.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-bell"></i>
+              <span class="cmd-title">MFA Fatigue</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="idp" eventType="*mfa*" | bucket _time span=15m | stats count(eval(result=="denied")) as denied, count(eval(result=="success")) as approved by username, _time | where denied &gt;= 5 AND approved &gt;= 1</span>
+              </div>
+              <div class="cmd-output">Five or more rejected prompts followed by an approval in the same window is a user giving in, not a user authenticating.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Brute Force Then Success</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" | bucket _time span=1h | stats count(eval(result=="failed")) as fails, count(eval(result=="success")) as wins, values(src_ip) by username, _time | where fails &gt; 20 AND wins &gt; 0</span>
+              </div>
+              <div class="cmd-output">The highest priority VPN alert there is: sustained failures against one account followed by a success in the same hour.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-globe"></i>
+              <span class="cmd-title">Logins from Unexpected Countries</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" result="success" NOT src_country IN ("SA","AE","GB") | stats count, values(src_ip), values(src_country) by username | sort - count</span>
+              </div>
+              <div class="cmd-output">Define the allowed country list from where your workforce actually is, not from where you have offices. Travel exceptions should be temporary and documented.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-cloud-download-alt"></i>
+              <span class="cmd-title">Exfiltration Over Tunnel</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" event="session_terminated" | stats sum(bytes_sent) as downloaded, avg(duration) as avg_dur by username, session_id | eventstats avg(downloaded) as user_avg by username | where downloaded &gt; user_avg*10 AND downloaded &gt; 1000000000</span>
+              </div>
+              <div class="cmd-output">Compares each session against the user's own baseline rather than a global threshold, which is what makes it usable in practice.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-users"></i>
+              <span class="cmd-title">Concurrent Sessions</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" event="session_established" | bucket _time span=1h | stats dc(src_ip) as sources, dc(src_country) as countries, values(src_ip) by username, _time | where sources &gt; 1</span>
+              </div>
+              <div class="cmd-output">One account tunnelled from two addresses at once is either shared credentials or an attacker connected alongside the real user.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-desktop"></i>
+              <span class="cmd-title">Unusual Client Versions</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" event="session_established" | stats count, dc(username) as users by client_version | where users &lt; 3 | sort count</span>
+              </div>
+              <div class="cmd-output">Rare client versions can indicate an attacker using an unmanaged device or an open source client against your corporate concentrator.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Resolve a Tunnel Address to a User</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" assigned_ip="10.99.4.117" | table _time, event, username, src_ip, src_country, session_id | sort _time</span>
+              </div>
+              <div class="cmd-output">The standard pivot when an internal alert names a VPN pool address. Bound the search by the alert time because pools recycle within hours.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-cog"></i>
+              <span class="cmd-title">Appliance Administrative Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="vpn" (message_id="605005" OR message_id="111008" OR action="config_change") | table _time, username, src_ip, message | sort - _time</span>
+              </div>
+              <div class="cmd-output">Configuration changes on the concentrator itself. An attacker here can create tunnel groups, disable MFA, and turn logging off.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for VPN Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices to make remote access logging capable of catching credential-based intrusion:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Log at Informational Severity</h3>
+              <p>Authentication messages are severity 6 on Cisco platforms. At the default warning level they are never emitted, so the most important VPN events simply do not exist.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Retain Address Assignment History</h3>
+              <p>Keep session establishment and teardown records for the full retention period. Without them a VPN pool address in an internal alert can never be traced to a person.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Collect the Identity Provider Logs Too</h3>
+              <p>The concentrator records only the final authentication result. MFA fatigue, factor type, and denied prompts exist solely in the RADIUS or identity provider log.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Geolocate at Ingest</h3>
+              <p>Impossible travel detection needs country and coordinates already attached to the event. Enriching at query time is too slow and breaks correlation across time windows.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Baseline Per User, Not Globally</h3>
+              <p>Working hours, session length, and data volume vary enormously between roles. A per-user baseline finds anomalies that any global threshold either misses or drowns in false positives.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Alert on Successful Logins, Not Only Failures</h3>
+              <p>Attackers using stolen credentials generate a clean success. Failure-only monitoring is blind to exactly the attack type that matters most today.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Monitor the Appliance Itself</h3>
+              <p>VPN concentrators are among the most exploited enterprise products. Watch administrative logins, configuration changes, and firmware version alongside user authentication.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Forward Off the Appliance Immediately</h3>
+              <p>Concentrators hold only a small local buffer that wraps in minutes under load. Syslog forwarding is the only collection method that survives both volume and compromise.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common VPN Log Examples</h2>
+        <p>An account takeover through the VPN, traced from spraying through to data theft.</p>
+
+        <div class="implementation-steps">
+          <h3>Password Spraying Against the Portal</h3>
+          <div class="config-snippet">
+Jul 14 2025 09:12:04 asa-vpn01 : %ASA-6-113015: AAA user authentication Rejected : reason = User was not found : local database : user = a.alqahtani : user IP = 203.0.113.44
+Jul 14 2025 09:12:07 asa-vpn01 : %ASA-6-113005: AAA user authentication Rejected : reason = AAA failure : server = 10.50.1.20 : user = m.alharbi : user IP = 203.0.113.44
+Jul 14 2025 09:12:11 asa-vpn01 : %ASA-6-113005: AAA user authentication Rejected : reason = AAA failure : server = 10.50.1.20 : user = r.almutairi : user IP = 203.0.113.44
+Jul 14 2025 09:12:14 asa-vpn01 : %ASA-6-113005: AAA user authentication Rejected : reason = AAA failure : server = 10.50.1.20 : user = s.aldosari : user IP = 203.0.113.44</div>
+          <div class="cmd-output">One source address, four different accounts, one attempt each, seconds apart. Message 113015 confirms the first username does not exist, so this is a guessed list being tested.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>MFA Fatigue in the Identity Provider Log</h3>
+          <div class="config-snippet">
+2025-07-14T09:38:02Z user.mfa.factor.verify  result=DENIED   user=r.almutairi factor=push client_ip=203.0.113.44 reason=user_rejected
+2025-07-14T09:38:31Z user.mfa.factor.verify  result=DENIED   user=r.almutairi factor=push client_ip=203.0.113.44 reason=user_rejected
+2025-07-14T09:39:05Z user.mfa.factor.verify  result=TIMEOUT  user=r.almutairi factor=push client_ip=203.0.113.44
+2025-07-14T09:39:44Z user.mfa.factor.verify  result=DENIED   user=r.almutairi factor=push client_ip=203.0.113.44 reason=user_rejected
+2025-07-14T09:40:52Z user.mfa.factor.verify  result=SUCCESS  user=r.almutairi factor=push client_ip=203.0.113.44</div>
+          <div class="cmd-output">Four rejections then an approval in under three minutes, all from the same foreign address. The user did not decide this was legitimate, they gave up. The concentrator will record only the final success.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Successful Authentication and Tunnel Establishment</h3>
+          <div class="config-snippet">
+Jul 14 2025 09:40:53 asa-vpn01 : %ASA-6-113004: AAA user authentication Successful : server = 10.50.1.20 : user = r.almutairi
+Jul 14 2025 09:40:53 asa-vpn01 : %ASA-6-113008: AAA transaction status ACCEPT : user = r.almutairi
+Jul 14 2025 09:40:54 asa-vpn01 : %ASA-6-722022: Group &lt;CORP-SSLVPN&gt; User &lt;r.almutairi&gt; IP &lt;203.0.113.44&gt; TCP SVC connection established without compression
+Jul 14 2025 09:40:54 asa-vpn01 : %ASA-6-722051: Group &lt;CORP-SSLVPN&gt; User &lt;r.almutairi&gt; IP &lt;203.0.113.44&gt; IPv4 Address &lt;10.99.4.117&gt; assigned to session</div>
+          <div class="cmd-output">Message 722051 is the critical one: it binds tunnel address 10.99.4.117 to this user. Every internal log entry for that address from now on belongs to this session.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Impossible Travel</h3>
+          <div class="config-snippet">
+Jul 14 2025 08:02:11 asa-vpn01 : %ASA-6-113004: AAA user authentication Successful : server = 10.50.1.20 : user = r.almutairi
+  [enriched] src_ip=94.56.11.204 src_country=SA src_city=Riyadh
+Jul 14 2025 09:40:53 asa-vpn01 : %ASA-6-113004: AAA user authentication Successful : server = 10.50.1.20 : user = r.almutairi
+  [enriched] src_ip=203.0.113.44 src_country=NL src_city=Amsterdam</div>
+          <div class="cmd-output">Riyadh to Amsterdam in 98 minutes, a journey of roughly 4,500 km. Both authentications succeeded, which is precisely why success events must be monitored.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>FortiGate SSL VPN Login Failures</h3>
+          <div class="config-snippet">
+date=2025-07-14 time=09:12:04 devname="fgt-vpn01" devid="FG100E0000000001" logid="0101039426" type="event" subtype="vpn" level="alert" vd="root" action="ssl-login-fail" tunneltype="ssl-web" tunnelid=0 remip=203.0.113.44 user="a.alqahtani" group="N/A" dst_host="N/A" reason="sslvpn_login_permission_denied" msg="SSL user failed to logged in"
+date=2025-07-14 time=09:40:54 devname="fgt-vpn01" logid="0101039424" type="event" subtype="vpn" level="information" action="tunnel-up" tunneltype="ssl-tunnel" tunnelid=1284119 remip=203.0.113.44 user="r.almutairi" group="corp-vpn-users" assignip=10.99.4.117 duration=0 sentbyte=0 rcvdbyte=0</div>
+          <div class="cmd-output">FortiGate uses action strings rather than numeric severity. The tunnel-up record carries assignip, which serves the same attribution role as Cisco message 722051.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Session Teardown Revealing Exfiltration</h3>
+          <div class="config-snippet">
+Jul 14 2025 17:48:21 asa-vpn01 : %ASA-4-113019: Group = CORP-SSLVPN, Username = r.almutairi, IP = 203.0.113.44, Session disconnected. Session Type: SSL, Duration: 8h:07m:27s, Bytes xmt: 1884221904, Bytes rcv: 3218844, Reason: User Requested</div>
+          <div class="cmd-output">1.88 GB transmitted to the client over eight hours. Compare against this user's baseline of roughly 40 MB per session and the scale of the theft is obvious from one line.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>OpenVPN Authentication Failure Burst</h3>
+          <div class="config-snippet">
+Sat Jul 14 09:12:04 2025 203.0.113.44:44120 TLS: Initial packet from [AF_INET]203.0.113.44:44120, sid=8f2a1c04 3e91b7d2
+Sat Jul 14 09:12:04 2025 203.0.113.44:44120 VERIFY ERROR: depth=0, error=self signed certificate: CN=client
+Sat Jul 14 09:12:04 2025 203.0.113.44:44120 TLS_ERROR: BIO read tls_read_plaintext error
+Sat Jul 14 09:12:04 2025 203.0.113.44:44120 TLS Error: TLS object -&gt; incoming plaintext read error
+Sat Jul 14 09:12:05 2025 203.0.113.44:44121 TLS: Initial packet from [AF_INET]203.0.113.44:44121, sid=9a3b2d15 4f02c8e3</div>
+          <div class="cmd-output">Repeated TLS handshake failures with a self-signed client certificate, one second apart from sequential ports. This is automated probing of the OpenVPN endpoint, not a misconfigured user.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Appliance Configuration Change</h3>
+          <div class="config-snippet">
+Jul 14 2025 17:52:10 asa-vpn01 : %ASA-6-605005: Login permitted from 10.99.4.117/52190 to inside:10.50.1.1/https for user "r.almutairi"
+Jul 14 2025 17:53:44 asa-vpn01 : %ASA-5-111008: User 'r.almutairi' executed the 'tunnel-group MAINT-ACCESS type remote-access' command.
+Jul 14 2025 17:54:02 asa-vpn01 : %ASA-5-111008: User 'r.almutairi' executed the 'no logging host INSIDE 10.50.9.20' command.</div>
+          <div class="cmd-output">The compromised account reaching the management interface from inside its own tunnel, creating a new tunnel group, then removing the syslog destination. That last command is the final entry the collector will ever receive.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Network.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

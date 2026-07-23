@@ -195,43 +195,43 @@
     <tbody>
       <tr>
         <td>200</td>
-        <td>OK – Request succeeded</td>
+        <td>OK: Request succeeded</td>
       </tr>
       <tr>
         <td>301 / 302</td>
-        <td>Redirect – Resource moved</td>
+        <td>Redirect: Resource moved</td>
       </tr>
       <tr>
         <td>400</td>
-        <td>Bad Request – Malformed syntax</td>
+        <td>Bad Request: Malformed syntax</td>
       </tr>
       <tr>
         <td>401</td>
-        <td>Unauthorized – Authentication required</td>
+        <td>Unauthorized: Authentication required</td>
       </tr>
       <tr>
         <td>403</td>
-        <td>Forbidden – Access denied</td>
+        <td>Forbidden: Access denied</td>
       </tr>
       <tr>
         <td>404</td>
-        <td>Not Found – Resource not found</td>
+        <td>Not Found: Resource not found</td>
       </tr>
       <tr>
         <td>405</td>
-        <td>Method Not Allowed – HTTP method not permitted</td>
+        <td>Method Not Allowed: HTTP method not permitted</td>
       </tr>
       <tr>
         <td>429</td>
-        <td>Too Many Requests – Rate limited</td>
+        <td>Too Many Requests: Rate limited</td>
       </tr>
       <tr>
         <td>500</td>
-        <td>Internal Server Error – Server issue</td>
+        <td>Internal Server Error: Server issue</td>
       </tr>
       <tr>
         <td>503</td>
-        <td>Service Unavailable – Server overloaded or down</td>
+        <td>Service Unavailable: Server overloaded or down</td>
       </tr>
     </tbody>
   </table>
@@ -267,7 +267,7 @@
                 <span class="cmd-prompt">BASH></span>
                 <span class="cmd-line-content">awk '{print $1}' access.log | sort | uniq -c | sort -nr</span>
               </div>
-              <div class="cmd-output">Shows which client IPs are making the most requests — helpful for detecting scanning or spikes.</div>
+              <div class="cmd-output">Shows which client IPs are making the most requests, helpful for detecting scanning or spikes.</div>
             </div>
           </div>
           <!-- POST Requests with 200 Response -->
@@ -281,7 +281,7 @@
                 <span class="cmd-prompt">BASH></span>
                 <span class="cmd-line-content">awk '$6 ~ /POST/ &amp;&amp; $9 == 200 {print $1, $7}' access.log | sort | uniq -c | sort -nr</span>
               </div>
-              <div class="cmd-output">Finds successful POST request patterns — useful for detecting suspicious uploads or interactions.</div>
+              <div class="cmd-output">Finds successful POST request patterns, useful for detecting suspicious uploads or interactions.</div>
             </div>
           </div>
           <!-- Suspicious POST Requests -->
@@ -295,7 +295,7 @@
                 <span class="cmd-prompt">BASH></span>
                 <span class="cmd-line-content">awk '$6 ~ /POST/ &amp;&amp; $0 !~ /Mozilla|Chrome|Safari/' access.log</span>
               </div>
-              <div class="cmd-output">Detects automated tools and non-browser clients sending POST requests — potentially exploit attempts.</div>
+              <div class="cmd-output">Detects automated tools and non-browser clients sending POST requests, potentially exploit attempts.</div>
             </div>
           </div>
           <!-- Detect URI with Executables -->
@@ -323,7 +323,7 @@
                 <span class="cmd-prompt">BASH></span>
                 <span class="cmd-line-content">awk '$9 ~ /403|401/ {print $1}' access.log | sort | uniq -c | awk '$1 &gt; 5' | sort -nr</span>
               </div>
-              <div class="cmd-output">Identifies clients repeatedly denied access — possible brute-force or path probing behavior.</div>
+              <div class="cmd-output">Identifies clients repeatedly denied access, possible brute-force or path probing behavior.</div>
             </div>
           </div>
           <!-- Top 5 Accessed URIs -->
@@ -337,7 +337,7 @@
                 <span class="cmd-prompt">BASH></span>
                 <span class="cmd-line-content">awk '{print $7}' access.log | sort | uniq -c | sort -nr | head -n 5</span>
               </div>
-              <div class="cmd-output">Lists the most requested URIs — great for identifying popular or targeted content.</div>
+              <div class="cmd-output">Lists the most requested URIs, great for identifying popular or targeted content.</div>
             </div>
           </div>
           <!-- User Agent Frequency per IP -->
@@ -351,7 +351,7 @@
                 <span class="cmd-prompt">BASH></span>
                 <span class="cmd-line-content">awk '{print $1 "|" $12}' access.log | sort | uniq | cut -d'|' -f1 | sort | uniq -c | sort -nr</span>
               </div>
-              <div class="cmd-output">Detects IPs switching User-Agents — common in bots or evasive crawlers.</div>
+              <div class="cmd-output">Detects IPs switching User-Agents, common in bots or evasive crawlers.</div>
             </div>
           </div>
         </div>

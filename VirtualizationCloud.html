@@ -3,65 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coming Soon - We're Almost Ready!</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/ComingSoon.css">
+    <title>Hack The Logs - Virtualization and Cloud Logs</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Background Animation -->
-    <div class="background-animation">
-        <div class="floating-shape shape1"></div>
-        <div class="floating-shape shape2"></div>
-        <div class="floating-shape shape3"></div>
-        <div class="floating-shape shape4"></div>
-        <div class="floating-shape shape5"></div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="container">
-        <!-- Logo Section -->
-        <div class="logo-section">
-            <div class="logo">
-                <i class="fas fa-rocket"></i>
-            </div>
-        </div>
-
-        <!-- Main Content -->
+    <div class="content-wrapper">
         <div class="main-content">
-            <div class="coming-soon-badge">
-                <span class="badge-text">Coming Soon</span>
-            </div>
-            
-            <h1 class="main-title">Something Amazing is Coming</h1>
-            
-             
- 
-
-            <!-- Description Text -->
-            <div class="contribution-section">
-                <p class="contribution-text">
-                    Feel free to reach out with any contributions related to this type of OS/Solutions or to any pages already published. This website is designed to share knowledge among all of us every piece of information is valuable.
+            <header class="main-header">
+                <img src="logo.svg" alt="Logo">
+                <h1>Virtualization &amp; Cloud Logs</h1>
+                <p class="header-description">
+                    In virtualised and cloud environments the control plane is the new perimeter. An attacker with API credentials does not need to touch a single operating system to copy a disk, snapshot a database, or grant themselves permanent access. Explore how each platform records that activity, and what an attack against the management layer looks like in the logs.
                 </p>
+            </header>
+            <div class="navigation-container">
+                <a href="VMwareLogs.html" class="os-box">
+                    <i class="fas fa-server"></i>
+                    <h2>VMware vSphere</h2>
+                    <p>ESXi host logs, vCenter events, and vpxd audit trails. Covers hostd and vmkernel output, virtual machine lifecycle events, datastore access, and the shell and lockdown mode activity that reveals hypervisor compromise.</p>
+                </a>
+
+                <a href="HyperVLogs.html" class="os-box">
+                    <i class="fab fa-windows"></i>
+                    <h2>Hyper-V</h2>
+                    <p>Hyper-V Worker, VMMS, and Compute event channels plus System Center VMM. Records virtual machine creation and migration, checkpoint activity, virtual switch changes, and shielded VM attestation results.</p>
+                </a>
+
+                <a href="AWSLogs.html" class="os-box">
+                    <i class="fab fa-aws"></i>
+                    <h2>Amazon Web Services</h2>
+                    <p>CloudTrail management and data events, VPC Flow Logs, GuardDuty findings, and S3 access logs. The definitive record of every API call made in the account, and the first place credential abuse becomes visible.</p>
+                </a>
+
+                <a href="AzureLogs.html" class="os-box">
+                    <i class="fab fa-microsoft"></i>
+                    <h2>Microsoft Azure</h2>
+                    <p>Azure Activity Log, Entra ID sign-in and audit logs, and diagnostic settings. Tracks resource changes, conditional access decisions, consent grants, and the identity attacks that dominate cloud intrusion today.</p>
+                </a>
+
+                <a href="GCPLogs.html" class="os-box">
+                    <i class="fab fa-google"></i>
+                    <h2>Google Cloud</h2>
+                    <p>Cloud Audit Logs across Admin Activity, Data Access, and Policy Denied streams. Covers IAM policy changes, service account key creation, and the impersonation chains that make GCP privilege escalation possible.</p>
+                </a>
+
+                <a href="KubernetesLogs.html" class="os-box">
+                    <i class="fas fa-dharmachakra"></i>
+                    <h2>Kubernetes &amp; Containers</h2>
+                    <p>API server audit logs, container runtime output, and admission controller decisions. Records exec into pods, privileged container creation, service account token use, and the RBAC changes behind cluster takeover.</p>
+                </a>
             </div>
 
-            <!-- Social Media Icons -->
-            <div class="social-media-container">
-                <a href="https://x.com/S4O_O" class="social-icon" aria-label="Twitter">
-                    <i class="fab fa-twitter"></i>
-                </a>
-                <a href="https://www.linkedin.com/in/sarah-aljaber-195b3717a" class="social-icon" aria-label="LinkedIn">
-                    <i class="fab fa-linkedin-in"></i>
+            <div class="back-button-container">
+                <a href="mainpage.html" class="explore-button">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
                 </a>
             </div>
-        </div>
+            <div class="creator-credit"> &copy; 2025 Hack The Logs. All rights reserved.
 
-        <!-- Footer -->
-        <div class="footer">
-            <p>&copy; 2025 Hack The Logs. All rights reserved.</p>
+           </div>
         </div>
     </div>
-
-     
 </body>
 </html>

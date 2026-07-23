@@ -387,7 +387,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" (event_category="*authentication*" OR event_type="*auth*") status="*fail*" OR result="*rejected*" | stats count by mac_address, username, auth_failure_reason | sort -count</span>
         </div>
-        <div class="cmd-output">Identifies endpoints with recurring authentication failures — helps prioritize investigation of potential brute force attempts or credential issues.</div>
+        <div class="cmd-output">Identifies endpoints with recurring authentication failures, helps prioritize investigation of potential brute force attempts or credential issues.</div>
       </div>
     </div>
     <!-- Non-Compliant Endpoints -->
@@ -401,7 +401,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" (event_type="*posture*" OR event_type="*compliance*" OR event_message="*health*") result="*fail*" | dedup mac_address | table mac_address, username, ip_address, posture_status, failure_reason</span>
         </div>
-        <div class="cmd-output">Detects endpoints failing security posture assessments — critical for identifying high-risk devices requiring remediation.</div>
+        <div class="cmd-output">Detects endpoints failing security posture assessments, critical for identifying high-risk devices requiring remediation.</div>
       </div>
     </div>
     <!-- Guest Access Monitoring -->
@@ -415,7 +415,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" auth_type="*guest*" OR usergroup="*guest*" | bucket span=1d | stats count, dc(mac_address) as unique_devices by sponsor, _time | where count > 10</span>
         </div>
-        <div class="cmd-output">Identifies excessive guest account sponsorship — helps detect potential abuse of guest access privileges or suspicious sponsorship patterns.</div>
+        <div class="cmd-output">Identifies excessive guest account sponsorship, helps detect potential abuse of guest access privileges or suspicious sponsorship patterns.</div>
       </div>
     </div>
     <!-- Unauthorized Access Attempts -->
@@ -429,7 +429,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" (vlan="*quarantine*" OR access_policy="*restricted*" OR auth_status="*limited*") | stats count by mac_address, ip_address, username, auth_failure_reason | sort -count</span>
         </div>
-        <div class="cmd-output">Tracks endpoints placed in restrictive network segments — helps identify policy violations and potentially compromised endpoints.</div>
+        <div class="cmd-output">Tracks endpoints placed in restrictive network segments, helps identify policy violations and potentially compromised endpoints.</div>
       </div>
     </div>
     <!-- Network Access Termination -->
@@ -443,7 +443,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" (action="*terminate*" OR action="*disconnect*" OR action="*coa*" OR action="*reauth*") | stats count by admin_user, mac_address, ip_address, reason, status | sort -_time</span>
         </div>
-        <div class="cmd-output">Monitors forced disconnect commands — provides audit trail of critical access control actions for security incident response.</div>
+        <div class="cmd-output">Monitors forced disconnect commands, provides audit trail of critical access control actions for security incident response.</div>
       </div>
     </div>
     <!-- Policy Configuration Changes -->
@@ -457,7 +457,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" (event_category="*policy*" OR event_category="*authorization*" OR event_category="*rule*") (action="*create*" OR action="*modify*" OR action="*delete*" OR action="*update*") | stats count by admin_user, policy_name, action | sort -_time</span>
         </div>
-        <div class="cmd-output">Tracks policy and configuration changes — maintains audit trail of security policy modifications for compliance and troubleshooting.</div>
+        <div class="cmd-output">Tracks policy and configuration changes, maintains audit trail of security policy modifications for compliance and troubleshooting.</div>
       </div>
     </div>
     <!-- MAC Address Spoofing Detection -->
@@ -471,7 +471,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" | stats values(username) as users, dc(username) as user_count, values(ip_address) as ips by mac_address | where user_count > 1 OR mvcount(ips) > 3</span>
         </div>
-        <div class="cmd-output">Identifies MAC addresses associated with multiple user accounts or unusual numbers of IP addresses — helps detect potential MAC address spoofing or shared devices.</div>
+        <div class="cmd-output">Identifies MAC addresses associated with multiple user accounts or unusual numbers of IP addresses, helps detect potential MAC address spoofing or shared devices.</div>
       </div>
     </div>
     <!-- Endpoint Profiling Changes -->
@@ -485,7 +485,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" event_category="*profil*" | transaction mac_address | where device_type_start != device_type_end | table _time, mac_address, device_type_start, device_type_end, username</span>
         </div>
-        <div class="cmd-output">Finds endpoints with changing device profiles — identifies potentially suspicious device attribute changes that could indicate spoofing attempts.</div>
+        <div class="cmd-output">Finds endpoints with changing device profiles, identifies potentially suspicious device attribute changes that could indicate spoofing attempts.</div>
       </div>
     </div>
     <!-- Unauthorized VLAN Assignment -->
@@ -499,7 +499,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="nac*" | lookup vlan_security vlan as assigned_vlan | where security_level="restricted" OR security_level="high" | stats count by mac_address, username, assigned_vlan, switch_ip, port</span>
         </div>
-        <div class="cmd-output">Monitors endpoints assigned to high-security VLANs — ensures only authorized devices access sensitive network segments.</div>
+        <div class="cmd-output">Monitors endpoints assigned to high-security VLANs, ensures only authorized devices access sensitive network segments.</div>
       </div>
     </div>
   </div>

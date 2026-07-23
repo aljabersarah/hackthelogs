@@ -1,1 +1,865 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Proxy Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Proxy Logs</div>
+      <a href="#overview" class="nav-item active">Proxy Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Proxy Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring Proxy Logging</a>
+      <a href="#threat-patterns" class="nav-item">Proxy Threat Patterns</a>
+      <a href="#log-format" class="nav-item">Proxy Log Format</a>
+      <a href="#result-codes" class="nav-item">Squid Result and Hierarchy Codes</a>
+      <a href="#analysis-queries" class="nav-item">Proxy Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Proxy Logging</a>
+      <a href="#log-examples" class="nav-item">Common Proxy Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Proxy Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Proxy Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>A web proxy sits between users and the internet, and because every outbound request passes through it, the access log becomes the most detailed record of user and malware behaviour available on the network. Where a firewall log records that a host contacted an address on port 443, the proxy log records the full URL, the authenticated username, the site category, the user agent, the referrer, the exact byte counts in each direction, and whether the request was allowed or blocked. That difference in richness is why proxy logs are usually the first place an analyst looks when investigating a suspected compromise.</p>
+            <p>The dominant deployments are <code>Squid</code> in open source environments, <code>Zscaler</code> and <code>Netskope</code> as cloud-delivered secure web gateways, and <code>Symantec Blue Coat ProxySG</code> in traditional enterprises. They differ in format but log the same fundamental transaction. Squid writes a compact native format by default that omits the user agent and referrer entirely, which is a significant gap: the <code>combined</code> log format must be configured explicitly to capture them, and without them a large fraction of proxy-based detection simply does not work.</p>
+            <p>The critical architectural question is whether the proxy performs TLS inspection. Without it, an HTTPS request appears only as a <code>CONNECT</code> to a hostname and port, with byte counts but no URL path, no response content, and no file visibility. With inspection enabled the proxy sees the full request as if it were cleartext. Most organisations run a hybrid, inspecting general browsing while bypassing banking, healthcare, and government categories for privacy and legal reasons. Knowing which categories are bypassed is essential context, because those are precisely the categories attackers prefer to hide behind.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Proxy Log Types</h2>
+        </div>
+        <p>Proxies produce several streams. Only the first carries most of the security value, but the others matter during troubleshooting and incident response:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Access Log</td>
+                <td>One record per client request. Contains the timestamp, client address, authenticated user, request method, full URL, HTTP status, bytes transferred, result code, content type, and the policy decision. This is the primary security log and the one that should always be forwarded to a SIEM.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Policy and Block Log</td>
+                <td>Records requests denied by category filtering, threat intelligence, or acceptable use policy, with the rule that caused the denial. On Squid these appear in the access log as TCP_DENIED, while commercial gateways often separate them into their own stream.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">TLS Inspection Log</td>
+                <td>Details of intercepted HTTPS sessions including the server certificate subject and issuer, negotiated cipher, SNI value, and any validation failures. Certificate errors logged here frequently reveal command and control infrastructure using self-signed certificates.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Cache Log</td>
+                <td>The proxy's own operational log covering startup, configuration reload, upstream failures, and errors. Squid writes this to cache.log. Not a security source, but it explains gaps in the access log.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Malware Scanning Log</td>
+                <td>Verdicts from inline antivirus or sandbox detonation performed on downloaded content, typically including the file hash, name, and detection name. The link between a web request and a delivered payload.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Authentication Log</td>
+                <td>Records how each session was attributed to a user, whether by Kerberos, NTLM, or captive portal. Authentication failures here can indicate credential problems or attempts to evade user attribution.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Store Log</td>
+                <td>Squid-specific record of objects entering and leaving the cache. Rarely enabled and of limited security value, but occasionally useful for proving what content was served from cache rather than fetched fresh.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Squid's default <code>squid</code> log format contains no user agent and no referrer. Switch to the <code>combined</code> format or define a custom logformat before you need those fields, because they cannot be recovered retrospectively.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Cloud proxies deliver logs through a streaming connector rather than a file, which changes how collection is architected.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Squid Access Log</td>
+                <td>/var/log/squid/access.log</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Squid Cache Log</td>
+                <td>/var/log/squid/cache.log</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Squid Configuration</td>
+                <td>/etc/squid/squid.conf</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Blue Coat ProxySG</td>
+                <td>Uploaded by FTP or HTTP to a configured server, commonly in the bcreportermain_v1 or W3C ELFF format</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Zscaler</td>
+                <td>Streamed through Nanolog Streaming Service (NSS) to a syslog collector, or pulled from the Log Streaming Service API</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Netskope</td>
+                <td>Delivered through the Cloud Log Shipper or the REST API v2 events endpoint</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Forcepoint Web Security</td>
+                <td>/opt/Websense/bin/ on the log server, or via the SIEM integration connector</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Squid on Windows</td>
+                <td>C:\Squid\var\log\squid\access.log</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Cloud proxy feeds are delivered from the vendor's infrastructure, not from your network. If the streaming connector stops, log flow ends silently while browsing continues to work normally. Monitor event volume per hour and alert when it drops.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Proxy Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Proxy Logging</h2>
+        <p>These Squid directives produce an access log with the fields security analysis actually requires, rather than the sparse default.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Define a Security-Focused Log Format</h3>
+          <div class="config-snippet">
+# /etc/squid/squid.conf
+logformat htlsec %ts.%03tu %6tr %&gt;a %Ss/%03&gt;Hs %&lt;st %rm %ru %[un %Sh/%&lt;a %mt "%{Referer}&gt;h" "%{User-Agent}&gt;h" %&gt;st %&lt;st
+
+access_log /var/log/squid/access.log htlsec
+
+# Field reference:
+#  %ts.%03tu  epoch seconds and milliseconds     %rm   request method
+#  %6tr       response time in milliseconds      %ru   full request URL
+#  %&gt;a        client address                     %[un  authenticated username
+#  %Ss/%03&gt;Hs squid result code / HTTP status    %Sh   hierarchy code
+#  %&lt;st       bytes delivered to client          %mt   MIME content type
+#  %&gt;st       bytes received from client</div>
+          <div class="cmd-output">Logging both %&gt;st and %&lt;st is what makes upload detection possible. The default format records only the response size, so large outbound POSTs are invisible.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Log Human Readable Timestamps</h3>
+          <div class="config-snippet">
+# Squid logs epoch time by default, which is unreadable during triage
+logformat htlsec_iso %{%Y-%m-%dT%H:%M:%S%z}tl %6tr %&gt;a %Ss/%03&gt;Hs %&lt;st %rm %ru %[un %Sh/%&lt;a %mt
+
+# Or convert an existing log on the fly
+perl -pe 's/^(\d+)\.\d+/localtime($1)/e' /var/log/squid/access.log | head</div>
+          <div class="cmd-output">If your SIEM handles epoch parsing correctly, keep the native format for precision. If analysts read raw files, ISO timestamps save time on every investigation.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Require Authentication for User Attribution</h3>
+          <div class="config-snippet">
+auth_param negotiate program /usr/lib/squid/negotiate_kerberos_auth -k /etc/squid/HTTP.keytab -s GSS_C_NO_NAME
+auth_param negotiate children 20 startup=5 idle=2
+auth_param negotiate keep_alive on
+
+acl authenticated proxy_auth REQUIRED
+http_access deny !authenticated
+http_access allow authenticated</div>
+          <div class="cmd-output">Without authentication the log attributes activity to an IP address only. On shared or DHCP-assigned addresses that makes user attribution guesswork rather than evidence.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Enable TLS Inspection Selectively</h3>
+          <div class="config-snippet">
+http_port 3128 ssl-bump generate-host-certificates=on \
+  dynamic_cert_mem_cache_size=8MB tls-cert=/etc/squid/proxyCA.pem
+
+acl step1 at_step SslBump1
+acl no_inspect ssl::server_name_regex "/etc/squid/bypass_domains.txt"
+
+ssl_bump peek step1
+ssl_bump splice no_inspect          # bypass banking, health, government
+ssl_bump bump all                   # inspect everything else</div>
+          <div class="cmd-output">Spliced connections are logged as CONNECT with a hostname and byte counts only. Keep the bypass list short and reviewed, because every entry is a blind spot an attacker can use.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Configure Rotation and Retention</h3>
+          <div class="config-snippet">
+logfile_rotate 30
+debug_options ALL,1
+
+# /etc/logrotate.d/squid
+/var/log/squid/*.log {
+    daily
+    rotate 90
+    compress
+    delaycompress
+    missingok
+    postrotate
+        /usr/sbin/squid -k rotate
+    endscript
+}</div>
+          <div class="cmd-output">The postrotate hook signalling Squid is essential. Rotating the file without it leaves Squid writing to a deleted inode, and logging stops silently until the service restarts.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Forward to a SIEM in Real Time</h3>
+          <div class="config-snippet">
+# Squid can write directly to syslog
+access_log syslog:local4.info htlsec
+
+# /etc/rsyslog.d/49-squid.conf
+local4.*    @@siem-collector.corp.local:6514</div>
+          <div class="cmd-output">Streaming over TCP with TLS avoids the loss inherent in reading rotated files and ensures logs survive compromise of the proxy host itself.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Full URL logging captures query strings, which routinely contain session tokens, password reset links, and personal data. Proxy logs inherit the sensitivity of everything your users browse. Restrict access to them accordingly and define a retention period that reflects that, not just storage cost.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Proxy Threat Patterns</h2>
+        </div>
+        <p class="description">Proxy logs expose a distinctive set of attacker behaviours. These are the patterns worth building detections around.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-satellite-dish"></i>
+              <h4>Command and Control Beaconing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Regular polling of a controller over HTTP or HTTPS. Signature: highly consistent intervals, small consistent response sizes, few distinct URLs, and a single internal client.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <h4>Data Exfiltration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Large outbound transfers to file sharing services or unknown hosts. Signature: request bytes vastly exceeding response bytes, sustained POST or PUT activity, uncategorised destination.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-robot"></i>
+              <h4>Non-Browser User Agents</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Requests from curl, wget, python-requests, PowerShell, or empty user agent strings. On a user workstation these almost always indicate scripted activity rather than browsing.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-question-circle"></i>
+              <h4>Uncategorised Destinations</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Sites the categorisation engine does not recognise, which correlates strongly with newly registered attacker infrastructure. Low volume in most environments and therefore highly reviewable.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-hashtag"></i>
+              <h4>Direct IP Requests</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>URLs containing an address instead of a hostname. Legitimate browsing almost never does this, while malware frequently hardcodes addresses to avoid DNS-based blocking.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-file-download"></i>
+              <h4>Suspicious Downloads</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Executables, scripts, and archives fetched from uncategorised sites, or content whose MIME type contradicts its file extension. The delivery stage of most intrusions.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Attackers increasingly host command and control on legitimate, well-categorised platforms such as cloud storage, code repositories, and collaboration tools. Category-based detection alone will not catch this. Behaviour, specifically timing regularity and byte ratios, remains effective where reputation fails.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Proxy Log Format</h2>
+        <p>These fields appear across Squid, Blue Coat, and cloud gateways under different names. Normalise them once and every detection works against all of them.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>Time the request completed</td>
+                <td>Timestamp</td>
+                <td>1752486082.481</td>
+              </tr>
+              <tr>
+                <td>duration</td>
+                <td>Time taken to service the request in milliseconds</td>
+                <td>Performance</td>
+                <td>884</td>
+              </tr>
+              <tr>
+                <td>client_ip</td>
+                <td>Address of the requesting host</td>
+                <td>Source</td>
+                <td>10.30.2.61</td>
+              </tr>
+              <tr>
+                <td>username</td>
+                <td>Authenticated user, or a dash when unauthenticated</td>
+                <td>Identity</td>
+                <td>CORP\r.almutairi</td>
+              </tr>
+              <tr>
+                <td>result_code</td>
+                <td>Proxy cache and policy result</td>
+                <td>Result</td>
+                <td>TCP_DENIED</td>
+              </tr>
+              <tr>
+                <td>http_status</td>
+                <td>HTTP status code returned to the client</td>
+                <td>Result</td>
+                <td>403</td>
+              </tr>
+              <tr>
+                <td>method</td>
+                <td>HTTP request method</td>
+                <td>Request Type</td>
+                <td>POST</td>
+              </tr>
+              <tr>
+                <td>url</td>
+                <td>Full requested URL including query string</td>
+                <td>Target</td>
+                <td>https://cdn-assets.badinfra.top/upload</td>
+              </tr>
+              <tr>
+                <td>bytes_sent</td>
+                <td>Bytes uploaded by the client</td>
+                <td>Volume</td>
+                <td>188422190</td>
+              </tr>
+              <tr>
+                <td>bytes_received</td>
+                <td>Bytes delivered to the client</td>
+                <td>Volume</td>
+                <td>412</td>
+              </tr>
+              <tr>
+                <td>content_type</td>
+                <td>MIME type of the response</td>
+                <td>Content</td>
+                <td>application/octet-stream</td>
+              </tr>
+              <tr>
+                <td>user_agent</td>
+                <td>Client application string</td>
+                <td>Source</td>
+                <td>python-requests/2.31.0</td>
+              </tr>
+              <tr>
+                <td>referer</td>
+                <td>Page that originated the request</td>
+                <td>Context</td>
+                <td>https://portal.corp.local/</td>
+              </tr>
+              <tr>
+                <td>category</td>
+                <td>Content classification assigned by the proxy</td>
+                <td>Policy</td>
+                <td>Uncategorised</td>
+              </tr>
+              <tr>
+                <td>action</td>
+                <td>Policy decision applied</td>
+                <td>Response</td>
+                <td>blocked</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Result Codes -->
+      <div id="result-codes" class="card">
+        <h2>Squid Result and Hierarchy Codes</h2>
+        <p>Squid encodes both the cache outcome and the policy decision into a single result code. Reading it correctly is essential to interpreting the log.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Meaning</th>
+                <th>Security Relevance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">TCP_DENIED</td>
+                <td>Request refused by an access control rule</td>
+                <td>The policy block record. Repeated denials to one destination from one host indicate malware retrying against a blocked controller</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">TCP_MISS</td>
+                <td>Object not cached, fetched from the origin</td>
+                <td>The normal case for dynamic content and the majority of security-relevant traffic</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">TCP_HIT</td>
+                <td>Served from cache without contacting the origin</td>
+                <td>Confirms the client received content but the origin was never contacted for this request</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">TCP_TUNNEL</td>
+                <td>CONNECT tunnel established, contents not inspected</td>
+                <td>An uninspected HTTPS session. Byte counts are still recorded, which is often enough to spot exfiltration</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">TCP_REFRESH_MODIFIED</td>
+                <td>Cached object revalidated and found changed</td>
+                <td>Rapid repeated revalidation of one object can indicate polling behaviour</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">TCP_MISS_ABORTED</td>
+                <td>Client disconnected before the transfer completed</td>
+                <td>Common in interrupted downloads, but bursts can indicate scripted activity or a failing tunnel</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">HIER_DIRECT</td>
+                <td>Fetched directly from the origin server</td>
+                <td>The standard hierarchy code, showing no upstream parent proxy was involved</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">HIER_NONE</td>
+                <td>No upstream connection was made</td>
+                <td>Accompanies denials and cache hits. Confirms the request never left the network</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">NONE/503</td>
+                <td>Upstream unreachable or DNS failure</td>
+                <td>Bursts of these to random hostnames can reveal domain generation algorithm activity reaching the proxy</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> TCP_DENIED entries are a detection opportunity, not just a compliance record. Malware does not know a domain is blocked, so it retries. A host generating dozens of denials to the same uncategorised domain is infected regardless of the fact that the traffic was stopped.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Proxy Log Analysis Queries</h2>
+        <p>These commands surface beaconing, exfiltration, scripted clients, and blocked malware retries from proxy logs.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <span class="cmd-title">Large Outbound Transfers</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="proxy" method IN ("POST","PUT") | stats sum(bytes_sent) as uploaded, sum(bytes_received) as downloaded, dc(url) by client_ip, dest_host | where uploaded &gt; 100000000 AND uploaded &gt; downloaded*10</span>
+              </div>
+              <div class="cmd-output">Finds hosts uploading far more than they download. The ratio matters more than the absolute volume for distinguishing exfiltration from normal use.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-robot"></i>
+              <span class="cmd-title">Scripted User Agents</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">awk '{print $12}' /var/log/squid/access.log | grep -iE "curl|wget|python|powershell|go-http|libwww|^\"-\"$" | sort | uniq -c | sort -rn</span>
+              </div>
+              <div class="cmd-output">Non-browser agents on a workstation are scripted activity. Baseline the legitimate ones from monitoring tools, then alert on everything else.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-satellite-dish"></i>
+              <span class="cmd-title">Beacon Detection</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="proxy" | sort client_ip, dest_host, _time | streamstats current=f last(_time) as prev by client_ip, dest_host | eval gap=_time-prev | stats count, stdev(gap) as jitter, avg(gap) as interval, avg(bytes_received) as avg_size by client_ip, dest_host | where count &gt; 30 AND jitter &lt; 10</span>
+              </div>
+              <div class="cmd-output">Consistent intervals with consistent small response sizes is machine behaviour. This finds command and control that no reputation feed has flagged.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-redo"></i>
+              <span class="cmd-title">Repeated Blocks (Infected Host)</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep TCP_DENIED /var/log/squid/access.log | awk '{print $3, $7}' | sort | uniq -c | sort -rn | head -25</span>
+              </div>
+              <div class="cmd-output">A host repeatedly hitting the same blocked destination is not a user browsing, it is malware retrying. The block worked, the infection remains.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-hashtag"></i>
+              <span class="cmd-title">Direct IP Requests</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -oP 'https?://\K(\d{1,3}\.){3}\d{1,3}[^ ]*' /var/log/squid/access.log | sort | uniq -c | sort -rn | head -20</span>
+              </div>
+              <div class="cmd-output">Browsers use hostnames. URLs containing a raw address are typically hardcoded malware destinations designed to survive DNS blocking.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-question-circle"></i>
+              <span class="cmd-title">Uncategorised Destinations</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="proxy" category IN ("Uncategorized","Unknown","Newly Registered Domain") | stats count, sum(bytes_sent) as up, dc(client_ip) as hosts by dest_host | where hosts &lt;= 2 | sort - up</span>
+              </div>
+              <div class="cmd-output">Uncategorised domains visited by only one or two hosts are the highest yield review queue on the proxy.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-file-download"></i>
+              <span class="cmd-title">Executable and Script Downloads</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "\.(exe|dll|ps1|hta|scr|jar|vbs|bat|iso|img)(\?|$| )" /var/log/squid/access.log | awk '$4 ~ /200/ {print $3, $7, $11}' | sort | uniq -c | sort -rn</span>
+              </div>
+              <div class="cmd-output">Successful executable downloads, filtered to status 200. Cross-reference the destination against category and domain age.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-user-clock"></i>
+              <span class="cmd-title">Off-Hours Browsing</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="proxy" | eval hr=strftime(_time,"%H") | where hr&lt;6 OR hr&gt;21 | stats count, dc(dest_host) as sites by username, client_ip | sort - count</span>
+              </div>
+              <div class="cmd-output">Automated malware browses at 3am. Compare each user's off-hours volume against their own baseline rather than a global threshold.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-lock-open"></i>
+              <span class="cmd-title">Certificate Anomalies</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="proxy" event="tls_inspection" (cert_validation="failed" OR cert_self_signed="true") | stats count, values(cert_subject) by dest_host, client_ip | sort - count</span>
+              </div>
+              <div class="cmd-output">Self-signed and invalid certificates on outbound connections frequently mark command and control servers set up in a hurry.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-chart-line"></i>
+              <span class="cmd-title">Log Flow Health</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="proxy" | timechart span=1h count | where count &lt; 1000</span>
+              </div>
+              <div class="cmd-output">Cloud proxy feeds fail silently while browsing continues. An unexplained volume drop means you have lost visibility, not that the network went quiet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Proxy Logging</h2>
+        </div>
+        <p class="intro-text">Follow these practices to get investigation-grade evidence out of a web proxy:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Log the User Agent and Referrer</h3>
+              <p>Squid's default format omits both. They are among the most useful fields for detecting scripted clients and reconstructing how a user reached a malicious page, and they cannot be recovered later.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Record Bytes in Both Directions</h3>
+              <p>Response size alone hides exfiltration completely. Logging request bytes as well is what turns the proxy into a data loss detection source.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Authenticate Every Session</h3>
+              <p>An IP address is not an identity. Kerberos or NTLM attribution converts every proxy record into evidence tied to a named person.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Keep the TLS Bypass List Short</h3>
+              <p>Every bypassed category is a blind spot. Review the list regularly and document the legal or privacy justification for each entry.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Retain Blocked Requests</h3>
+              <p>Denied requests are frequently more valuable than allowed ones, because they identify infected hosts that policy successfully contained. Never filter TCP_DENIED out to save storage.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Signal Squid on Rotation</h3>
+              <p>Rotating the access log without running squid -k rotate leaves the daemon writing to a deleted file. Logging stops silently and nothing alerts you.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Monitor Feed Continuity</h3>
+              <p>Cloud gateway connectors fail without affecting user browsing. Alert on hourly event volume so a broken feed is detected in an hour rather than during an investigation.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Treat Proxy Logs as Sensitive Data</h3>
+              <p>Full URLs contain session tokens, reset links, and personal browsing history. Apply access controls and a defined retention period that reflect that sensitivity.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Proxy Log Examples</h2>
+        <p>A single compromise viewed through the proxy, from initial download to exfiltration.</p>
+
+        <div class="implementation-steps">
+          <h3>Normal Browsing Baseline</h3>
+          <div class="config-snippet">
+1752486082.481    284 10.30.2.61 TCP_MISS/200 48221 GET https://www.example.com/index.html CORP\r.almutairi HIER_DIRECT/93.184.216.34 text/html "https://portal.corp.local/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" 842 48221</div>
+          <div class="cmd-output">A healthy record: authenticated user, real browser agent, internal referrer, HTML content, and far more bytes down than up. Everything an attacker's traffic will fail to look like.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Malware Delivery: Executable from an Uncategorised Site</h3>
+          <div class="config-snippet">
+1752486721.883   1482 10.30.2.61 TCP_MISS/200 2841776 GET http://cdn-assets.badinfra.top/update/setup.exe CORP\r.almutairi HIER_DIRECT/203.0.113.44 application/octet-stream "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" 412 2841776</div>
+          <div class="cmd-output">A 2.8 MB executable over plain HTTP from a domain with no referrer and no category. The empty referrer means the user did not click a link to get here.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Command and Control Beacon</h3>
+          <div class="config-snippet">
+1752487082.114     88 10.30.2.61 TCP_MISS/200 412 GET https://cdn-assets.badinfra.top/api/v1/status CORP\r.almutairi HIER_DIRECT/203.0.113.44 application/json "-" "python-requests/2.31.0" 284 412
+1752487142.229     91 10.30.2.61 TCP_MISS/200 412 GET https://cdn-assets.badinfra.top/api/v1/status CORP\r.almutairi HIER_DIRECT/203.0.113.44 application/json "-" "python-requests/2.31.0" 284 412
+1752487202.338     87 10.30.2.61 TCP_MISS/200 408 GET https://cdn-assets.badinfra.top/api/v1/status CORP\r.almutairi HIER_DIRECT/203.0.113.44 application/json "-" "python-requests/2.31.0" 284 408</div>
+          <div class="cmd-output">Exactly sixty seconds apart, nearly identical response sizes, and a python-requests user agent on a user workstation. Three independent indicators of automation in one pattern.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Blocked Retry Loop: Contained but Infected</h3>
+          <div class="config-snippet">
+1752487262.441      2 10.30.2.61 TCP_DENIED/403 3821 GET https://c2-fallback.badinfra.top/api/v1/status CORP\r.almutairi HIER_NONE/- text/html "-" "python-requests/2.31.0" 284 3821
+1752487322.552      2 10.30.2.61 TCP_DENIED/403 3821 GET https://c2-fallback.badinfra.top/api/v1/status CORP\r.almutairi HIER_NONE/- text/html "-" "python-requests/2.31.0" 284 3821</div>
+          <div class="cmd-output">TCP_DENIED with HIER_NONE means the request never left the network. The block is working, but the host is still infected and still beaconing on schedule.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Data Exfiltration: Large Upload</h3>
+          <div class="config-snippet">
+1752488292.774  38812 10.30.2.61 TCP_MISS/200 118 POST https://cdn-assets.badinfra.top/upload CORP\r.almutairi HIER_DIRECT/203.0.113.44 application/json "-" "python-requests/2.31.0" 188422190 118</div>
+          <div class="cmd-output">188 MB uploaded, 118 bytes returned, over 38 seconds. The byte ratio alone identifies this, which is exactly why logging request bytes is not optional.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Uninspected HTTPS Tunnel</h3>
+          <div class="config-snippet">
+1752488421.008  29228 10.30.2.61 TCP_TUNNEL/200 3218844 CONNECT secure-files.example.net:443 CORP\r.almutairi HIER_DIRECT/198.51.100.7 - "-" "-" 1884221904 3218844</div>
+          <div class="cmd-output">A spliced connection, so no URL or content is visible. The byte counts survive though: 1.88 GB uploaded over eight hours. Even without inspection this is detectable.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Domain Generation Algorithm Reaching the Proxy</h3>
+          <div class="config-snippet">
+1752488502.117      8 10.30.2.61 NONE/503 4218 GET http://kjhsdfuiwer.biz/gate.php CORP\r.almutairi HIER_NONE/- text/html "-" "-" 284 4218
+1752488502.229      7 10.30.2.61 NONE/503 4218 GET http://pqwoeirutyx.info/gate.php CORP\r.almutairi HIER_NONE/- text/html "-" "-" 284 4218
+1752488502.341      9 10.30.2.61 NONE/503 4218 GET http://zmxncbvlkjh.top/gate.php CORP\r.almutairi HIER_NONE/- text/html "-" "-" 284 4218</div>
+          <div class="cmd-output">Random hostnames, identical URL path, resolution failures returning 503, milliseconds apart. The shared /gate.php path across random domains is the malware family's fingerprint.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Network.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

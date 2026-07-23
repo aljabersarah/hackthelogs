@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Router and Switch Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Router &amp; Switch Logs</div>
+      <a href="#overview" class="nav-item active">Network Device Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Network Device Log Types</a>
+      <a href="#log-locations" class="nav-item">Log Destinations</a>
+      <a href="#enable-logging" class="nav-item">Configuring Network Device Logging</a>
+      <a href="#severity" class="nav-item">Syslog Severity Levels</a>
+      <a href="#log-format" class="nav-item">Network Device Log Format</a>
+      <a href="#message-ids" class="nav-item">Critical Device Messages</a>
+      <a href="#analysis-queries" class="nav-item">Network Device Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Network Device Logging</a>
+      <a href="#log-examples" class="nav-item">Common Network Device Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Router and Switch Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Network Device Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Routers and switches are the infrastructure every other system depends on, and they are consistently the least monitored assets in the estate. An attacker who compromises a core switch can mirror traffic to a collector, alter routing to intercept sessions, disable access control lists, and modify the very logging that would reveal any of it. Network devices are also increasingly targeted directly, with state-aligned actors known to persist on routers for years because nobody was watching the configuration.</p>
+            <p>These devices log through <code>syslog</code>, and the critical architectural fact is that they retain almost nothing locally. A Cisco switch keeps a small in-memory buffer that wraps within minutes on a busy device and is cleared entirely by a reboot. There is no local disk log to recover after an incident. If syslog forwarding is not configured, the evidence does not exist. That single property makes network device logging an all-or-nothing proposition in a way that server logging is not.</p>
+            <p>The most valuable records fall into three groups. <code>Configuration and authentication</code> events reveal who logged into the management plane and what they changed, which is the core of detecting device compromise. <code>Access control list denials</code> provide segmentation enforcement evidence and reveal lateral movement attempts between zones. <code>Port security and 802.1X</code> events expose unauthorised devices connecting to physical ports. Command accounting through TACACS+ goes further still, recording every individual command an administrator typed rather than merely that a configuration change occurred.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Network Device Log Types</h2>
+        </div>
+        <p>Network devices emit several categories of message. Only some carry security value, and separating them is the key to a manageable event rate:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Configuration Change Log</td>
+                <td>Records entry into configuration mode and, with the archive feature, the exact commands applied. The single most important stream on any network device: every attacker modification to routing, access control, or logging appears here.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Authentication and Authorisation Log</td>
+                <td>Management plane logins over SSH, console, and the web interface, plus privilege escalation to enable mode. Failed authentication bursts against infrastructure are a strong precursor to device compromise.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">ACL Denial Log</td>
+                <td>Packets dropped by access control lists, subject to the log keyword being present on the entry. The primary evidence that network segmentation is being enforced and the primary detection for lateral movement between zones.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Port Security and 802.1X Log</td>
+                <td>Violations where an unexpected MAC address appeared on a port, and results of port-based authentication. Detects unauthorised devices plugged into physical infrastructure, including rogue access points and drop boxes.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Interface State Log</td>
+                <td>Link up and down transitions and line protocol changes. Mostly operational, but an interface coming up on a previously unused port, or repeated flapping, can indicate physical tampering.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Routing Protocol Log</td>
+                <td>Neighbour adjacency changes for OSPF, BGP, and EIGRP. An unexpected new neighbour is a serious event, since a rogue peer can inject routes that redirect traffic through attacker infrastructure.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Command Accounting</td>
+                <td>Delivered through TACACS+ rather than syslog. Records every command executed by every administrator with full attribution. The gold standard for management plane auditing and worth deploying for this alone.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Spanning Tree and Layer 2 Log</td>
+                <td>Root bridge changes, BPDU guard actions, and loop detection. A spanning tree topology change caused by an unauthorised device can redirect entire VLANs through an attacker-controlled path.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> ACL denials are only logged when the <code>log</code> or <code>log-input</code> keyword is present on the individual access list entry. A device with a hundred ACL lines and no log keywords produces perfect enforcement and zero visibility. Add <code>log-input</code> to deny entries specifically, since it also records the ingress interface and source MAC.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Destinations -->
+      <div id="log-locations" class="card">
+        <h2>Log Destinations</h2>
+        <p>Unlike servers, network devices have no meaningful local log storage. These are the destinations available and their retention characteristics.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Destination</th>
+                <th>Characteristics</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Memory Buffer</td>
+                <td>Cisco: viewed with show logging. Typically 4 to 16 KB by default, wraps within minutes, and is lost completely on reload. Useful for live troubleshooting only</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Remote Syslog</td>
+                <td>The only viable collection method. Configured with logging host on Cisco or set system syslog host on Junos. Should use TCP with TLS where the platform supports it</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Console and Terminal Lines</td>
+                <td>Real time display to an attached session. Console logging at high verbosity can hang the device under load and should be disabled in production</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Configuration Archive</td>
+                <td>Cisco archive feature storing configuration snapshots to flash or a remote server, with the log config subcommand capturing individual commands</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">TACACS+ Accounting</td>
+                <td>Command level accounting sent to an authentication server such as Cisco ISE. Retained centrally with full attribution, independent of syslog</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">SNMP Traps</td>
+                <td>Event notifications to a network management platform. Useful for availability monitoring but a poor security log, as trap coverage is inconsistent</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Junos Local Files</td>
+                <td>/var/log/messages, /var/log/interactive-commands, and /var/log/authorization. Junos retains more locally than IOS but still requires forwarding</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Flash Storage</td>
+                <td>Some platforms support logging to onboard flash. Survives reload but has limited capacity and is erasable by anyone with device access</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Run <code>show logging</code> before you do anything else when responding to a suspected device compromise. The buffer holds the most recent events and will be destroyed by the reload that is often the first instinct during troubleshooting.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Network Device Logging</h2>
+        <p>These configurations produce attributable, timestamped, centrally stored records from Cisco IOS and Juniper Junos devices.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Configure Cisco IOS Syslog</h3>
+          <div class="config-snippet">
+service timestamps log datetime msec localtime show-timezone year
+service sequence-numbers
+logging buffered 65536 informational
+no logging console
+logging host 10.50.9.20 transport tcp port 1514
+logging trap informational
+logging source-interface Loopback0
+logging origin-id hostname
+logging facility local6</div>
+          <div class="cmd-output">The timestamp directive is critical. IOS defaults to uptime rather than wall clock time, producing entries like "3d04h" that are useless for correlation. Sequence numbers reveal messages lost in transit.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable Configuration Change Logging</h3>
+          <div class="config-snippet">
+archive
+ log config
+  logging enable
+  logging size 1000
+  notify syslog contenttype plaintext
+  hidekeys
+ path tftp://10.50.9.30/$h-config
+ write-memory
+ time-period 10080</div>
+          <div class="cmd-output">Without this, a configuration change produces only a generic CONFIG_I message saying something changed. With it, every individual command is logged and attributed. hidekeys prevents passwords appearing in the log.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Log Authentication Events</h3>
+          <div class="config-snippet">
+login on-failure log every 1
+login on-success log every 1
+login block-for 300 attempts 5 within 60
+
+aaa new-model
+aaa authentication login default group tacacs+ local
+aaa authorization commands 15 default group tacacs+ local
+aaa accounting commands 15 default start-stop group tacacs+
+aaa accounting exec default start-stop group tacacs+</div>
+          <div class="cmd-output">Success and failure logging are both off by default. Command accounting at privilege 15 is what records every individual command an administrator runs, with full attribution.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Add Logging to Access Control Lists</h3>
+          <div class="config-snippet">
+ip access-list extended SEGMENT-USERS-TO-SERVERS
+ permit tcp 10.30.0.0 0.0.255.255 10.40.1.0 0.0.0.255 eq 443
+ deny   ip  10.30.0.0 0.0.255.255 10.40.1.0 0.0.0.255 log-input
+ deny   ip  any any log-input
+!
+ip access-list logging interval 250
+logging rate-limit 100 except critical</div>
+          <div class="cmd-output">log-input records the ingress interface and source MAC alongside the packet, which is what turns a denial into an investigable event. Rate limiting protects the control plane from a logging-induced denial of service.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable Port Security and Layer 2 Protection</h3>
+          <div class="config-snippet">
+interface range GigabitEthernet1/0/2 - 48
+ switchport mode access
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 120
+ spanning-tree bpduguard enable
+ spanning-tree portfast
+!
+errdisable recovery cause psecure-violation
+errdisable recovery interval 300</div>
+          <div class="cmd-output">The restrict violation mode drops offending traffic and logs it, whereas shutdown disables the port entirely and protect drops silently with no log at all. Only restrict gives both enforcement and visibility.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Configure Juniper Junos Logging</h3>
+          <div class="config-snippet">
+set system syslog host 10.50.9.20 any notice
+set system syslog host 10.50.9.20 authorization info
+set system syslog host 10.50.9.20 interactive-commands any
+set system syslog host 10.50.9.20 change-log any
+set system syslog host 10.50.9.20 structured-data
+set system syslog host 10.50.9.20 source-address 10.50.1.5
+set system syslog file interactive-commands interactive-commands any
+set system syslog time-format year millisecond</div>
+          <div class="cmd-output">The interactive-commands and change-log facilities are Junos equivalents of Cisco command accounting. structured-data emits RFC 5424 format, which parses far more reliably than the legacy format.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Traditional syslog over UDP is unauthenticated and unencrypted, so anyone on the path can forge or read device logs. Use TCP with TLS where supported, restrict the syslog destination with an access control list, and treat the syslog collector as a tier zero asset.
+          </div>
+        </div>
+      </div>
+
+      <!-- Syslog Severity -->
+      <div id="severity" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Syslog Severity Levels</h2>
+        </div>
+        <p class="description">Syslog severity runs from 0 to 7 with lower numbers being more severe. Setting the trap level too low is the most common cause of missing security events, because most authentication and configuration messages sit at level 5 and 6.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-skull-crossbones"></i>
+              <h4>0 to 2: Emergency, Alert, Critical</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>System unusable, immediate action required, or critical condition. Includes port security violations at level 2 and hardware failures. Always page on these.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Alert</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-exclamation-circle"></i>
+              <h4>3: Error</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Error conditions including interface link failures and IKE negotiation problems. Operationally important and occasionally security relevant.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Collect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-exclamation-triangle"></i>
+              <h4>4: Warning</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Warning conditions including failed login attempts on many platforms. The default trap level on Cisco, which is precisely why level 5 and 6 events go missing.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Collect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-bell"></i>
+              <h4>5: Notification</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Normal but significant conditions. Configuration changes (CONFIG_I), successful logins, and line protocol changes all sit here. Security critical despite the modest name.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Collect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-info-circle"></i>
+              <h4>6: Informational</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Informational messages including ACL denials (IPACCESSLOGP) and login successes. The correct trap level for security monitoring, and the reason to move off the default.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Collect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-bug"></i>
+              <h4>7: Debug</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Debug level messages. Enormous volume and capable of destabilising the device under load. Enable only during active troubleshooting and never as a standing configuration.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Avoid</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Set <code>logging trap informational</code> rather than accepting the default. Configuration changes are severity 5 and ACL denials are severity 6, so a device left at the warning default silently discards the two most valuable security streams it produces.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Network Device Log Format</h2>
+        <p>Cisco IOS messages follow a rigid structure. Parsing the mnemonic correctly is what makes detection rules portable across a fleet.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>sequence</td>
+                <td>Message counter, gaps reveal dropped messages</td>
+                <td>Metadata</td>
+                <td>001284</td>
+              </tr>
+              <tr>
+                <td>timestamp</td>
+                <td>Date and time with milliseconds and timezone</td>
+                <td>Timestamp</td>
+                <td>Jul 14 2025 09:41:22.481 AST</td>
+              </tr>
+              <tr>
+                <td>facility</td>
+                <td>Subsystem that generated the message</td>
+                <td>Metadata</td>
+                <td>SEC_LOGIN</td>
+              </tr>
+              <tr>
+                <td>severity</td>
+                <td>Numeric level from 0 to 7</td>
+                <td>Severity</td>
+                <td>4</td>
+              </tr>
+              <tr>
+                <td>mnemonic</td>
+                <td>Unique message identifier within the facility</td>
+                <td>Detection</td>
+                <td>LOGIN_FAILED</td>
+              </tr>
+              <tr>
+                <td>description</td>
+                <td>Message text with embedded variables</td>
+                <td>Action</td>
+                <td>Login failed [user: admin] [Source: 203.0.113.44]</td>
+              </tr>
+              <tr>
+                <td>device_id</td>
+                <td>Hostname or configured origin identifier</td>
+                <td>Source</td>
+                <td>sw-core-01</td>
+              </tr>
+              <tr>
+                <td>user</td>
+                <td>Account associated with the event</td>
+                <td>Identity</td>
+                <td>netadmin</td>
+              </tr>
+              <tr>
+                <td>src_ip</td>
+                <td>Source address for management or ACL events</td>
+                <td>Source</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>interface</td>
+                <td>Physical or logical interface involved</td>
+                <td>Target</td>
+                <td>GigabitEthernet1/0/24</td>
+              </tr>
+              <tr>
+                <td>acl_name</td>
+                <td>Access list that matched</td>
+                <td>Policy</td>
+                <td>SEGMENT-USERS-TO-SERVERS</td>
+              </tr>
+              <tr>
+                <td>action</td>
+                <td>Permitted or denied</td>
+                <td>Response</td>
+                <td>denied</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Critical Messages -->
+      <div id="message-ids" class="card">
+        <h2>Critical Device Messages</h2>
+        <p>These Cisco IOS mnemonics carry the highest security value. Junos equivalents are noted where they differ substantially.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Message</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">%SYS-5-CONFIG_I</td>
+                <td>Configuration changed from a source</td>
+                <td>Every device modification passes through this. Correlate against your change window and ticket system, and alert on anything unmatched</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">%PARSER-5-CFGLOG_LOGGEDCMD</td>
+                <td>Individual configuration command executed</td>
+                <td>Produced by the archive log config feature. Shows the exact command rather than merely that a change occurred</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">%SEC_LOGIN-4-LOGIN_FAILED</td>
+                <td>Management login failed</td>
+                <td>Failed authentication against infrastructure. Bursts from one source are brute force against the management plane</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">%SEC_LOGIN-5-LOGIN_SUCCESS</td>
+                <td>Management login succeeded</td>
+                <td>The baseline for detecting logins outside change windows or from unexpected addresses</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">%SEC_LOGIN-1-QUIET_MODE_ON</td>
+                <td>Login blocking activated after repeated failures</td>
+                <td>Confirms a brute force attempt reached the configured threshold. Severity 1 makes it hard to miss</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">%SEC-6-IPACCESSLOGP</td>
+                <td>Packet permitted or denied by an ACL</td>
+                <td>Segmentation enforcement evidence. Denials between security zones frequently reveal lateral movement attempts</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">%PORT_SECURITY-2-PSECURE_VIOLATION</td>
+                <td>Unauthorised MAC address on a secured port</td>
+                <td>An unexpected device connected to physical infrastructure. Severity 2 and always worth investigating</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">%SPANTREE-2-BLOCK_BPDUGUARD</td>
+                <td>BPDU received on a port with BPDU guard</td>
+                <td>Someone connected a switch to an access port. Either shadow IT or an attempt to manipulate the layer 2 topology</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">%DOT1X-5-FAIL</td>
+                <td>802.1X authentication failed on a port</td>
+                <td>A device failed port-based authentication. Repeated failures on one port indicate an unauthorised connection attempt</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">%BGP-5-ADJCHANGE</td>
+                <td>BGP neighbour state changed</td>
+                <td>An unexpected new peer can inject routes that redirect traffic through attacker-controlled infrastructure</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">%SYS-5-RELOAD</td>
+                <td>Device reload requested</td>
+                <td>Clears the memory buffer entirely. An unscheduled reload may be an attempt to destroy volatile evidence</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">%SYS-6-LOGGINGHOST_STARTSTOP</td>
+                <td>Syslog host configuration changed</td>
+                <td>Removal of a logging destination is a hallmark anti-forensic step and should page immediately</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Alert on the absence of logs as well as their content. A device that normally emits a steady trickle of messages and then goes silent has either failed, been reloaded, or had its logging destination removed. All three matter.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Network Device Log Analysis Queries</h2>
+        <p>These queries surface unauthorised configuration changes, management plane attacks, and rogue devices on physical ports.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-edit"></i>
+              <span class="cmd-title">Configuration Changes Outside the Window</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" mnemonic="CONFIG_I" | eval hr=strftime(_time,"%H"), dow=strftime(_time,"%a") | where NOT (dow=="Sat" AND hr&gt;=22) AND NOT (hr&gt;=1 AND hr&lt;=4) | table _time, device_id, user, src_ip, message</span>
+              </div>
+              <div class="cmd-output">Every change outside the approved maintenance window, ready to reconcile against tickets. Unmatched entries are the investigation queue.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Management Plane Brute Force</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" mnemonic IN ("LOGIN_FAILED","AUTHFAIL") | bucket _time span=10m | stats count, dc(device_id) as devices, values(user) by src_ip, _time | where count &gt; 10</span>
+              </div>
+              <div class="cmd-output">A source failing against multiple devices is sweeping your infrastructure with a credential list, not mistyping a password.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Logging Destination Removed</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" (message="*no logging host*" OR message="*no logging trap*" OR mnemonic="LOGGINGHOST_STARTSTOP" OR message="*no aaa accounting*") | table _time, device_id, user, src_ip, message</span>
+              </div>
+              <div class="cmd-output">Page on this immediately. It is almost never a legitimate change and it is usually the last message that device will ever send you.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-plug"></i>
+              <span class="cmd-title">Port Security Violations</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" mnemonic="PSECURE_VIOLATION" | stats count, values(mac_address), values(interface) by device_id | sort - count</span>
+              </div>
+              <div class="cmd-output">Names the switch, the port, and the offending hardware address, which is enough to physically locate the unauthorised device.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-shield-alt"></i>
+              <span class="cmd-title">Cross-Zone ACL Denials</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" mnemonic="IPACCESSLOGP" action="denied" | stats count, dc(dest_ip) as targets, dc(dest_port) as ports by src_ip | where targets &gt; 10 OR ports &gt; 10 | sort - targets</span>
+              </div>
+              <div class="cmd-output">One internal source denied against many destinations or ports is scanning across a segmentation boundary, which is textbook lateral movement.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Unexpected Routing Neighbours</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" mnemonic IN ("ADJCHANGE","NBRCHANGE","NEIGHBOR") | stats values(neighbor_ip), count by device_id | search NOT neighbor_ip IN ("10.50.1.1","10.50.1.2","10.50.1.3")</span>
+              </div>
+              <div class="cmd-output">Compare observed adjacencies against the approved topology. A rogue peer can inject routes and redirect entire subnets.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-project-diagram"></i>
+              <span class="cmd-title">Layer 2 Topology Attacks</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" mnemonic IN ("BLOCK_BPDUGUARD","ROOTGUARD_BLOCK","TOPOTRAP","LOOPGUARD_BLOCK") | table _time, device_id, interface, message</span>
+              </div>
+              <div class="cmd-output">BPDU guard firing means a switch was connected to an access port. Root guard firing means something tried to become the spanning tree root.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">Command Accounting Review</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="tacacs" service="shell" | search cmd IN ("no logging*","no aaa*","monitor session*","username*","snmp-server*","ip nat*") | table _time, user, device_id, cmd</span>
+              </div>
+              <div class="cmd-output">A watchlist of commands that create backdoors, mirror traffic, or disable auditing. Command accounting is what makes this level of detail possible.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-copy"></i>
+              <span class="cmd-title">Traffic Mirroring Configured</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" (message="*monitor session*" OR message="*port-mirror*" OR message="*analyzer*") | table _time, device_id, user, src_ip, message</span>
+              </div>
+              <div class="cmd-output">A SPAN session created outside a documented troubleshooting exercise means someone is copying traffic to a destination of their choosing.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-heartbeat"></i>
+              <span class="cmd-title">Silent Devices</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="network_device" earliest=-24h | stats latest(_time) as last_seen by device_id | eval age_hr=(now()-last_seen)/3600 | where age_hr &gt; 6 | sort - age_hr</span>
+              </div>
+              <div class="cmd-output">Devices that have stopped logging. Given that these devices retain nothing locally, silence means total loss of visibility rather than a quiet period.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Network Device Logging</h2>
+        </div>
+        <p class="intro-text">Follow these practices to make infrastructure logging complete and trustworthy:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Fix Timestamps Before Anything Else</h3>
+              <p>IOS defaults to uptime rather than wall clock time. Configure service timestamps with datetime, msec, timezone, and year, and synchronise every device to NTP or correlation is impossible.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Set Trap Level to Informational</h3>
+              <p>Configuration changes are severity 5 and ACL denials are severity 6. The default warning level discards both, which removes the two most useful security streams the device produces.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Enable Archive Log Config</h3>
+              <p>Without it a change produces only a generic notification. With it you get the exact command, the user, and the source, which is the difference between knowing something changed and knowing what.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Deploy TACACS+ Command Accounting</h3>
+              <p>Per-command attribution is the strongest management plane audit available, and it is stored on the authentication server independently of syslog, so it survives device compromise.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Add log-input to Deny Entries</h3>
+              <p>ACLs enforce silently unless the log keyword is present. log-input additionally records the ingress interface and source MAC, turning a denial into something investigable.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Use restrict for Port Security</h3>
+              <p>The protect mode drops violating traffic with no log at all, and shutdown creates an outage. Only restrict gives you both enforcement and a record of what happened.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Rate Limit Logging</h3>
+              <p>ACL denial logging is punted to the control plane processor. Without logging rate-limit, a deliberate flood of denied packets can degrade or crash the device.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Monitor for Silence</h3>
+              <p>These devices hold nothing locally. A device that stops sending logs has lost all visibility, so absence of events must be alerted on as loudly as their content.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Network Device Log Examples</h2>
+        <p>A compromise of network infrastructure, from management plane brute force through to traffic interception.</p>
+
+        <div class="implementation-steps">
+          <h3>Management Plane Brute Force</h3>
+          <div class="config-snippet">
+001284: Jul 14 2025 09:12:04.117 AST: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.44] [localport: 22] [Reason: Login Authentication Failed] at 09:12:04 AST Mon Jul 14 2025
+001285: Jul 14 2025 09:12:09.882 AST: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: cisco] [Source: 203.0.113.44] [localport: 22] [Reason: Login Authentication Failed] at 09:12:09 AST Mon Jul 14 2025
+001286: Jul 14 2025 09:12:15.229 AST: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: netadmin] [Source: 203.0.113.44] [localport: 22] [Reason: Login Authentication Failed] at 09:12:15 AST Mon Jul 14 2025
+001287: Jul 14 2025 09:12:20.441 AST: %SEC_LOGIN-1-QUIET_MODE_ON: Still timeleft for watching failures is 285 seconds, [user: netadmin] [Source: 203.0.113.44] [localport: 22] [Reason: Login Authentication Failed]</div>
+          <div class="cmd-output">Default vendor usernames tried in sequence from an external address. QUIET_MODE_ON confirms login blocking engaged, which means the threshold configured in step 3 was reached.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Successful Login and Configuration Change</h3>
+          <div class="config-snippet">
+001402: Jul 14 2025 09:40:53.221 AST: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: netadmin] [Source: 10.99.4.117] [localport: 22] at 09:40:53 AST Mon Jul 14 2025
+001403: Jul 14 2025 09:41:02.118 AST: %SYS-5-CONFIG_I: Configured from console by netadmin on vty0 (10.99.4.117)</div>
+          <div class="cmd-output">Note the source: 10.99.4.117 is a VPN pool address. Cross-referencing the VPN session log identifies which user held that lease, and whether their account was already compromised.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Individual Commands via Archive Logging</h3>
+          <div class="config-snippet">
+001404: Jul 14 2025 09:41:14.882 AST: %PARSER-5-CFGLOG_LOGGEDCMD: User:netadmin  logged command:monitor session 1 source vlan 40
+001405: Jul 14 2025 09:41:22.104 AST: %PARSER-5-CFGLOG_LOGGEDCMD: User:netadmin  logged command:monitor session 1 destination interface Gi1/0/24
+001406: Jul 14 2025 09:41:38.771 AST: %PARSER-5-CFGLOG_LOGGEDCMD: User:netadmin  logged command:username svc_backup privilege 15 secret *****
+001407: Jul 14 2025 09:41:55.229 AST: %PARSER-5-CFGLOG_LOGGEDCMD: User:netadmin  logged command:no logging host 10.50.9.20</div>
+          <div class="cmd-output">The full attack in four commands: mirror the server VLAN to a port, create a privileged backdoor account, then remove the syslog destination. Without archive log config, all of this would appear as a single CONFIG_I message.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Unauthorised Device on a Physical Port</h3>
+          <div class="config-snippet">
+001450: Jul 14 2025 09:52:10.774 AST: %PORT_SECURITY-2-PSECURE_VIOLATION: Security violation occurred, caused by MAC address 000c.298f.2a41 on port GigabitEthernet1/0/24.
+001451: Jul 14 2025 09:52:10.881 AST: %PM-4-ERR_DISABLE: psecure-violation error detected on Gi1/0/24, putting Gi1/0/24 in err-disable state
+001452: Jul 14 2025 09:52:11.004 AST: %SPANTREE-2-BLOCK_BPDUGUARD: Received BPDU on port GigabitEthernet1/0/24 with BPDU Guard enabled. Disabling port.</div>
+          <div class="cmd-output">The same port used as the SPAN destination now shows an unknown MAC and is sending BPDUs, meaning a switch or virtual machine was plugged in there. The 000c.29 prefix is VMware.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Lateral Movement Blocked by an ACL</h3>
+          <div class="config-snippet">
+001478: Jul 14 2025 10:02:44.229 AST: %SEC-6-IPACCESSLOGP: list SEGMENT-USERS-TO-SERVERS denied tcp 10.30.2.61(52190) (GigabitEthernet1/0/12 0015.5d8a.4c12) -&gt; 10.40.1.15(445), 1 packet
+001479: Jul 14 2025 10:02:44.334 AST: %SEC-6-IPACCESSLOGP: list SEGMENT-USERS-TO-SERVERS denied tcp 10.30.2.61(52191) (GigabitEthernet1/0/12 0015.5d8a.4c12) -&gt; 10.40.1.16(445), 1 packet
+001480: Jul 14 2025 10:02:44.441 AST: %SEC-6-IPACCESSLOGP: list SEGMENT-USERS-TO-SERVERS denied tcp 10.30.2.61(52192) (GigabitEthernet1/0/12 0015.5d8a.4c12) -&gt; 10.40.1.17(445), 1 packet</div>
+          <div class="cmd-output">A workstation sweeping SMB across the server segment. The log-input keyword supplied the ingress interface and source MAC, so the offending machine is identified without any further lookup.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Rogue Routing Neighbour</h3>
+          <div class="config-snippet">
+001502: Jul 14 2025 10:11:03.118 AST: %OSPF-5-ADJCHG: Process 1, Nbr 10.30.2.61 on GigabitEthernet1/0/12 from LOADING to FULL, Loading Done
+001503: Jul 14 2025 10:11:04.229 AST: %OSPF-4-ERRRCV: Received invalid packet: mismatched area ID, from backbone area must be virtual-link but not found from 10.30.2.61, GigabitEthernet1/0/12</div>
+          <div class="cmd-output">An OSPF adjacency formed with a host on a user access port. No workstation should ever be an OSPF neighbour. This peer can now inject routes and pull traffic through itself.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Junos Structured Logging: Commit and Command Audit</h3>
+          <div class="config-snippet">
+&lt;165&gt;1 2025-07-14T10:18:12.774+03:00 rtr-edge-01 mgd 4218 UI_CMDLINE_READ_LINE [junos@2636.1.1.1.2.29 username="netadmin" command="delete system syslog host 10.50.9.20"]
+&lt;165&gt;1 2025-07-14T10:18:31.008+03:00 rtr-edge-01 mgd 4218 UI_COMMIT [junos@2636.1.1.1.2.29 username="netadmin" source="cli" message="none"]
+&lt;164&gt;1 2025-07-14T10:14:02.441+03:00 rtr-edge-01 sshd 3881 SSHD_LOGIN_FAILED [junos@2636.1.1.1.2.29 username="root" source-address="203.0.113.44"]</div>
+          <div class="cmd-output">Junos structured syslog carries the username and full command as named fields rather than embedded in free text, which parses far more reliably than the IOS format.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Evidence Destruction: Unscheduled Reload</h3>
+          <div class="config-snippet">
+001540: Jul 14 2025 10:24:18.229 AST: %SYS-5-CONFIG_I: Configured from console by netadmin on vty0 (10.99.4.117)
+001541: Jul 14 2025 10:24:31.774 AST: %SYS-5-RELOAD: Reload requested by netadmin on vty0 (10.99.4.117). Reload Reason: Reload Command.</div>
+          <div class="cmd-output">A reload clears the in-memory buffer completely. Because syslog forwarding had already been removed in an earlier command, these two lines are the last records the collector ever received from this device.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Network.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

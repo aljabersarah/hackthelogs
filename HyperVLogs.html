@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Hyper-V Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Hyper-V Logs</div>
+      <a href="#overview" class="nav-item active">Hyper-V Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Hyper-V Log Channels</a>
+      <a href="#log-locations" class="nav-item">Log and File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring Hyper-V Logging</a>
+      <a href="#threat-patterns" class="nav-item">Hyper-V Threat Patterns</a>
+      <a href="#log-format" class="nav-item">Hyper-V Log Format</a>
+      <a href="#event-ids" class="nav-item">Critical Hyper-V Event IDs</a>
+      <a href="#analysis-queries" class="nav-item">Hyper-V Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Hyper-V Logging</a>
+      <a href="#log-examples" class="nav-item">Common Hyper-V Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Hyper-V Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Hyper-V Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Hyper-V logging differs fundamentally from vSphere in one respect that shapes everything else: the hypervisor runs on Windows Server, so the host produces the full set of Windows Security, System, and Application events alongside its virtualisation-specific channels. A compromised Hyper-V host generates event 4624 for the logon, 4672 for the privileges assigned, and 4688 for the process created, exactly as any Windows server would. Hyper-V events sit on top of that foundation rather than replacing it, which means an organisation with mature Windows logging already has most of what it needs.</p>
+            <p>The virtualisation channels themselves are numerous and narrowly scoped. <code>Hyper-V-VMMS</code> records the Virtual Machine Management Service: creation, deletion, import, export, and migration of virtual machines. <code>Hyper-V-Worker</code> records the per-machine worker process handling power state and runtime events. <code>Hyper-V-VMSwitch</code> covers virtual networking including port and mirroring configuration, and <code>Hyper-V-Compute</code> covers the newer host compute service used by containers and modern management tooling. Most are enabled by default but sized small, and several useful channels are analytic or debug channels that are disabled entirely.</p>
+            <p>The distinctive Hyper-V blind spot is <code>PowerShell Direct</code>. An administrator on the host can open a session inside any running virtual machine using <code>Enter-PSSession -VMName</code>, which travels over the VMBus rather than the network. It bypasses the guest firewall, produces no network connection, and appears in no network log. The guest records a logon, but nothing indicates it arrived through the hypervisor. Detecting this requires correlating host-side PowerShell operational logs with guest logons, and it is the technique most likely to be missed entirely.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Channels -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Hyper-V Log Channels</h2>
+        </div>
+        <p>Hyper-V spreads its events across many narrow channels. These are the ones that carry security value:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Hyper-V-VMMS</td>
+                <td>The Virtual Machine Management Service, covering creation, deletion, import, export, checkpoint, and migration of virtual machines. The primary lifecycle channel and the one that records bulk exfiltration through export operations.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Hyper-V-Worker</td>
+                <td>Per-machine worker process events including power state transitions, saved state operations, and runtime errors. Where mass power-off preceding an attack becomes visible.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Hyper-V-VMSwitch</td>
+                <td>Virtual switch operations covering port creation, VLAN assignment, and port mirroring configuration. Enabling mirroring on a virtual port copies another machine's traffic to an attacker-controlled guest.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Hyper-V-Compute</td>
+                <td>The Host Compute Service used by containers, WSL, and modern management APIs. Increasingly the channel through which programmatic virtual machine manipulation appears.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Hyper-V-Config</td>
+                <td>Configuration file access and modification for virtual machines, including errors reading VMCX files. Useful for spotting direct tampering with machine definitions on disk.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Windows Security Log</td>
+                <td>The host is a Windows server, so 4624 logons, 4672 special privileges, 4688 process creation, and 5140 share access all apply. Frequently more informative than the Hyper-V channels themselves.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">PowerShell Operational</td>
+                <td>Microsoft-Windows-PowerShell/Operational with script block logging enabled. The only host-side record of PowerShell Direct sessions into guest machines.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Hyper-V-High-Availability</td>
+                <td>Failover clustering events for clustered Hyper-V, covering machine movement between nodes. Unexpected migrations can indicate an attacker relocating a target to a host they control.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">SCVMM Job History</td>
+                <td>System Center Virtual Machine Manager records administrative jobs with the initiating user. Where a management layer is deployed, this is the attribution source.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Because the Hyper-V host is a domain-joined Windows server, an attacker with Hyper-V Administrators group membership gains full control of every guest without ever holding Domain Admin. Audit that group as closely as you audit Domain Admins, because it is functionally equivalent in a virtualised estate.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log and File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log and File Locations</h2>
+        <p>Event channels live in the standard Windows event log directory. Virtual machine files and configuration have their own defaults worth knowing during an investigation.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">VMMS Channel</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Microsoft-Windows-Hyper-V-VMMS-Admin.evtx</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Worker Channel</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Microsoft-Windows-Hyper-V-Worker-Admin.evtx</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">VMSwitch Channel</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Microsoft-Windows-Hyper-V-VmSwitch-Operational.evtx</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Compute Channel</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Microsoft-Windows-Hyper-V-Compute-Admin.evtx</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Virtual Machine Configuration</td>
+                <td>C:\ProgramData\Microsoft\Windows\Hyper-V\Virtual Machines\ (VMCX and VMRS files)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Virtual Hard Disks</td>
+                <td>C:\Users\Public\Documents\Hyper-V\Virtual hard disks\ or a cluster shared volume</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Cluster Shared Volumes</td>
+                <td>C:\ClusterStorage\Volume1\ on clustered deployments</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows Security Log</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Security.evtx</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">SCVMM Logs</td>
+                <td>C:\ProgramData\VMMLogs\ on the VMM management server</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> A VHDX file copied off the host is a complete disk image of the guest. Monitor file share access (event 5145) and process creation for copy operations against the virtual hard disk directory, because that is exfiltration no guest agent will ever see.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Hyper-V Logging</h2>
+        <p>Default channel sizes are small and several valuable channels are disabled. These commands establish adequate coverage on a Hyper-V host.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Enlarge the Hyper-V Channels</h3>
+          <div class="config-snippet">
+$channels = @(
+  "Microsoft-Windows-Hyper-V-VMMS-Admin",
+  "Microsoft-Windows-Hyper-V-VMMS-Operational",
+  "Microsoft-Windows-Hyper-V-Worker-Admin",
+  "Microsoft-Windows-Hyper-V-VmSwitch-Operational",
+  "Microsoft-Windows-Hyper-V-Compute-Admin",
+  "Microsoft-Windows-Hyper-V-Config-Admin",
+  "Microsoft-Windows-Hyper-V-High-Availability-Admin"
+)
+foreach ($c in $channels) {
+    wevtutil sl $c /ms:268435456 /rt:false
+}
+wevtutil gl Microsoft-Windows-Hyper-V-VMMS-Admin</div>
+          <div class="cmd-output">Default channel sizes are around 1 MB, which wraps within hours on an active host. Retention set to false means overwrite as needed rather than stopping when full.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable Windows Auditing on the Host</h3>
+          <div class="config-snippet">
+auditpol /set /subcategory:"Logon" /success:enable /failure:enable
+auditpol /set /subcategory:"Special Logon" /success:enable
+auditpol /set /subcategory:"Process Creation" /success:enable
+auditpol /set /subcategory:"File Share" /success:enable /failure:enable
+auditpol /set /subcategory:"Detailed File Share" /success:enable
+auditpol /set /subcategory:"Security Group Management" /success:enable
+
+# Include the command line in process creation events
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit" /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f</div>
+          <div class="cmd-output">Detailed File Share auditing produces event 5145, which is what records a VHDX file being read across the network. Without the command line in 4688, process events lose most of their value.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Enable PowerShell Script Block Logging</h3>
+          <div class="config-snippet">
+# Group Policy path:
+# Computer Configuration, Administrative Templates, Windows Components,
+# Windows PowerShell, Turn on PowerShell Script Block Logging
+
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" /v EnableModuleLogging /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames" /v Hyper-V /t REG_SZ /d Hyper-V /f</div>
+          <div class="cmd-output">This is the only way to see PowerShell Direct sessions into guests. Event 4104 in the PowerShell Operational channel records the script block, including Enter-PSSession with a VMName parameter.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Audit the Hyper-V Administrators Group</h3>
+          <div class="config-snippet">
+Get-LocalGroupMember -Group "Hyper-V Administrators"
+
+# Alert on membership change (event 4732 for local, 4728 for domain groups)
+Get-WinEvent -FilterHashtable @{LogName="Security"; ID=4732,4728,4756} -MaxEvents 100 |
+  Where-Object { $_.Message -match "Hyper-V Administrators" } |
+  Select-Object TimeCreated, @{N="Detail";E={$_.Message -split "`n" | Select-String "Account Name|Group Name"}}</div>
+          <div class="cmd-output">Membership in this group grants full control of every guest without Domain Admin. Treat additions with the same urgency as a Domain Admin grant.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Forward Channels to a Collector</h3>
+          <div class="config-snippet">
+# Windows Event Forwarding subscription (XPath filter on the collector)
+&lt;QueryList&gt;
+  &lt;Query Id="0"&gt;
+    &lt;Select Path="Microsoft-Windows-Hyper-V-VMMS-Admin"&gt;*&lt;/Select&gt;
+    &lt;Select Path="Microsoft-Windows-Hyper-V-Worker-Admin"&gt;*&lt;/Select&gt;
+    &lt;Select Path="Microsoft-Windows-Hyper-V-VmSwitch-Operational"&gt;*&lt;/Select&gt;
+    &lt;Select Path="Microsoft-Windows-PowerShell/Operational"&gt;*[System[(EventID=4104)]]&lt;/Select&gt;
+    &lt;Select Path="Security"&gt;*[System[(EventID=4624 or EventID=4672 or EventID=4688 or EventID=5145)]]&lt;/Select&gt;
+  &lt;/Query&gt;
+&lt;/QueryList&gt;</div>
+          <div class="cmd-output">Combining the Hyper-V channels with the relevant Security and PowerShell events in one subscription gives a complete picture of host activity in a single stream.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Enable Shielded VM Attestation Logging</h3>
+          <div class="config-snippet">
+# On the Host Guardian Service
+Get-HgsTrace -RunDiagnostics -Detailed
+wevtutil sl "Microsoft-Windows-HostGuardianService-Attestation/Admin" /ms:104857600
+
+# On the guarded host, confirm attestation status
+Get-HgsClientConfiguration | Select-Object IsHostGuarded, AttestationStatus, AttestationOperationMode</div>
+          <div class="cmd-output">A host that fails attestation cannot start shielded machines. Attestation failures are worth alerting on because they can indicate boot configuration tampering on the host itself.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Hyper-V analytic and debug channels contain far more detail but are disabled by default and can generate enormous volume. Enable them only for a specific investigation, and remember that enabling an analytic channel clears whatever it previously contained.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Hyper-V Threat Patterns</h2>
+        </div>
+        <p class="description">Hyper-V attacks exploit the host's privileged position over its guests. These are the techniques worth building detections around.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-terminal"></i>
+              <h4>PowerShell Direct</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Enter-PSSession with a VMName parameter opens a session inside a guest over the VMBus. Bypasses the guest firewall entirely, creates no network connection, and appears in no network log.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-file-export"></i>
+              <h4>Virtual Machine Export</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Export-VM writes a complete copy of a machine including its disks to any path. Exporting a domain controller copies the entire directory database with every credential hash.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-hdd"></i>
+              <h4>VHDX Theft</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Copying a virtual hard disk directly from the filesystem or a cluster shared volume. Mountable offline, defeating every access control inside the guest operating system.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-copy"></i>
+              <h4>Virtual Switch Port Mirroring</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Setting a virtual network adapter to mirror mode copies another guest's traffic to an attacker-controlled machine. Entirely invisible from inside the victim guest.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-camera"></i>
+              <h4>Checkpoint Manipulation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Creating a checkpoint captures memory contents including credentials, and reverting one can roll a machine back to before a patch was applied or an account was disabled.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-users-cog"></i>
+              <h4>Hyper-V Administrators Abuse</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Membership grants complete control of every guest without Domain Admin, which makes it an attractive and frequently under-monitored escalation target.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> A checkpoint of a running machine includes a memory image. Anyone who can read the resulting AVHDX and VMRS files can extract credentials, encryption keys, and in-memory secrets without ever authenticating to the guest.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Hyper-V Log Format</h2>
+        <p>Hyper-V events use the standard Windows event schema. These are the fields that matter for correlation and attribution.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>TimeCreated</td>
+                <td>Event timestamp</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22.481Z</td>
+              </tr>
+              <tr>
+                <td>EventID</td>
+                <td>Numeric identifier within the channel</td>
+                <td>Detection</td>
+                <td>13002</td>
+              </tr>
+              <tr>
+                <td>Channel</td>
+                <td>Log channel that produced the event</td>
+                <td>Metadata</td>
+                <td>Hyper-V-VMMS-Admin</td>
+              </tr>
+              <tr>
+                <td>Computer</td>
+                <td>Hyper-V host that generated the event</td>
+                <td>Source</td>
+                <td>HV-PROD-04.corp.local</td>
+              </tr>
+              <tr>
+                <td>VmName</td>
+                <td>Virtual machine referenced</td>
+                <td>Target</td>
+                <td>DC01-PROD</td>
+              </tr>
+              <tr>
+                <td>VmId</td>
+                <td>Stable GUID of the virtual machine</td>
+                <td>Target</td>
+                <td>a1b2c3d4-1122-6874-0000-0010f4e21b00</td>
+              </tr>
+              <tr>
+                <td>SubjectUserName</td>
+                <td>Account performing the action, from the Security log</td>
+                <td>Identity</td>
+                <td>CORP\hv-admin</td>
+              </tr>
+              <tr>
+                <td>IpAddress</td>
+                <td>Source of the management session</td>
+                <td>Source</td>
+                <td>10.99.4.117</td>
+              </tr>
+              <tr>
+                <td>ProcessName</td>
+                <td>Executable involved, from event 4688</td>
+                <td>Action</td>
+                <td>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</td>
+              </tr>
+              <tr>
+                <td>CommandLine</td>
+                <td>Full command line when auditing is configured</td>
+                <td>Action</td>
+                <td>Export-VM -Name DC01-PROD -Path E:\tmp</td>
+              </tr>
+              <tr>
+                <td>ScriptBlockText</td>
+                <td>PowerShell script content from event 4104</td>
+                <td>Action</td>
+                <td>Enter-PSSession -VMName DC01-PROD</td>
+              </tr>
+              <tr>
+                <td>ShareName / RelativeTargetName</td>
+                <td>Share and file path from event 5145</td>
+                <td>Target</td>
+                <td>\\*\C$ ClusterStorage\Volume1\DC01.vhdx</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Event IDs -->
+      <div id="event-ids" class="card">
+        <h2>Critical Hyper-V Event IDs</h2>
+        <p>These identifiers span the Hyper-V channels and the Windows Security log. Both are needed for a complete picture.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Channel and Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">13002</td>
+                <td>VMMS: Virtual machine created</td>
+                <td>New machines outside the provisioning process are attacker infrastructure, often used as a foothold inside the trusted network</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">13003</td>
+                <td>VMMS: Virtual machine deleted</td>
+                <td>Destructive, and also used to remove a temporary clone after its disks have been copied</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">13004 / 13005</td>
+                <td>VMMS: Virtual machine imported or exported</td>
+                <td>Export writes a full copy of a machine including disks. The clearest bulk exfiltration event Hyper-V produces</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">18500 / 18502</td>
+                <td>Worker: Virtual machine started or stopped</td>
+                <td>Individually routine, but many stops within minutes precedes disk-level encryption or theft</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">18304 / 18306</td>
+                <td>VMMS: Live migration started and completed</td>
+                <td>Unexpected migration can indicate a machine being relocated to a host the attacker controls</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">20415</td>
+                <td>VMMS: Checkpoint created</td>
+                <td>A checkpoint of a running machine captures memory, exposing credentials and keys to anyone who can read the files</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">4104</td>
+                <td>PowerShell: Script block executed</td>
+                <td>The only host-side record of PowerShell Direct. Search the script block text for VMName parameters</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">4688</td>
+                <td>Security: Process created</td>
+                <td>With command line auditing enabled, captures Export-VM, Copy-Item against VHDX paths, and vmconnect usage</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">5145</td>
+                <td>Security: Network share object access checked</td>
+                <td>Records VHDX files read over the network, which is disk-level exfiltration no guest agent will observe</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">4732 / 4728</td>
+                <td>Security: Member added to a group</td>
+                <td>Additions to Hyper-V Administrators grant total control over every guest without Domain Admin</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">26010</td>
+                <td>VMSwitch: Port setting changed</td>
+                <td>Mirroring configuration on a virtual port copies another guest's traffic to an attacker-controlled machine</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Correlate host event 4104 containing a VMName parameter against guest event 4624 with logon type 3 and no corresponding network connection. That combination is the signature of PowerShell Direct, and it is essentially invisible from the guest alone.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Hyper-V Log Analysis Queries</h2>
+        <p>These PowerShell and SIEM queries cover guest access, machine theft, and network interception on a Hyper-V host.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-terminal"></i>
+              <span class="cmd-title">PowerShell Direct Sessions</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-PowerShell/Operational"; ID=4104} | Where-Object { $_.Message -match "-VMName|-VMId|VMConnect" } | Select-Object TimeCreated, UserId, @{N="Script";E={$_.Message.Substring(0,200)}}</span>
+              </div>
+              <div class="cmd-output">The only reliable detection for PowerShell Direct. Without script block logging enabled, these sessions leave no host-side trace at all.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-file-export"></i>
+              <span class="cmd-title">Virtual Machine Export</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Hyper-V-VMMS-Admin"; ID=13005,13004} | Select-Object TimeCreated, Id, Message</span>
+              </div>
+              <div class="cmd-output">Export copies an entire machine including its disks. Reconcile every occurrence against a documented backup or migration task.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-hdd"></i>
+              <span class="cmd-title">VHDX File Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="WinEventLog:Security" EventCode=5145 RelativeTargetName="*.vhdx" OR RelativeTargetName="*.avhdx" | stats count, values(RelativeTargetName) by SubjectUserName, IpAddress | sort - count</span>
+              </div>
+              <div class="cmd-output">A VHDX read across the network is a full disk image leaving the host. Only backup service accounts should ever appear here.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-power-off"></i>
+              <span class="cmd-title">Mass Guest Shutdown</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="WinEventLog:Microsoft-Windows-Hyper-V-Worker-Admin" EventCode=18502 | bucket _time span=10m | stats dc(VmName) as vms by _time, Computer | where vms &gt; 10</span>
+              </div>
+              <div class="cmd-output">Bulk shutdown precedes disk-level encryption, since VHDX files cannot be encrypted while the machine holds them open.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-users-cog"></i>
+              <span class="cmd-title">Hyper-V Administrators Changes</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="WinEventLog:Security" EventCode IN (4728,4732,4756) TargetUserName="Hyper-V Administrators" | table _time, SubjectUserName, MemberName, Computer</span>
+              </div>
+              <div class="cmd-output">Equivalent in impact to a Domain Admin grant in a virtualised estate, and far less frequently monitored.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-copy"></i>
+              <span class="cmd-title">Port Mirroring Enabled</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-VM | Get-VMNetworkAdapter | Where-Object { $_.PortMirroringMode -ne "None" } | Select-Object VMName, Name, PortMirroringMode, SwitchName</span>
+              </div>
+              <div class="cmd-output">A guest adapter in Destination mode receives copies of other machines' traffic. Outside a documented troubleshooting exercise this is interception.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-camera"></i>
+              <span class="cmd-title">Checkpoint Activity</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-VM | Get-VMSnapshot | Select-Object VMName, Name, SnapshotType, CreationTime | Where-Object { $_.CreationTime -gt (Get-Date).AddDays(-7) }</span>
+              </div>
+              <div class="cmd-output">Recent checkpoints on production machines, especially domain controllers, capture memory contents including credentials.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-plus-circle"></i>
+              <span class="cmd-title">Unexpected Virtual Machines</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-VM | Select-Object Name, State, CreationTime, @{N="Notes";E={$_.Notes}} | Where-Object { $_.CreationTime -gt (Get-Date).AddDays(-30) } | Sort-Object CreationTime -Descending</span>
+              </div>
+              <div class="cmd-output">Machines created outside the provisioning pipeline. An attacker-created guest sits inside the trusted network with no endpoint agent on it.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-desktop"></i>
+              <span class="cmd-title">Console Connections</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="WinEventLog:Security" EventCode=4688 (New_Process_Name="*vmconnect.exe" OR CommandLine="*vmconnect*") | table _time, SubjectUserName, CommandLine, Computer</span>
+              </div>
+              <div class="cmd-output">vmconnect opens the virtual console, giving keyboard access to a guest with nothing inside the guest recording how the session arrived.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-heartbeat"></i>
+              <span class="cmd-title">Channel Health Check</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -ListLog "Microsoft-Windows-Hyper-V-*" | Select-Object LogName, IsEnabled, MaximumSizeInBytes, RecordCount | Where-Object { $_.MaximumSizeInBytes -lt 100MB }</span>
+              </div>
+              <div class="cmd-output">Channels still at their small defaults wrap within hours. Run this as a scheduled configuration check across the cluster.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Hyper-V Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so the hypervisor layer is as well monitored as the guests running on it:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable PowerShell Script Block Logging</h3>
+              <p>PowerShell Direct travels over the VMBus and produces no network evidence. Event 4104 on the host is the only record that a session was opened into a guest.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Enlarge the Hyper-V Channels</h3>
+              <p>Defaults around 1 MB wrap within hours on a busy host. Raising them to 256 MB costs almost nothing and preserves days rather than hours of history.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Treat the Host as a Windows Server</h3>
+              <p>Events 4624, 4672, 4688, and 5145 apply here exactly as anywhere else, and are frequently more informative than the Hyper-V specific channels.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Audit Hyper-V Administrators Like Domain Admins</h3>
+              <p>Membership grants complete control of every guest without any domain privilege. In a virtualised estate the two groups are functionally equivalent.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Monitor VHDX File Access</h3>
+              <p>Enable Detailed File Share auditing so event 5145 records disk images being read. A copied VHDX is a full disk exfiltration that no guest agent will ever see.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Alert on Export and Checkpoint Operations</h3>
+              <p>Both produce a complete copy of a machine, and checkpoints of running guests additionally capture memory containing credentials and keys.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Never Run Domain Controllers on a Domain-Joined Host</h3>
+              <p>If the host is a member of the domain it hosts, compromising the domain compromises the hypervisor and vice versa. Break that circular dependency.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Forward Everything to a Collector</h3>
+              <p>Windows Event Forwarding with a subscription covering the Hyper-V channels plus the relevant Security and PowerShell events puts the full picture in one place off the host.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Hyper-V Log Examples</h2>
+        <p>An attack against a Hyper-V host, from privileged group abuse to guest disk theft.</p>
+
+        <div class="implementation-steps">
+          <h3>Escalation via Hyper-V Administrators</h3>
+          <div class="config-snippet">
+Log Name:      Security
+Event ID:      4732
+Task Category: Security Group Management
+Description:
+  A member was added to a security-enabled local group.
+  Subject:  Account Name: CORP\helpdesk-svc   Logon ID: 0x4E2A1C
+  Member:   Account Name: CORP\r.almutairi
+  Group:    Group Name: Hyper-V Administrators   Group Domain: HV-PROD-04</div>
+          <div class="cmd-output">A helpdesk service account adding a user to Hyper-V Administrators. That single membership grants full control over every guest on the host, including domain controllers, with no Domain Admin required.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Host Logon and Privilege Assignment</h3>
+          <div class="config-snippet">
+Log Name:      Security
+Event ID:      4624   Logon Type: 10 (RemoteInteractive)
+  Account Name: r.almutairi   Account Domain: CORP
+  Source Network Address: 10.99.4.117   Logon Process: User32
+Event ID:      4672
+  Privileges: SeSecurityPrivilege, SeBackupPrivilege, SeRestorePrivilege,
+              SeTakeOwnershipPrivilege, SeDebugPrivilege</div>
+          <div class="cmd-output">An RDP logon from a VPN pool address followed by special privilege assignment. SeBackupPrivilege alone allows reading any file on the host, including every VHDX.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>PowerShell Direct into a Domain Controller</h3>
+          <div class="config-snippet">
+Log Name:      Microsoft-Windows-PowerShell/Operational
+Event ID:      4104
+Level:         Warning
+Description:
+  Creating Scriptblock text (1 of 1):
+  $c = Get-Credential; Enter-PSSession -VMName "DC01-PROD" -Credential $c
+  ScriptBlock ID: 8f2a1c04-1122-4e91-b7d2-0010f4e21b00
+  Path:</div>
+          <div class="cmd-output">A session opened directly into the domain controller over the VMBus. The guest will log a 4624 with no matching network connection, and the guest firewall never saw a thing.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Domain Controller Exported</h3>
+          <div class="config-snippet">
+Log Name:      Security
+Event ID:      4688
+  New Process Name: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+  Process Command Line: powershell.exe -c "Export-VM -Name DC01-PROD -Path E:\temp\.stage"
+  Creator Subject: CORP\r.almutairi
+
+Log Name:      Microsoft-Windows-Hyper-V-VMMS-Admin
+Event ID:      13005
+Description:   Virtual machine 'DC01-PROD' was exported successfully.
+               (Virtual machine ID a1b2c3d4-1122-6874-0000-0010f4e21b00)</div>
+          <div class="cmd-output">The command line from event 4688 and the VMMS confirmation together prove what was exported, by whom, and to where. Without command line auditing, event 13005 alone would not name the destination.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>VHDX Copied Off the Host</h3>
+          <div class="config-snippet">
+Log Name:      Security
+Event ID:      5145
+Description:
+  A network share object was checked to see whether client can be granted desired access.
+  Subject:  Account Name: r.almutairi   Logon ID: 0x4E2A1C
+  Network Information: Source Address: 10.99.4.117
+  Share Name: \\*\E$
+  Relative Target Name: temp\.stage\DC01-PROD\Virtual Hard Disks\DC01-PROD.vhdx
+  Access Request Information: Accesses: ReadData (or ListDirectory)</div>
+          <div class="cmd-output">The exported disk being read across the administrative share. That file contains NTDS.dit and every credential hash in the domain, extractable offline with no authentication to the guest.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Traffic Interception via Port Mirroring</h3>
+          <div class="config-snippet">
+Log Name:      Microsoft-Windows-Hyper-V-VmSwitch-Operational
+Event ID:      26010
+Description:
+  Port setting changed on switch 'Prod-vSwitch'.
+  Port: 8f2a1c04-...  VM: TEST-UTIL-09  Adapter: Network Adapter
+  Setting: PortMirroringMode  Old Value: None  New Value: Destination</div>
+          <div class="cmd-output">An unremarkable test machine set as a mirroring destination now receives copies of every other guest's traffic on that switch. Nothing inside the victim guests indicates this is happening.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Checkpoint Capturing Live Memory</h3>
+          <div class="config-snippet">
+Log Name:      Microsoft-Windows-Hyper-V-VMMS-Admin
+Event ID:      20415
+Description:
+  Checkpoint operation for 'DC01-PROD' completed successfully.
+  Checkpoint type: Standard (includes memory state)
+  Files: C:\ClusterStorage\Volume1\DC01-PROD\Snapshots\
+         a1b2c3d4-1122-6874-0000-0010f4e21b00.VMRS (memory)
+         DC01-PROD_8f2a1c04.avhdx (disk delta)</div>
+          <div class="cmd-output">A standard checkpoint of a running domain controller writes a full memory image to the VMRS file. Anyone who can read that file can extract credentials and keys directly from memory.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Mass Shutdown Preceding Encryption</h3>
+          <div class="config-snippet">
+Log Name:      Microsoft-Windows-Hyper-V-Worker-Admin
+Event ID:      18502  'SQL-PROD-01' was turned off  (09:58:02)
+Event ID:      18502  'APP-PROD-03' was turned off  (09:58:03)
+Event ID:      18502  'FILE-PROD-02' was turned off (09:58:03)
+Event ID:      18502  'WEB-PROD-01' was turned off  (09:58:04)
+Event ID:      18502  'DC01-PROD' was turned off    (09:58:05)</div>
+          <div class="cmd-output">Five machines stopped in four seconds. VHDX files cannot be encrypted while a running machine holds them open, which makes bulk shutdown the last practical warning before the damage becomes irreversible.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="VirtualizationCloud.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

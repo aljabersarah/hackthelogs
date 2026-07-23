@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - AWS Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">AWS Logs</div>
+      <a href="#overview" class="nav-item active">AWS Log Overview</a>
+      <a href="#log-types" class="nav-item">Key AWS Log Types</a>
+      <a href="#log-locations" class="nav-item">Log Destinations</a>
+      <a href="#enable-logging" class="nav-item">Configuring AWS Logging</a>
+      <a href="#threat-patterns" class="nav-item">AWS Threat Patterns</a>
+      <a href="#log-format" class="nav-item">CloudTrail Event Format</a>
+      <a href="#api-calls" class="nav-item">Critical API Calls to Monitor</a>
+      <a href="#analysis-queries" class="nav-item">AWS Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for AWS Logging</a>
+      <a href="#log-examples" class="nav-item">Common AWS Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Amazon Web Services Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>AWS Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>In AWS every action is an API call, and <code>CloudTrail</code> records them. Launching an instance, reading a secret, attaching a policy, or deleting a bucket are all the same kind of event from the platform's perspective: an identity called an API, from an address, at a time, with parameters, and either succeeded or was denied. That uniformity is what makes CloudTrail the single most important log in any AWS environment. There is no equivalent of an unmonitored server here, because there is no way to act on AWS resources without generating an event.</p>
+            <p>CloudTrail splits into two categories that behave very differently. <code>Management events</code> cover control plane operations and are logged free of charge for the first copy, with 90 days of history available in the console even with no trail configured. <code>Data events</code> cover operations on the contents of resources, such as reading an S3 object or invoking a Lambda function, and they are disabled by default and billed by volume. This distinction produces the most common gap in AWS monitoring: an organisation records that a bucket policy was changed but has no record of the objects subsequently downloaded, because data events were never enabled.</p>
+            <p>Around CloudTrail sit several complementary sources. <code>VPC Flow Logs</code> capture network metadata that CloudTrail never sees, since traffic between instances involves no API call. <code>GuardDuty</code> applies managed detections to CloudTrail, DNS, and flow data, producing findings that are usually the fastest route to noticing credential abuse. <code>S3 server access logs</code> and <code>CloudFront logs</code> record content requests, and <code>Config</code> tracks resource state over time. A mature deployment uses an organisation trail delivering to a dedicated logging account that even administrators in member accounts cannot modify, which is the control that prevents an attacker from erasing their own tracks.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key AWS Log Types</h2>
+        </div>
+        <p>AWS produces many log types with very different coverage, cost, and default state. Knowing which are off by default is the practical starting point:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">CloudTrail Management Events</td>
+                <td>Every control plane API call across the account: identity changes, resource creation and deletion, policy modifications, and console logins. The authoritative audit trail. Free for the first copy but only retained 90 days unless a trail delivers it to S3.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">CloudTrail Data Events</td>
+                <td>Operations on resource contents such as S3 GetObject and PutObject, Lambda Invoke, and DynamoDB item access. Disabled by default and billed per event. Without these you cannot prove what data an attacker actually read.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">CloudTrail Insights</td>
+                <td>Managed anomaly detection over management event volume, flagging unusual rates of API activity. Useful for spotting enumeration bursts and mass deletion without writing detections yourself.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">VPC Flow Logs</td>
+                <td>Network metadata for traffic in and out of network interfaces, including source, destination, ports, bytes, and accept or reject decisions. Captures lateral movement between instances that generates no API call and is therefore invisible to CloudTrail.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">GuardDuty Findings</td>
+                <td>Managed threat detection analysing CloudTrail, VPC Flow Logs, DNS query logs, EKS audit logs, and S3 data events. Produces enriched findings such as credential exfiltration and cryptomining with severity scores.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">S3 Server Access Logs</td>
+                <td>Detailed request records for a bucket, independent of CloudTrail data events. Higher latency and best-effort delivery, but includes fields such as the referrer and turnaround time that data events omit.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">AWS Config</td>
+                <td>Point-in-time snapshots of resource configuration and a timeline of changes. Answers what a security group looked like last Tuesday, which CloudTrail can only reconstruct by replaying events.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">CloudWatch Logs</td>
+                <td>Application and system logs shipped from EC2, Lambda, and containers. Also the destination for VPC Flow Logs and Route 53 resolver query logs when real-time analysis is needed.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> CloudTrail records the API call, not its effect on data. <code>GetObject</code> appears only if S3 data events are enabled for that bucket. An organisation that skipped data events on cost grounds cannot answer the one question that matters after a breach: which files were taken.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Destinations -->
+      <div id="log-locations" class="card">
+        <h2>Log Destinations</h2>
+        <p>AWS logs are delivered to services rather than filesystem paths. Where each stream lands determines how you query it and how long it survives.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Destination</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">CloudTrail Event History</td>
+                <td>Console only, last 90 days of management events, not configurable and not exportable in bulk</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">CloudTrail Trail</td>
+                <td>s3://bucket/AWSLogs/&lt;account&gt;/CloudTrail/&lt;region&gt;/YYYY/MM/DD/ as gzipped JSON</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">CloudTrail Lake</td>
+                <td>Managed event data store queryable with SQL, retention up to 10 years</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">VPC Flow Logs</td>
+                <td>CloudWatch Logs group, S3 bucket, or Kinesis Data Firehose</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">GuardDuty</td>
+                <td>GuardDuty console, EventBridge events, and optional S3 export</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">S3 Server Access Logs</td>
+                <td>A separate target bucket, delivered best-effort with delay of minutes to hours</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">AWS Config</td>
+                <td>S3 delivery channel plus the Config console timeline</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Organisation Trail</td>
+                <td>A single bucket in a dedicated logging account, covering every member account centrally</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Console Event History is not a substitute for a trail. It covers management events only, holds 90 days, cannot be queried programmatically at scale, and disappears entirely if the account is closed. Always configure a trail delivering to S3 in a separate account.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring AWS Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring AWS Logging</h2>
+        <p>These commands establish a tamper-resistant organisation trail and the supporting log sources that CloudTrail alone does not cover.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Create a Multi-Region Organisation Trail</h3>
+          <div class="config-snippet">
+aws cloudtrail create-trail \
+  --name htl-org-trail \
+  --s3-bucket-name htl-security-logs-central \
+  --is-organization-trail \
+  --is-multi-region-trail \
+  --enable-log-file-validation \
+  --kms-key-id arn:aws:kms:me-south-1:111122223333:key/abcd-1234
+
+aws cloudtrail start-logging --name htl-org-trail</div>
+          <div class="cmd-output">Multi-region is essential: attackers deliberately operate in regions you do not use. Log file validation produces signed digest files that prove the log has not been altered.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable Data Events for Sensitive Resources</h3>
+          <div class="config-snippet">
+aws cloudtrail put-event-selectors \
+  --trail-name htl-org-trail \
+  --advanced-event-selectors '[
+    {"Name":"Management events",
+     "FieldSelectors":[{"Field":"eventCategory","Equals":["Management"]}]},
+    {"Name":"S3 data events on sensitive buckets",
+     "FieldSelectors":[
+       {"Field":"eventCategory","Equals":["Data"]},
+       {"Field":"resources.type","Equals":["AWS::S3::Object"]},
+       {"Field":"resources.ARN","StartsWith":["arn:aws:s3:::htl-customer-data/"]}]}]'</div>
+          <div class="cmd-output">Scoping data events to specific buckets controls cost while preserving the ability to prove what was read. Enabling them account-wide is usually financially impractical.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Protect the Log Bucket from Tampering</h3>
+          <div class="config-snippet">
+# Object Lock in compliance mode makes objects immutable, even to root
+aws s3api put-object-lock-configuration \
+  --bucket htl-security-logs-central \
+  --object-lock-configuration '{"ObjectLockEnabled":"Enabled",
+    "Rule":{"DefaultRetention":{"Mode":"COMPLIANCE","Days":400}}}'
+
+# Deny deletion and policy changes from outside the security account
+aws s3api put-bucket-policy --bucket htl-security-logs-central \
+  --policy file://deny-delete-except-security-role.json
+
+aws s3api put-public-access-block --bucket htl-security-logs-central \
+  --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true</div>
+          <div class="cmd-output">Compliance mode Object Lock cannot be removed by anyone including the account root user. This is what guarantees an attacker with full administrative access still cannot erase the evidence.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Enable VPC Flow Logs</h3>
+          <div class="config-snippet">
+aws ec2 create-flow-logs \
+  --resource-type VPC \
+  --resource-ids vpc-0a1b2c3d4e5f67890 \
+  --traffic-type ALL \
+  --log-destination-type s3 \
+  --log-destination arn:aws:s3:::htl-security-logs-central/vpcflow/ \
+  --max-aggregation-interval 60 \
+  --log-format '${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status} ${vpc-id} ${subnet-id} ${instance-id} ${tcp-flags} ${type} ${pkt-srcaddr} ${pkt-dstaddr} ${flow-direction} ${traffic-path}'</div>
+          <div class="cmd-output">The custom format adds fields absent from the default, notably pkt-srcaddr which reveals the original source behind a NAT gateway, and flow-direction which removes ambiguity about who initiated.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable GuardDuty Across the Organisation</h3>
+          <div class="config-snippet">
+aws guardduty create-detector --enable \
+  --finding-publishing-frequency FIFTEEN_MINUTES \
+  --data-sources '{"S3Logs":{"Enable":true},
+                   "Kubernetes":{"AuditLogs":{"Enable":true}},
+                   "MalwareProtection":{"ScanEc2InstanceWithFindings":{"EbsVolumes":true}}}'
+
+aws guardduty create-members --detector-id &lt;id&gt; \
+  --account-details file://member-accounts.json
+aws guardduty update-organization-configuration --detector-id &lt;id&gt; --auto-enable</div>
+          <div class="cmd-output">Auto-enable ensures new accounts are covered from creation. A new unmonitored account is a favourite place for an attacker to operate.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Alert on Logging Being Disabled</h3>
+          <div class="config-snippet">
+{
+  "source": ["aws.cloudtrail"],
+  "detail": {
+    "eventName": ["StopLogging","DeleteTrail","UpdateTrail",
+                  "PutEventSelectors","DeleteFlowLogs",
+                  "DisassociateMembers","DeleteDetector"]
+  }
+}
+# Attach this EventBridge rule to an SNS topic that pages, not one that emails a shared inbox</div>
+          <div class="cmd-output">Disabling logging is among the first actions an attacker takes after gaining administrative access. This rule must reach a human within minutes.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> CloudTrail delivers to S3 with a typical latency of about five minutes and an upper bound of fifteen. An attacker who moves quickly can complete an entire operation before the first log file lands. For time-critical detection, use EventBridge rules on management events, which fire in near real time.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>AWS Threat Patterns</h2>
+        </div>
+        <p class="description">Cloud intrusions follow a consistent arc: obtain credentials, enumerate permissions, escalate, persist, then exfiltrate. Each stage has a distinct CloudTrail signature.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>Credential Compromise</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Access keys leaked in code repositories or stolen from instance metadata. Signature: an existing key suddenly used from a new address, new region, or unfamiliar user agent such as an SDK version never seen before.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-search"></i>
+              <h4>Permission Enumeration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Rapid discovery of what the stolen identity can do. Signature: a burst of List, Describe, and Get calls across many services, often with a high proportion of AccessDenied results.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-level-up-alt"></i>
+              <h4>Privilege Escalation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Using existing IAM permissions to acquire more. AttachUserPolicy with AdministratorAccess, CreatePolicyVersion, PassRole into a service, or UpdateAssumeRolePolicy are the classic paths.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-anchor"></i>
+              <h4>Persistence</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Establishing durable access independent of the original credential. CreateAccessKey for another user, CreateUser, CreateLoginProfile, or adding an external principal to a role trust policy.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-cloud-download-alt"></i>
+              <h4>Data Exfiltration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Snapshot sharing to an external account, bucket policy changes granting public access, or mass GetObject. Sharing a snapshot copies an entire database without ever reading a row through the database itself.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-eye-slash"></i>
+              <h4>Defence Evasion</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>StopLogging, DeleteTrail, DeleteFlowLogs, DeleteDetector, or operating in an unused region where monitoring was never configured. Frequently the first action after escalation.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The <code>userAgent</code> field is one of the most underused detection surfaces in CloudTrail. Automation uses consistent SDK strings, so an identity that normally appears as a Terraform or Boto3 user agent suddenly calling from <code>aws-cli/2.x</code> on a different platform is a strong indicator of stolen credentials.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>CloudTrail Event Format</h2>
+        <p>Every CloudTrail record shares the same JSON structure regardless of which service it came from. These are the fields that carry detection value.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>eventTime</td>
+                <td>UTC time the API call was made</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22Z</td>
+              </tr>
+              <tr>
+                <td>eventName</td>
+                <td>The API action invoked</td>
+                <td>Action</td>
+                <td>AttachUserPolicy</td>
+              </tr>
+              <tr>
+                <td>eventSource</td>
+                <td>Service that handled the call</td>
+                <td>Target</td>
+                <td>iam.amazonaws.com</td>
+              </tr>
+              <tr>
+                <td>userIdentity.type</td>
+                <td>Identity class making the call</td>
+                <td>Identity</td>
+                <td>AssumedRole</td>
+              </tr>
+              <tr>
+                <td>userIdentity.arn</td>
+                <td>Full ARN of the calling principal</td>
+                <td>Identity</td>
+                <td>arn:aws:sts::1111:assumed-role/Deploy/i-0abc</td>
+              </tr>
+              <tr>
+                <td>userIdentity.accessKeyId</td>
+                <td>Access key used, ASIA prefix means temporary</td>
+                <td>Identity</td>
+                <td>AKIAIOSFODNN7EXAMPLE</td>
+              </tr>
+              <tr>
+                <td>sourceIPAddress</td>
+                <td>Caller address, or an AWS service principal</td>
+                <td>Source</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>userAgent</td>
+                <td>SDK or tool that issued the request</td>
+                <td>Source</td>
+                <td>aws-cli/2.15.4 Python/3.11 Linux</td>
+              </tr>
+              <tr>
+                <td>awsRegion</td>
+                <td>Region the call was made in</td>
+                <td>Target</td>
+                <td>ap-southeast-2</td>
+              </tr>
+              <tr>
+                <td>errorCode</td>
+                <td>Present only when the call failed</td>
+                <td>Result</td>
+                <td>AccessDenied</td>
+              </tr>
+              <tr>
+                <td>requestParameters</td>
+                <td>Arguments supplied to the API</td>
+                <td>Action</td>
+                <td>policyArn: AdministratorAccess</td>
+              </tr>
+              <tr>
+                <td>responseElements</td>
+                <td>Values returned, including created secrets</td>
+                <td>Response</td>
+                <td>accessKeyId: AKIAI44QH8DHBEXAMPLE</td>
+              </tr>
+              <tr>
+                <td>mfaAuthenticated</td>
+                <td>Whether MFA was used for this session</td>
+                <td>Authorization</td>
+                <td>false</td>
+              </tr>
+              <tr>
+                <td>readOnly</td>
+                <td>Whether the call modified state</td>
+                <td>Metadata</td>
+                <td>false</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> When a service makes a call on your behalf, <code>sourceIPAddress</code> contains a service name such as <code>ec2.amazonaws.com</code> rather than an address. Detections that assume this field is always an IP will silently skip every service-initiated event.
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical API Calls -->
+      <div id="api-calls" class="card">
+        <h2>Critical API Calls to Monitor</h2>
+        <p>A small number of API calls account for most of the damage in AWS intrusions. These belong on a watchlist with real-time alerting.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>API Call</th>
+                <th>Stage</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">StopLogging / DeleteTrail</td>
+                <td>Evasion</td>
+                <td>Disables the audit trail itself. Effectively never legitimate outside a documented decommissioning, and should page immediately</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">CreateAccessKey</td>
+                <td>Persistence</td>
+                <td>Creating a key for another user is a durable backdoor surviving password resets. Creating one for yourself is routine</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">AttachUserPolicy / AttachRolePolicy</td>
+                <td>Escalation</td>
+                <td>Especially with AdministratorAccess or PowerUserAccess. The single most direct route to full account control</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">UpdateAssumeRolePolicy</td>
+                <td>Persistence</td>
+                <td>Adding an external account to a role trust policy grants a permanent foothold that survives credential rotation entirely</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ModifySnapshotAttribute</td>
+                <td>Exfiltration</td>
+                <td>Sharing an EBS or RDS snapshot with an external account copies entire volumes without touching the running system</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">PutBucketPolicy / PutBucketAcl</td>
+                <td>Exfiltration</td>
+                <td>Bucket policy changes granting public or cross-account access are the mechanism behind most large S3 data exposures</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">GetSecretValue / Decrypt</td>
+                <td>Credential Access</td>
+                <td>Bulk retrieval from Secrets Manager or KMS decryption at abnormal volume indicates credential harvesting</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">CreateUser / CreateLoginProfile</td>
+                <td>Persistence</td>
+                <td>New identities with console access created outside the provisioning pipeline are attacker backdoors</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">AssumeRole with external ID</td>
+                <td>Lateral Movement</td>
+                <td>Role chaining across accounts. Legitimate in many architectures, so baseline the normal chains and alert on new ones</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">DeactivateMFADevice</td>
+                <td>Evasion</td>
+                <td>Removing MFA from a privileged identity weakens the control specifically protecting it</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">RunInstances in unused regions</td>
+                <td>Impact</td>
+                <td>Cryptomining almost always starts in regions the organisation never uses, precisely because monitoring is thinner there</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>AWS Log Analysis Queries</h2>
+        <p>These Athena and CLI queries cover the full intrusion arc from credential abuse through to exfiltration.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Logging Disabled</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT eventtime, useridentity.arn, sourceipaddress, eventname FROM cloudtrail_logs WHERE eventname IN ('StopLogging','DeleteTrail','UpdateTrail','PutEventSelectors','DeleteFlowLogs','DeleteDetector') ORDER BY eventtime DESC;</span>
+              </div>
+              <div class="cmd-output">The highest priority query in AWS. Any result outside a documented change is an active incident.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-level-up-alt"></i>
+              <span class="cmd-title">Privilege Escalation</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT eventtime, useridentity.arn, eventname, requestparameters FROM cloudtrail_logs WHERE eventname IN ('AttachUserPolicy','AttachRolePolicy','PutUserPolicy','CreatePolicyVersion','UpdateAssumeRolePolicy') AND requestparameters LIKE '%Administrator%';</span>
+              </div>
+              <div class="cmd-output">Catches administrative policy attachment in one query. Reconcile every hit against a change ticket.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Permission Enumeration</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT useridentity.arn, sourceipaddress, count(*) AS denied, count(DISTINCT eventsource) AS services FROM cloudtrail_logs WHERE errorcode = 'AccessDenied' AND from_iso8601_timestamp(eventtime) &gt; current_timestamp - interval '1' hour GROUP BY 1,2 HAVING count(*) &gt; 25;</span>
+              </div>
+              <div class="cmd-output">Many AccessDenied results across many services is an attacker mapping what a stolen credential can reach.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-camera"></i>
+              <span class="cmd-title">Snapshot Shared Externally</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT eventtime, useridentity.arn, requestparameters FROM cloudtrail_logs WHERE eventname IN ('ModifySnapshotAttribute','ModifyDBSnapshotAttribute','ModifyImageAttribute') AND requestparameters LIKE '%all%' OR requestparameters LIKE '%restore%';</span>
+              </div>
+              <div class="cmd-output">Sharing a snapshot with another account or making it public exfiltrates an entire volume in one API call.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-key"></i>
+              <span class="cmd-title">Access Key Created for Another User</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT eventtime, useridentity.arn AS creator, json_extract_scalar(requestparameters,'$.userName') AS target, sourceipaddress FROM cloudtrail_logs WHERE eventname = 'CreateAccessKey' AND json_extract_scalar(requestparameters,'$.userName') IS NOT NULL;</span>
+              </div>
+              <div class="cmd-output">When userName is present the key was created for a different identity, which is the backdoor pattern rather than routine self-service.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-globe-americas"></i>
+              <span class="cmd-title">Activity in Unused Regions</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT awsregion, eventname, useridentity.arn, count(*) AS calls FROM cloudtrail_logs WHERE awsregion NOT IN ('me-south-1','eu-west-1') AND readonly = false GROUP BY 1,2,3 ORDER BY calls DESC;</span>
+              </div>
+              <div class="cmd-output">Attackers favour regions you do not use because monitoring and guardrails are weaker there. Any write activity is worth review.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">Root Account Usage</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT eventtime, eventname, sourceipaddress, useragent, useridentity.sessioncontext.attributes.mfaauthenticated AS mfa FROM cloudtrail_logs WHERE useridentity.type = 'Root' ORDER BY eventtime DESC;</span>
+              </div>
+              <div class="cmd-output">Root should be used essentially never. Any usage, especially without MFA, warrants immediate confirmation with the account owner.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-fingerprint"></i>
+              <span class="cmd-title">User Agent Anomaly</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT useridentity.arn, useragent, count(*) AS calls, min(eventtime) AS first_seen FROM cloudtrail_logs GROUP BY 1,2 HAVING min(from_iso8601_timestamp(eventtime)) &gt; current_timestamp - interval '24' hour ORDER BY calls DESC;</span>
+              </div>
+              <div class="cmd-output">A new user agent for an established identity often means the credential is now being used by someone else's tooling.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-cloud-download-alt"></i>
+              <span class="cmd-title">Bulk S3 Object Reads</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT useridentity.arn, sourceipaddress, count(*) AS objects FROM cloudtrail_logs WHERE eventname = 'GetObject' AND eventcategory = 'Data' GROUP BY 1,2 HAVING count(*) &gt; 1000 ORDER BY objects DESC;</span>
+              </div>
+              <div class="cmd-output">Requires data events to be enabled. Without them this query returns nothing regardless of how much data was taken.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Outbound Volume from Flow Logs</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">Athena></span>
+                <span class="cmd-line-content">SELECT srcaddr, dstaddr, sum(bytes)/1073741824.0 AS gb FROM vpc_flow_logs WHERE action='ACCEPT' AND flow_direction='egress' GROUP BY 1,2 HAVING sum(bytes) &gt; 10737418240 ORDER BY gb DESC;</span>
+              </div>
+              <div class="cmd-output">Finds instances sending more than 10 GB outbound. Catches exfiltration that never involves an S3 API call.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for AWS Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so that AWS logs remain complete, immutable, and actually queryable during an incident:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Use an Organisation Trail to a Separate Account</h3>
+              <p>Logs must live where the compromised account cannot reach them. A dedicated logging account with restrictive bucket policies is the single most important control in AWS logging architecture.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Always Enable Multi-Region</h3>
+              <p>Attackers deliberately operate in regions you never use. A single-region trail leaves every other region completely unmonitored while appearing configured.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Enable Data Events on Sensitive Buckets</h3>
+              <p>Management events prove a policy changed. Only data events prove which objects were read. Scope them to the buckets holding regulated data to keep the cost defensible.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Apply Object Lock in Compliance Mode</h3>
+              <p>Compliance mode retention cannot be shortened or removed by anyone, including the root user. It is what makes the audit trail genuinely tamper-proof rather than merely protected.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Turn On Log File Validation</h3>
+              <p>CloudTrail produces signed digest files that let you prove logs were not altered or deleted. Essential for any investigation whose findings might be disputed.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Use EventBridge for Time-Critical Alerts</h3>
+              <p>S3 delivery lags by five to fifteen minutes, long enough for an attacker to finish. EventBridge rules on management events fire in near real time.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Baseline Identity Behaviour</h3>
+              <p>Record the normal region, source address, and user agent for every role and key. Deviation from that baseline is the most reliable signal of credential theft available.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Do Not Rely on Console Event History</h3>
+              <p>It holds 90 days of management events only, cannot be exported in bulk, and vanishes with the account. It is a convenience feature, not an audit trail.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common AWS Log Examples</h2>
+        <p>A complete AWS intrusion in CloudTrail records, from leaked key to exfiltrated database.</p>
+
+        <div class="implementation-steps">
+          <h3>Stolen Access Key Used from a New Location</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T09:41:22Z","eventName":"GetCallerIdentity","eventSource":"sts.amazonaws.com",
+ "awsRegion":"us-east-1","sourceIPAddress":"203.0.113.44",
+ "userAgent":"aws-cli/2.15.4 Python/3.11.6 Linux/6.1.0 exe/x86_64.kali",
+ "userIdentity":{"type":"IAMUser","arn":"arn:aws:iam::111122223333:user/svc-backup",
+   "accessKeyId":"AKIAIOSFODNN7EXAMPLE"},"readOnly":true}</div>
+          <div class="cmd-output">GetCallerIdentity is the first call almost every attacker makes: it answers "whose key is this". The user agent contains "kali" and the region is one this service account never uses.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Permission Enumeration with Access Denied</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T09:42:04Z","eventName":"ListBuckets","eventSource":"s3.amazonaws.com","errorCode":"AccessDenied","sourceIPAddress":"203.0.113.44"}
+{"eventTime":"2025-07-14T09:42:06Z","eventName":"ListUsers","eventSource":"iam.amazonaws.com","errorCode":"AccessDenied","sourceIPAddress":"203.0.113.44"}
+{"eventTime":"2025-07-14T09:42:08Z","eventName":"DescribeInstances","eventSource":"ec2.amazonaws.com","sourceIPAddress":"203.0.113.44","readOnly":true}
+{"eventTime":"2025-07-14T09:42:11Z","eventName":"ListAttachedUserPolicies","eventSource":"iam.amazonaws.com","sourceIPAddress":"203.0.113.44","readOnly":true}
+{"eventTime":"2025-07-14T09:42:14Z","eventName":"DescribeDBSnapshots","eventSource":"rds.amazonaws.com","sourceIPAddress":"203.0.113.44","readOnly":true}</div>
+          <div class="cmd-output">Five services probed in ten seconds with a mix of denials and successes. No human clicks this fast, and the mixed results are the attacker mapping the boundary of what the key permits.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Privilege Escalation via Policy Attachment</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T09:47:33Z","eventName":"AttachUserPolicy","eventSource":"iam.amazonaws.com",
+ "sourceIPAddress":"203.0.113.44","userIdentity":{"type":"IAMUser","arn":"arn:aws:iam::111122223333:user/svc-backup"},
+ "requestParameters":{"userName":"svc-backup","policyArn":"arn:aws:iam::aws:policy/AdministratorAccess"},
+ "responseElements":null,"readOnly":false}</div>
+          <div class="cmd-output">The compromised service account attaching AdministratorAccess to itself. This single call converts a limited backup credential into full control of the account.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Persistence: Backdoor Key for Another User</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T09:52:10Z","eventName":"CreateAccessKey","eventSource":"iam.amazonaws.com",
+ "sourceIPAddress":"203.0.113.44","userIdentity":{"arn":"arn:aws:iam::111122223333:user/svc-backup"},
+ "requestParameters":{"userName":"cloudops-admin"},
+ "responseElements":{"accessKey":{"accessKeyId":"AKIAI44QH8DHBEXAMPLE","userName":"cloudops-admin","status":"Active"}}}</div>
+          <div class="cmd-output">A key created for a different, more privileged user. This survives rotation of the original stolen credential entirely, which is exactly the point.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Cross-Account Persistence via Trust Policy</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T09:55:41Z","eventName":"UpdateAssumeRolePolicy","eventSource":"iam.amazonaws.com",
+ "sourceIPAddress":"203.0.113.44","requestParameters":{"roleName":"OrganizationAccountAccessRole",
+   "policyDocument":"{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",
+     \"Principal\":{\"AWS\":\"arn:aws:iam::999988887777:root\"},\"Action\":\"sts:AssumeRole\"}]}"}}</div>
+          <div class="cmd-output">An external account (999988887777) added to the trust policy of a privileged role. The attacker can now assume this role from their own account indefinitely, with no credential to rotate.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Data Exfiltration via Snapshot Sharing</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T10:02:44Z","eventName":"CreateDBSnapshot","eventSource":"rds.amazonaws.com",
+ "requestParameters":{"dBInstanceIdentifier":"prod-customers","dBSnapshotIdentifier":"tmp-snap-01"}}
+{"eventTime":"2025-07-14T10:11:03Z","eventName":"ModifyDBSnapshotAttribute","eventSource":"rds.amazonaws.com",
+ "sourceIPAddress":"203.0.113.44",
+ "requestParameters":{"dBSnapshotIdentifier":"tmp-snap-01","attributeName":"restore",
+   "valuesToAdd":["999988887777"]}}</div>
+          <div class="cmd-output">The entire customer database snapshotted then shared with an external account. Note that no database query was ever run, so database audit logs show nothing at all.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>S3 Bucket Exposed Publicly</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T10:14:22Z","eventName":"PutBucketPolicy","eventSource":"s3.amazonaws.com",
+ "sourceIPAddress":"203.0.113.44","requestParameters":{"bucketName":"htl-customer-data",
+   "bucketPolicy":{"Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject",
+     "Resource":"arn:aws:s3:::htl-customer-data/*"}]}}}
+{"eventTime":"2025-07-14T10:14:31Z","eventName":"DeletePublicAccessBlock","eventSource":"s3.amazonaws.com",
+ "requestParameters":{"bucketName":"htl-customer-data"}}</div>
+          <div class="cmd-output">A wildcard principal granted read access, then the public access block removed so the policy takes effect. Both calls are needed, and either one alone should alert.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Defence Evasion: Trail Stopped</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T10:18:12Z","eventName":"StopLogging","eventSource":"cloudtrail.amazonaws.com",
+ "sourceIPAddress":"203.0.113.44","userIdentity":{"arn":"arn:aws:iam::111122223333:user/svc-backup"},
+ "requestParameters":{"name":"arn:aws:cloudtrail:me-south-1:111122223333:trail/htl-org-trail"}}
+{"eventTime":"2025-07-14T10:18:19Z","eventName":"DeleteFlowLogs","eventSource":"ec2.amazonaws.com",
+ "requestParameters":{"flowLogIdSet":["fl-0a1b2c3d4e5f67890"]}}</div>
+          <div class="cmd-output">The trail is stopped and flow logs deleted. Because the log bucket used Object Lock in compliance mode, everything already written survives, which is why these two records exist at all.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Cryptomining in an Unused Region</h3>
+          <div class="config-snippet">
+{"eventTime":"2025-07-14T10:24:18Z","eventName":"RunInstances","eventSource":"ec2.amazonaws.com",
+ "awsRegion":"ap-southeast-2","sourceIPAddress":"203.0.113.44",
+ "requestParameters":{"instanceType":"p4d.24xlarge","maxCount":8,"minCount":8,
+   "imageId":"ami-0abcdef1234567890"},"readOnly":false}</div>
+          <div class="cmd-output">Eight GPU instances launched in a region the organisation does not operate in. At roughly 32 USD per hour each, this becomes expensive within hours and is usually noticed by billing before security.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="VirtualizationCloud.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

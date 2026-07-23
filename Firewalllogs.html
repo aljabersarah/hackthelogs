@@ -328,7 +328,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" action="deny" OR action="block" | stats count by src_ip | sort -count</span>
               </div>
-              <div class="cmd-output">Identifies source IPs with the most blocked connection attempts — helpful for detecting scanning or brute force attacks.</div>
+              <div class="cmd-output">Identifies source IPs with the most blocked connection attempts, helpful for detecting scanning or brute force attacks.</div>
             </div>
           </div>
           <!-- Unusual Destination Ports -->
@@ -341,7 +341,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" NOT dst_port IN (80, 443, 22, 53, 25, 21) | stats count by dst_port, dst_ip | sort -count</span>
               </div>
-              <div class="cmd-output">Shows connections to uncommon ports — useful for detecting backdoor communications or unusual services.</div>
+              <div class="cmd-output">Shows connections to uncommon ports, useful for detecting backdoor communications or unusual services.</div>
             </div>
           </div>
           <!-- Potential Port Scanning -->
@@ -354,7 +354,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" | stats dc(dst_port) as unique_ports by src_ip | where unique_ports > 15</span>
               </div>
-              <div class="cmd-output">Identifies IPs connecting to a large number of different ports — classic sign of port scanning activity.</div>
+              <div class="cmd-output">Identifies IPs connecting to a large number of different ports, classic sign of port scanning activity.</div>
             </div>
           </div>
           <!-- Outbound Connection Spikes -->
@@ -367,7 +367,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" direction="outbound" | bucket span=1h | stats count by src_ip, _time | where count > 1000</span>
               </div>
-              <div class="cmd-output">Detects internal IPs initiating unusually high numbers of outbound connections — potential data exfiltration or C2 traffic.</div>
+              <div class="cmd-output">Detects internal IPs initiating unusually high numbers of outbound connections, potential data exfiltration or C2 traffic.</div>
             </div>
           </div>
           <!-- High-Risk Connection Attempts -->
@@ -380,7 +380,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" severity="high" OR severity="critical" | stats count by src_ip, threat_name | sort -count</span>
               </div>
-              <div class="cmd-output">Highlights connections flagged with high-severity threat indicators — prioritizes critical security events.</div>
+              <div class="cmd-output">Highlights connections flagged with high-severity threat indicators, prioritizes critical security events.</div>
             </div>
           </div>
           <!-- After-Hours VPN Access -->
@@ -393,7 +393,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" app_category="vpn" | where _time.hour() >= 22 OR _time.hour() <= 5 | stats count by src_ip, user</span>
               </div>
-              <div class="cmd-output">Identifies VPN connections outside business hours — potential account compromise or unauthorized access.</div>
+              <div class="cmd-output">Identifies VPN connections outside business hours, potential account compromise or unauthorized access.</div>
             </div>
           </div>
           <!-- Geographically Unusual Access -->
@@ -406,7 +406,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" action="allow" | lookup geoip src_ip | where NOT Country IN ("Saudi Arabia") | stats count by Country, src_ip</span>
               </div>
-              <div class="cmd-output">Lists connections from unusual countries — helps detect geographic anomalies based on your organization's normal traffic patterns.</div>
+              <div class="cmd-output">Lists connections from unusual countries, helps detect geographic anomalies based on your organization's normal traffic patterns.</div>
             </div>
           </div>
           <!-- Repeated Authentication Failures -->
@@ -419,7 +419,7 @@
                 <span class="cmd-prompt">SIEM></span>
                 <span class="cmd-line-content">source="firewall" event_type="authentication" status="failure" | stats count by src_ip, user | where count > 5</span>
               </div>
-              <div class="cmd-output">Detects repeated authentication failures — potential brute force attempts against VPN or administrative interfaces.</div>
+              <div class="cmd-output">Detects repeated authentication failures, potential brute force attempts against VPN or administrative interfaces.</div>
             </div>
           </div>
           <!-- Traffic to Known Malicious Domains -->

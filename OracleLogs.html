@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Oracle Database Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Oracle Logs</div>
+      <a href="#overview" class="nav-item active">Oracle Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Oracle Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-audit" class="nav-item">Enabling Unified Auditing</a>
+      <a href="#audit-policies" class="nav-item">Recommended Audit Policies</a>
+      <a href="#log-format" class="nav-item">Unified Audit Trail Format</a>
+      <a href="#error-codes" class="nav-item">Critical Oracle Error Codes</a>
+      <a href="#analysis-queries" class="nav-item">Oracle Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Oracle Logging</a>
+      <a href="#log-examples" class="nav-item">Common Oracle Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Oracle Database Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Oracle Log Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Oracle Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Oracle Database separates diagnostic logging from security auditing, and the two live in completely different places. Diagnostic output (instance startup, ORA- errors, structural changes, and background process messages) is written to the <code>alert log</code> and trace files inside the Automatic Diagnostic Repository (ADR). Security auditing is written to the database itself, either to the modern <code>UNIFIED_AUDIT_TRAIL</code> introduced in Oracle 12c or to the legacy <code>AUD$</code> table used by earlier releases. A third stream, the <code>listener log</code>, sits outside the database entirely and records every connection request that reaches the instance, including those that never authenticate successfully.</p>
+            <p>Unified Auditing consolidated what used to be at least six separate audit trails into a single read-only view. It is enabled in mixed mode by default from 12c onward, which means a small set of predefined policies is active but most security-relevant activity is not captured until an administrator explicitly enables the right policies. Oracle ships several ready-made policies (<code>ORA_SECURECONFIG</code>, <code>ORA_LOGON_FAILURES</code>, <code>ORA_ACCOUNT_MGMT</code>, and <code>ORA_DATABASE_PARAMETER</code>), and enabling them takes a single statement each, yet they remain switched off on a large proportion of production estates.</p>
+            <p>For sensitive data, Unified Auditing alone can be too coarse. Fine-Grained Auditing (FGA) allows a policy to fire only when a specific column is selected or when a boolean condition is met, so you can audit access to a salary column without generating a record for every query against the employee table. Combined with the alert log for structural events and the listener log for connection-level reconnaissance, these sources give a complete picture that satisfies the privileged-activity and sensitive-data monitoring requirements in NIST SP 800-92 and the Saudi NCA controls.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Oracle Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Oracle Log Types</h2>
+        </div>
+        <p>Oracle produces several log streams with very different retention, format, and access models. Knowing which one answers which question saves critical time during an investigation:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Alert Log</td>
+                <td>The chronological diagnostic log for the instance, available as plain text (alert_&lt;SID&gt;.log) and as structured XML (log.xml). Records startup and shutdown, ORA- errors, tablespace and datafile changes, redo log switches, and ALTER SYSTEM operations. Always the first artifact to review.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Unified Audit Trail</td>
+                <td>The consolidated security audit trail exposed through the UNIFIED_AUDIT_TRAIL view. Captures logon and logoff, privilege use, DDL, DML, Data Pump and RMAN activity, and Database Vault events in a single read-only stream. Cannot be modified with DML, even by SYS.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Listener Log</td>
+                <td>Written by the TNS listener process outside the database. Records every connection request with source host, program name, and service name, including attempts that fail before authentication. The primary source for detecting service enumeration and TNS-level attacks.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Fine-Grained Audit Trail</td>
+                <td>Policy-driven auditing at column and row granularity, queried through DBA_FGA_AUDIT_TRAIL or the unified trail. Fires only when a defined condition matches, which makes it the practical way to audit access to sensitive columns without overwhelming volume.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Traditional Audit Trail (AUD$)</td>
+                <td>The pre-12c audit trail stored in SYS.AUD$ and surfaced through DBA_AUDIT_TRAIL, plus optional OS-file and XML destinations. Still present in mixed-mode deployments. Unlike the unified trail it lives in a normal table, so a privileged attacker can delete rows from it.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Trace Files and Incident Dumps</td>
+                <td>Per-process trace files and ADR incident packages generated on serious errors. Contain SQL text, bind variables, and call stacks. Highly sensitive because bind data can include cleartext credentials and personal data.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Redo and Archive Logs</td>
+                <td>The change stream used for recovery and replication. Not a security log, but with LogMiner it can reconstruct DML that no audit policy captured, provided the relevant archive logs are still retained.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The unified audit trail is protected against DML, but records are still purgeable through <code>DBMS_AUDIT_MGMT.CLEAN_AUDIT_TRAIL</code>. Audit that package explicitly, otherwise a privileged attacker can erase the trail through a supported interface without ever issuing a DELETE.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Oracle 11g and later organise diagnostic output under the ADR base, whose root is normally <code>$ORACLE_BASE</code>. Resolve the exact paths for a running instance rather than assuming defaults.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Alert Log (text)</td>
+                <td>$ORACLE_BASE/diag/rdbms/&lt;db_name&gt;/&lt;instance&gt;/trace/alert_&lt;SID&gt;.log</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Alert Log (XML)</td>
+                <td>$ORACLE_BASE/diag/rdbms/&lt;db_name&gt;/&lt;instance&gt;/alert/log.xml</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Listener Log</td>
+                <td>$ORACLE_BASE/diag/tnslsnr/&lt;hostname&gt;/listener/trace/listener.log</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Unified Audit Trail</td>
+                <td>AUDSYS schema in the database; spillover files in $ORACLE_BASE/audit/&lt;instance&gt;/ when the database is unavailable</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Mandatory SYSDBA Audit</td>
+                <td>$ORACLE_BASE/admin/&lt;db_name&gt;/adump/ (controlled by AUDIT_FILE_DEST)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">User and Background Traces</td>
+                <td>$ORACLE_BASE/diag/rdbms/&lt;db_name&gt;/&lt;instance&gt;/trace/</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Incident Dumps</td>
+                <td>$ORACLE_BASE/diag/rdbms/&lt;db_name&gt;/&lt;instance&gt;/incident/</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Run <code>SELECT value FROM v$diag_info WHERE name = 'Diag Trace';</code> to get the exact trace directory, or use <code>adrci</code> with <code>show alert -tail -f</code> to follow the alert log live without hunting for the path.
+          </div>
+        </div>
+      </div>
+
+      <!-- Enabling Unified Auditing -->
+      <div id="enable-audit" class="card">
+        <h2>Enabling Unified Auditing</h2>
+        <p>Unified Auditing works through named policies. You create a policy describing what to capture, then enable it, optionally scoped to specific users or excluding noisy service accounts. All statements require the AUDIT_ADMIN role.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Confirm the Auditing Mode</h3>
+          <div class="config-snippet">
+SELECT value FROM v$option WHERE parameter = 'Unified Auditing';
+-- TRUE  = pure unified auditing
+-- FALSE = mixed mode (traditional AUD$ still active alongside unified)
+
+SELECT policy_name, enabled_option, entity_name, success, failure
+FROM   audit_unified_enabled_policies
+ORDER  BY policy_name;</div>
+          <div class="cmd-output">Establishes which mode the database runs in and which policies are already enabled. On a default 19c installation expect only ORA_SECURECONFIG and ORA_LOGON_FAILURES.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable the Oracle-Supplied Baseline Policies</h3>
+          <div class="config-snippet">
+AUDIT POLICY ORA_SECURECONFIG;
+AUDIT POLICY ORA_LOGON_FAILURES;
+AUDIT POLICY ORA_ACCOUNT_MGMT;
+AUDIT POLICY ORA_DATABASE_PARAMETER;
+AUDIT POLICY ORA_DV_AUDPOL;          -- only if Database Vault is licensed
+AUDIT POLICY ORA_RAS_POLICY_MGMT;    -- Real Application Security policy changes</div>
+          <div class="cmd-output">Covers privilege and role grants, security configuration changes, account creation and modification, and failed logons with almost no tuning effort. This is the minimum viable audit baseline.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Create a Custom Policy for Privileged Activity</h3>
+          <div class="config-snippet">
+CREATE AUDIT POLICY htl_privileged_activity
+  PRIVILEGES CREATE ANY TABLE, DROP ANY TABLE, SELECT ANY TABLE,
+             ALTER ANY TABLE, CREATE ANY PROCEDURE, EXECUTE ANY PROCEDURE,
+             GRANT ANY PRIVILEGE, GRANT ANY ROLE, BECOME USER
+  ACTIONS    LOGON, LOGOFF, CREATE USER, ALTER USER, DROP USER,
+             CREATE ROLE, GRANT, REVOKE, ALTER SYSTEM, ALTER DATABASE
+  ACTIONS    COMPONENT = DATAPUMP EXPORT, IMPORT
+  CONTAINER  = CURRENT;
+
+AUDIT POLICY htl_privileged_activity;</div>
+          <div class="cmd-output">Combines system privilege use, security-relevant actions, and Data Pump component auditing in one policy. Data Pump coverage matters because expdp is the most convenient bulk exfiltration tool on any Oracle host.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Audit Sensitive Objects Only</h3>
+          <div class="config-snippet">
+CREATE AUDIT POLICY htl_pii_access
+  ACTIONS SELECT, INSERT, UPDATE, DELETE ON hr.employees,
+          SELECT ON finance.payment_cards,
+          SELECT ON hr.salaries;
+
+AUDIT POLICY htl_pii_access EXCEPT app_service_user;</div>
+          <div class="cmd-output">Object-level auditing scoped to regulated tables. The EXCEPT clause suppresses the high-volume application account while still recording every human and every other identity that touches the data.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Add Fine-Grained Auditing for Column-Level Sensitivity</h3>
+          <div class="config-snippet">
+BEGIN
+  DBMS_FGA.ADD_POLICY(
+    object_schema   => 'HR',
+    object_name     => 'EMPLOYEES',
+    policy_name     => 'FGA_SALARY_ACCESS',
+    audit_column    => 'SALARY, NATIONAL_ID',
+    audit_condition => NULL,
+    statement_types => 'SELECT,UPDATE',
+    audit_trail     => DBMS_FGA.DB + DBMS_FGA.EXTENDED);
+END;
+/</div>
+          <div class="cmd-output">Fires only when the SALARY or NATIONAL_ID column is referenced. The EXTENDED trail additionally records the full SQL text and bind variables, which is what makes the record actionable.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Configure Audit Trail Retention and Purging</h3>
+          <div class="config-snippet">
+BEGIN
+  DBMS_AUDIT_MGMT.INIT_CLEANUP(
+    audit_trail_type         => DBMS_AUDIT_MGMT.AUDIT_TRAIL_UNIFIED,
+    default_cleanup_interval => 24);
+
+  DBMS_AUDIT_MGMT.SET_LAST_ARCHIVE_TIMESTAMP(
+    audit_trail_type  => DBMS_AUDIT_MGMT.AUDIT_TRAIL_UNIFIED,
+    last_archive_time => SYSTIMESTAMP - 180);
+
+  DBMS_AUDIT_MGMT.CREATE_PURGE_JOB(
+    audit_trail_type     => DBMS_AUDIT_MGMT.AUDIT_TRAIL_UNIFIED,
+    audit_trail_purge_interval => 24,
+    audit_trail_purge_name     => 'HTL_UNIFIED_PURGE',
+    use_last_arch_timestamp    => TRUE);
+END;
+/</div>
+          <div class="cmd-output">Purges only records older than the archive timestamp, guaranteeing that 180 days remain queryable. Without a purge job the AUDSYS tablespace grows until the database stops accepting connections.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Auditing of SYSDBA and SYSOPER connections is mandatory and cannot be disabled, but those records are written as operating system files in <code>AUDIT_FILE_DEST</code>, not into the database. Anyone with OS-level access to the Oracle account can delete them, so forward that directory to a remote collector.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Audit Policies -->
+      <div id="audit-policies" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Recommended Audit Policies</h2>
+        </div>
+        <p class="description">Oracle ships a set of predefined unified audit policies that cover the majority of regulatory requirements. Enabling them costs nothing and requires no tuning, yet they are frequently left disabled.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-shield-alt"></i>
+              <h4>ORA_SECURECONFIG</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Audits security-critical configuration: ALTER SYSTEM, privilege and role grants, user creation, audit policy changes, and Data Pump activity. The single most valuable policy on the instance.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-times"></i>
+              <h4>ORA_LOGON_FAILURES</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Records every unsuccessful logon with the originating host and program. The basis for brute force, password spraying, and default-credential detection.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-users-cog"></i>
+              <h4>ORA_ACCOUNT_MGMT</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Captures CREATE USER, ALTER USER, DROP USER, CREATE ROLE, and profile changes. Detects backdoor accounts and password resets on dormant identities.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sliders-h"></i>
+              <h4>ORA_DATABASE_PARAMETER</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Audits changes to initialization parameters through ALTER SYSTEM and ALTER DATABASE. Catches attempts to weaken security settings such as O7_DICTIONARY_ACCESSIBILITY or REMOTE_OS_AUTHENT.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-file-export"></i>
+              <h4>Data Pump Component Auditing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>ACTIONS COMPONENT = DATAPUMP records export and import operations. An unscheduled expdp of a full schema is one of the clearest bulk exfiltration signals Oracle produces.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-columns"></i>
+              <h4>Fine-Grained Audit Policies</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Column and condition scoped auditing through DBMS_FGA. The only practical way to monitor access to a sensitive column on a high-traffic table without unusable volume.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enable</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Enabling a policy with <code>AUDIT POLICY p BY user</code> restricts it to that user, while <code>EXCEPT user</code> excludes them. Using BY on a policy intended for whole-instance coverage is a common misconfiguration that silently leaves everyone else unaudited.
+          </div>
+        </div>
+      </div>
+
+      <!-- Unified Audit Trail Format -->
+      <div id="log-format" class="card">
+        <h2>Unified Audit Trail Format</h2>
+        <p>The <code>UNIFIED_AUDIT_TRAIL</code> view exposes more than ninety columns. These are the fields that carry investigative value and should be mapped into your SIEM schema.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>EVENT_TIMESTAMP_UTC</td>
+                <td>UTC time the audited event occurred</td>
+                <td>Timestamp</td>
+                <td>2025-07-14 06:41:22.481</td>
+              </tr>
+              <tr>
+                <td>DBUSERNAME</td>
+                <td>Database user who performed the action</td>
+                <td>Identity</td>
+                <td>APP_REPORT</td>
+              </tr>
+              <tr>
+                <td>CLIENT_PROGRAM_NAME</td>
+                <td>Client executable that opened the session</td>
+                <td>Source</td>
+                <td>sqlplus.exe</td>
+              </tr>
+              <tr>
+                <td>USERHOST</td>
+                <td>Hostname of the connecting client</td>
+                <td>Source</td>
+                <td>WKS-DBA-03</td>
+              </tr>
+              <tr>
+                <td>OS_USERNAME</td>
+                <td>Operating system account of the client</td>
+                <td>Identity</td>
+                <td>a.alharbi</td>
+              </tr>
+              <tr>
+                <td>ACTION_NAME</td>
+                <td>The audited action performed</td>
+                <td>Action</td>
+                <td>SELECT</td>
+              </tr>
+              <tr>
+                <td>OBJECT_SCHEMA</td>
+                <td>Schema owning the target object</td>
+                <td>Target</td>
+                <td>HR</td>
+              </tr>
+              <tr>
+                <td>OBJECT_NAME</td>
+                <td>Name of the object acted upon</td>
+                <td>Target</td>
+                <td>EMPLOYEES</td>
+              </tr>
+              <tr>
+                <td>SQL_TEXT</td>
+                <td>Full statement text (requires EXTENDED trail)</td>
+                <td>Action</td>
+                <td>SELECT salary FROM hr.employees</td>
+              </tr>
+              <tr>
+                <td>SQL_BINDS</td>
+                <td>Bind variable values supplied with the statement</td>
+                <td>Action</td>
+                <td>#1(3):101</td>
+              </tr>
+              <tr>
+                <td>RETURN_CODE</td>
+                <td>ORA error number, 0 on success</td>
+                <td>Result</td>
+                <td>1017</td>
+              </tr>
+              <tr>
+                <td>SYSTEM_PRIVILEGE_USED</td>
+                <td>System privilege exercised to permit the action</td>
+                <td>Authorization</td>
+                <td>SELECT ANY TABLE</td>
+              </tr>
+              <tr>
+                <td>AUDIT_TYPE</td>
+                <td>Source of the record</td>
+                <td>Metadata</td>
+                <td>Standard / FineGrainedAudit / Datapump</td>
+              </tr>
+              <tr>
+                <td>SESSIONID</td>
+                <td>Audit session identifier</td>
+                <td>Session</td>
+                <td>4294967295</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Critical Oracle Error Codes -->
+      <div id="error-codes" class="card">
+        <h2>Critical Oracle Error Codes</h2>
+        <p>These ORA codes appear in the alert log, the listener log, and the RETURN_CODE column of the unified audit trail. They are the highest-signal values to alert on.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">ORA-01017</td>
+                <td>Invalid username or password</td>
+                <td>The core failed-authentication code. Repetition against one account is brute force; across many accounts it is password spraying</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ORA-28000</td>
+                <td>The account is locked</td>
+                <td>Confirms a brute force attempt reached the FAILED_LOGIN_ATTEMPTS profile limit, or that an attacker locked out a legitimate account</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ORA-28001</td>
+                <td>The password has expired</td>
+                <td>Frequently reveals dormant or forgotten service accounts being probed with old credentials</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">ORA-01031</td>
+                <td>Insufficient privileges</td>
+                <td>A valid session attempting actions beyond its grants, a strong indicator of post-compromise privilege probing</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">ORA-00942</td>
+                <td>Table or view does not exist</td>
+                <td>In bursts this is object enumeration or blind SQL injection rather than an application defect</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">ORA-12514</td>
+                <td>Listener does not know of the requested service</td>
+                <td>Service name enumeration against the listener, a standard first step in Oracle reconnaissance</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">ORA-12541</td>
+                <td>No listener</td>
+                <td>Port scanning or an attempt to reach a listener that has been stopped, possibly by an attacker</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">ORA-01578</td>
+                <td>Data block corrupted</td>
+                <td>Storage failure or deliberate tampering with datafiles at the operating system level</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">ORA-00600 / ORA-07445</td>
+                <td>Internal error / core dump</td>
+                <td>Engine-level faults that can result from exploitation attempts against the database process itself</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> ORA-01017 events reach the unified audit trail only if <code>ORA_LOGON_FAILURES</code> or an equivalent policy is enabled. If your instance shows zero failed logons over a long period, assume the policy is missing rather than concluding nobody is attacking you.
+          </div>
+        </div>
+      </div>
+
+      <!-- Oracle Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Oracle Log Analysis Queries</h2>
+        <p>Run these against the unified audit trail and the listener log to detect authentication attacks, privilege abuse, bulk exports, and audit tampering.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-lock"></i>
+              <span class="cmd-title">Failed Logon Bursts</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT dbusername, userhost, client_program_name, COUNT(*) AS fails FROM unified_audit_trail WHERE action_name = 'LOGON' AND return_code = 1017 AND event_timestamp &gt; SYSTIMESTAMP - INTERVAL '1' HOUR GROUP BY dbusername, userhost, client_program_name HAVING COUNT(*) &gt; 5 ORDER BY fails DESC;</span>
+              </div>
+              <div class="cmd-output">Groups ORA-01017 failures by account and source host to separate a mistyped password from a sustained attack.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Privilege and Role Grants</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_timestamp, dbusername, action_name, object_name, sql_text FROM unified_audit_trail WHERE action_name IN ('GRANT','REVOKE','CREATE USER','ALTER USER') ORDER BY event_timestamp DESC FETCH FIRST 100 ROWS ONLY;</span>
+              </div>
+              <div class="cmd-output">Every grant of DBA, SYSDBA, or ANY privileges should be reconciled against a change ticket.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-file-export"></i>
+              <span class="cmd-title">Data Pump Export Activity</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_timestamp, dbusername, userhost, dp_text_parameters1, dp_boolean_parameters1 FROM unified_audit_trail WHERE audit_type = 'Datapump' ORDER BY event_timestamp DESC;</span>
+              </div>
+              <div class="cmd-output">Reveals expdp jobs including the schemas and dump file paths requested. Unscheduled full-schema exports are prime exfiltration candidates.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-crown"></i>
+              <span class="cmd-title">SYSDBA Connections</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_timestamp, dbusername, os_username, userhost, client_program_name FROM unified_audit_trail WHERE dbusername = 'SYS' OR system_privilege_used LIKE '%SYSDBA%' ORDER BY event_timestamp DESC;</span>
+              </div>
+              <div class="cmd-output">SYSDBA sessions bypass most access control. Every one should map to a named human and an approved maintenance window.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-eraser"></i>
+              <span class="cmd-title">Audit Trail Purging</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_timestamp, dbusername, action_name, object_name, sql_text FROM unified_audit_trail WHERE object_name = 'DBMS_AUDIT_MGMT' OR sql_text LIKE '%CLEAN_AUDIT_TRAIL%' OR action_name = 'NOAUDIT' ORDER BY event_timestamp DESC;</span>
+              </div>
+              <div class="cmd-output">Detects both supported purging of the audit trail and NOAUDIT statements disabling policies. Alert on these in real time.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Listener Service Enumeration</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep "TNS-12514" $ORACLE_BASE/diag/tnslsnr/$(hostname)/listener/trace/listener.log | awk -F'HOST=' '{print $2}' | cut -d')' -f1 | sort | uniq -c | sort -rn | head</span>
+              </div>
+              <div class="cmd-output">Counts unknown-service errors per source host in the listener log, exposing hosts brute forcing SID and service names.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-columns"></i>
+              <span class="cmd-title">Fine-Grained Audit Hits</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT event_timestamp, dbusername, object_schema, object_name, fga_policy_name, sql_text FROM unified_audit_trail WHERE audit_type = 'FineGrainedAudit' ORDER BY event_timestamp DESC;</span>
+              </div>
+              <div class="cmd-output">Returns only the queries that actually touched an audited sensitive column, with full SQL text when the EXTENDED trail is used.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-exclamation-circle"></i>
+              <span class="cmd-title">Alert Log Errors</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">adrci exec="set home diag/rdbms/orcl/orcl; show alert -p \"message_text like '%ORA-%'\" -term" | tail -50</span>
+              </div>
+              <div class="cmd-output">Extracts recent ORA- errors from the alert log through adrci without needing to locate the file manually.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-clipboard-check"></i>
+              <span class="cmd-title">Verify Enabled Policies</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT policy_name, enabled_option, entity_name, entity_type, success, failure FROM audit_unified_enabled_policies ORDER BY policy_name;</span>
+              </div>
+              <div class="cmd-output">Run this as a scheduled control check. A policy silently disappearing from this list means someone issued NOAUDIT.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-clock"></i>
+              <span class="cmd-title">Off-Hours Sensitive Access</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="oracle:unified_audit" object_schema="HR" action_name="SELECT" | eval hr=strftime(_time,"%H") | where hr&lt;6 OR hr&gt;20 | stats count values(sql_text) by dbusername, userhost</span>
+              </div>
+              <div class="cmd-output">Correlates access to HR data outside working hours with the originating workstation, a high fidelity insider threat signal.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Oracle Logging</h2>
+        </div>
+        <p class="intro-text">Follow these practices to keep Oracle audit data complete, performant, and trustworthy:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Move AUDSYS to Its Own Tablespace</h3>
+              <p>By default the unified audit trail lives in SYSAUX. A busy audit policy can fill SYSAUX and take the database down. Relocate AUDSYS with DBMS_AUDIT_MGMT.SET_AUDIT_TRAIL_LOCATION and monitor its growth separately.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Enable the Predefined Policies First</h3>
+              <p>ORA_SECURECONFIG, ORA_LOGON_FAILURES, and ORA_ACCOUNT_MGMT deliver the majority of required coverage with no tuning and negligible overhead. Turn them on before designing anything custom.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Forward the Trail Off the Database</h3>
+              <p>An attacker with AUDIT_ADMIN can purge records through supported interfaces. Continuously export the unified audit trail to a SIEM so the evidence exists somewhere the database administrator cannot reach.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Collect the Listener Log</h3>
+              <p>The listener log records connection attempts that never become sessions and therefore never appear in any audit trail. It is the only place service enumeration and pre-authentication attacks are visible.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Use FGA Instead of Blanket Object Auditing</h3>
+              <p>Auditing every SELECT on a high-traffic table produces volume nobody reads. A fine-grained policy on the sensitive columns delivers the same compliance outcome at a fraction of the cost.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Protect Trace Files and Incident Dumps</h3>
+              <p>Trace files can contain bind variable values including credentials and personal data. Restrict directory permissions, include them in data classification, and purge them on a defined schedule.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Schedule Purging, Never Manual Deletion</h3>
+              <p>Create a DBMS_AUDIT_MGMT purge job tied to an archive timestamp. Ad hoc purging is indistinguishable from anti-forensics and destroys the retention guarantee auditors rely on.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Alert on NOAUDIT Immediately</h3>
+              <p>Legitimate policy changes are rare and planned. Treat any NOAUDIT statement or audit policy drop as a potential incident and page on it rather than reviewing it in the next audit cycle.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common Oracle Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Oracle Log Examples</h2>
+        <p>These entries show how the same attack chain surfaces across the listener log, the alert log, and the unified audit trail.</p>
+
+        <div class="implementation-steps">
+          <h3>Listener Log: Service Name Enumeration</h3>
+          <div class="config-snippet">
+14-JUL-2025 06:12:44 * (CONNECT_DATA=(SID=ORCL)(CID=(PROGRAM=)(HOST=__jdbc__)(USER=)))
+  * (ADDRESS=(PROTOCOL=tcp)(HOST=203.0.113.44)(PORT=51884)) * establish * ORCL * 12514
+TNS-12514: TNS:listener does not currently know of service requested in connect descriptor</div>
+          <div class="cmd-output">An empty PROGRAM field and a generic __jdbc__ host, repeated with different SID values from one address, is automated service name brute forcing rather than a misconfigured client.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Unified Audit Trail: Failed Logon (ORA-01017)</h3>
+          <div class="config-snippet">
+EVENT_TIMESTAMP_UTC : 2025-07-14 06:41:22.481
+DBUSERNAME          : SYSTEM
+ACTION_NAME         : LOGON
+RETURN_CODE         : 1017
+USERHOST            : kali
+OS_USERNAME         : root
+CLIENT_PROGRAM_NAME : sqlplus@kali (TNS V1-V3)
+AUTHENTICATION_TYPE : (TYPE=(DATABASE));(CLIENT ADDRESS=((PROTOCOL=tcp)(HOST=203.0.113.44)(PORT=51902)))</div>
+          <div class="cmd-output">Return code 1017 against the SYSTEM account, from an OS user named root on a host called kali. The client metadata alone is enough to justify immediate containment.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Account Lockout After Brute Force (ORA-28000)</h3>
+          <div class="config-snippet">
+EVENT_TIMESTAMP_UTC : 2025-07-14 06:44:10.229
+DBUSERNAME          : SYSTEM
+ACTION_NAME         : LOGON
+RETURN_CODE         : 28000
+USERHOST            : kali
+UNIFIED_AUDIT_POLICIES : ORA_LOGON_FAILURES</div>
+          <div class="cmd-output">The profile's FAILED_LOGIN_ATTEMPTS limit has been reached and the account is now locked. This also means a denial of service against a real account is trivially achievable.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Privilege Escalation: DBA Role Granted</h3>
+          <div class="config-snippet">
+EVENT_TIMESTAMP_UTC : 2025-07-14 07:02:18.774
+DBUSERNAME          : APP_ADMIN
+ACTION_NAME         : GRANT
+OBJECT_NAME         : DBA
+SQL_TEXT            : GRANT DBA TO batch_svc
+SYSTEM_PRIVILEGE_USED : GRANT ANY ROLE
+USERHOST            : appsrv01
+CLIENT_PROGRAM_NAME : sqlplus.exe
+UNIFIED_AUDIT_POLICIES : ORA_SECURECONFIG</div>
+          <div class="cmd-output">An application account granting the DBA role to a batch service account. Application identities should never hold GRANT ANY ROLE, and this grant reaches full database control in one statement.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Bulk Exfiltration: Unscheduled Data Pump Export</h3>
+          <div class="config-snippet">
+EVENT_TIMESTAMP_UTC   : 2025-07-14 07:19:53.006
+AUDIT_TYPE            : Datapump
+DBUSERNAME            : BATCH_SVC
+DP_TEXT_PARAMETERS1   : MASTER TABLE: "BATCH_SVC"."SYS_EXPORT_SCHEMA_01"
+                        JOB_TYPE: EXPORT  SCHEMAS: HR,FINANCE
+                        DUMPFILE: /tmp/.cache/exp01.dmp
+USERHOST              : appsrv01</div>
+          <div class="cmd-output">A full export of the HR and FINANCE schemas written to a hidden directory under /tmp. The dump file path is the strongest indicator here: legitimate exports go to a registered directory object.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Fine-Grained Audit: Salary Column Access</h3>
+          <div class="config-snippet">
+EVENT_TIMESTAMP_UTC : 2025-07-14 02:31:09.118
+AUDIT_TYPE          : FineGrainedAudit
+FGA_POLICY_NAME     : FGA_SALARY_ACCESS
+DBUSERNAME          : R_ALMUTAIRI
+OBJECT_SCHEMA       : HR
+OBJECT_NAME         : EMPLOYEES
+SQL_TEXT            : SELECT employee_id, national_id, salary FROM hr.employees
+CLIENT_PROGRAM_NAME : Toad.exe
+USERHOST            : WKS-HR-22</div>
+          <div class="cmd-output">A full extract of national ID and salary columns at 02:31 using an ad hoc query tool. The FGA policy fired precisely because the protected columns were referenced.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Alert Log: Security Parameter Weakened</h3>
+          <div class="config-snippet">
+2025-07-14T07:26:41.882110+03:00
+ALTER SYSTEM SET remote_os_authent=TRUE SCOPE=SPFILE;
+2025-07-14T07:27:03.441207+03:00
+Shutting down instance (immediate) (OS id: 44219)
+Stopping background process SMON</div>
+          <div class="cmd-output">Setting REMOTE_OS_AUTHENT to TRUE allows a client to assert its own operating system identity for authentication. Followed immediately by a restart to apply it, this is a deliberate backdoor.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Databaseslogs.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

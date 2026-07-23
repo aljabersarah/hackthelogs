@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - DHCP Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">DHCP Logs</div>
+      <a href="#overview" class="nav-item active">DHCP Log Overview</a>
+      <a href="#log-types" class="nav-item">Key DHCP Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring DHCP Logging</a>
+      <a href="#threat-patterns" class="nav-item">DHCP Threat Patterns</a>
+      <a href="#log-format" class="nav-item">DHCP Log Format</a>
+      <a href="#event-ids" class="nav-item">Critical DHCP Event IDs</a>
+      <a href="#analysis-queries" class="nav-item">DHCP Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for DHCP Logging</a>
+      <a href="#log-examples" class="nav-item">Common DHCP Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> DHCP Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>DHCP Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>DHCP logs answer a question that almost every other log implicitly assumes has already been answered: which physical device was using this IP address at this moment. Firewall logs, proxy logs, IDS alerts, and DNS queries all identify actors by address, and on any network using dynamic addressing those addresses move between devices constantly. Without DHCP records, an alert saying that 10.30.2.61 contacted a command and control server identifies a lease, not a laptop, and the investigation stops there.</p>
+            <p>The protocol itself is a four-message exchange: the client broadcasts a <code>DHCPDISCOVER</code>, servers respond with a <code>DHCPOFFER</code>, the client requests a specific offer with <code>DHCPREQUEST</code>, and the server confirms with <code>DHCPACK</code>. Each message carries the client hardware address, and most clients also supply a hostname and a vendor class identifier. That combination of MAC address, hostname, and vendor string is what makes DHCP logs valuable beyond simple attribution: it is effectively a passive asset inventory, recording every device that joins the network including the ones nobody registered.</p>
+            <p>DHCP is also an attack surface in its own right. Because the protocol has no authentication, any host on a segment can answer a discover broadcast. A rogue DHCP server that wins the race supplies its own address as the default gateway and DNS server, placing the attacker in the middle of the victim's traffic. Related techniques include starvation attacks that exhaust the address pool to force clients onto a rogue server, and DHCP-based DNS redirection. Windows Server mitigates the rogue server problem within a domain through authorisation in Active Directory, and switches can enforce DHCP snooping, but both controls need their logs collected to be useful.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key DHCP Log Types</h2>
+        </div>
+        <p>DHCP visibility comes from the server, from the switch infrastructure, and from the lease database itself:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Server Audit Log</td>
+                <td>The primary record, written by Windows DHCP Server or ISC dhcpd. Contains one entry per protocol message with the event code, address, MAC, and hostname. Windows rotates these into seven daily files named by weekday, which is a critical retention limitation.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Lease Database</td>
+                <td>The current state of all allocations rather than a chronological log. Windows stores this in a JET database, ISC dhcpd in a plain text leases file. Shows what is assigned right now, including lease start and expiry times.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">DHCP Snooping Log</td>
+                <td>Produced by switches enforcing trusted and untrusted ports. Records offers seen on untrusted ports, which is the definitive rogue DHCP server detection, plus binding table entries mapping MAC to address to physical port.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Server Authorisation Events</td>
+                <td>Windows-specific records showing whether the DHCP service is authorised in Active Directory. An unauthorised server refusing to start is a strong signal that someone attempted to stand up a rogue server inside the domain.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Dynamic DNS Update Log</td>
+                <td>Records the server registering or removing DNS records on behalf of clients. Failures here explain stale DNS entries, and unexpected updates can indicate name-based redirection attempts.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Relay Agent Log</td>
+                <td>Router or switch records of DHCP requests forwarded between subnets, including Option 82 circuit and remote identifiers. Option 82 adds the physical port to the record, which is the strongest form of device attribution available.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Windows DHCP audit logs rotate on a seven day cycle by weekday name, so Monday's file is overwritten the following Monday. An investigation into activity from ten days ago will find the evidence already gone unless the logs are forwarded off the server.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Windows and ISC dhcpd take completely different approaches to storage, and the Windows weekday rotation scheme catches many teams out.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Windows Audit Log</td>
+                <td>%SystemRoot%\System32\dhcp\DhcpSrvLog-Mon.log through DhcpSrvLog-Sun.log</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Windows IPv6 Audit Log</td>
+                <td>%SystemRoot%\System32\dhcp\DhcpV6SrvLog-Mon.log through Sun</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Windows Lease Database</td>
+                <td>%SystemRoot%\System32\dhcp\dhcp.mdb</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Windows Event Channel</td>
+                <td>Microsoft-Windows-DHCP-Server/Operational and /Admin</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">ISC dhcpd Log</td>
+                <td>/var/log/dhcpd.log, or syslog facility local7 by default</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">ISC Lease File</td>
+                <td>/var/lib/dhcp/dhcpd.leases (Debian) or /var/lib/dhcpd/dhcpd.leases (RHEL)</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">ISC Configuration</td>
+                <td>/etc/dhcp/dhcpd.conf</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Kea DHCP</td>
+                <td>/var/log/kea-dhcp4.log with leases in /var/lib/kea/kea-leases4.csv</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Cisco DHCP Snooping</td>
+                <td>Device syslog, plus the binding table via show ip dhcp snooping binding</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The Windows audit log file is written with a header block repeated at the top of each file listing every event ID and its meaning. When parsing, skip the first 30 or so lines or your ingestion pipeline will create events out of the documentation.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring DHCP Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring DHCP Logging</h2>
+        <p>Audit logging is on by default on Windows but with restrictive size limits, and ISC dhcpd needs an explicit syslog facility to separate its output from everything else.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Verify and Tune Windows DHCP Audit Logging</h3>
+          <div class="config-snippet">
+# Check current state
+Get-DhcpServerAuditLog
+
+# Raise the size cap and relocate to a dedicated volume
+Set-DhcpServerAuditLog -Enable $true `
+                       -Path "D:\DHCPLogs" `
+                       -MaxMBFileSize 500 `
+                       -DiskCheckInterval 50 `
+                       -MinMBDiskSpace 100
+
+Restart-Service DHCPServer</div>
+          <div class="cmd-output">The default cap is 70 MB shared across all seven files. On a large network that fills within hours, and the server silently stops logging when MinMBDiskSpace is reached.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Enable the Windows Operational Channel</h3>
+          <div class="config-snippet">
+wevtutil sl "Microsoft-Windows-Dhcp-Server/Operational" /e:true /ms:268435456
+wevtutil sl "Microsoft-Windows-Dhcp-Server/FilterNotifications" /e:true
+
+# Confirm
+Get-WinEvent -ListLog "Microsoft-Windows-Dhcp-Server/*" |
+  Select-Object LogName, IsEnabled, MaximumSizeInBytes</div>
+          <div class="cmd-output">The operational channel carries service state, scope changes, and authorisation events in proper event log format, which forwards far more cleanly than the text audit file.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Configure ISC dhcpd Logging</h3>
+          <div class="config-snippet">
+# /etc/dhcp/dhcpd.conf
+log-facility local7;
+
+# Record the vendor class and hostname for asset identification
+option space vendor;
+set vendor-string = option vendor-class-identifier;
+on commit {
+    log(info, concat("COMMIT lease=", binary-to-ascii(10,8,".",leased-address),
+                     " mac=", binary-to-ascii(16,8,":",substring(hardware,1,6)),
+                     " host=", pick-first-value(option host-name, "unknown"),
+                     " vendor=", pick-first-value(vendor-string, "unknown")));
+}</div>
+          <div class="cmd-output">The on commit block produces a single enriched line per lease containing everything needed for attribution and asset inventory in one record.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Separate DHCP from General Syslog</h3>
+          <div class="config-snippet">
+# /etc/rsyslog.d/40-dhcpd.conf
+local7.*    /var/log/dhcpd.log
+local7.*    @@siem-collector.corp.local:6514
+&amp; stop
+
+# /etc/logrotate.d/dhcpd
+/var/log/dhcpd.log {
+    daily
+    rotate 90
+    compress
+    missingok
+    postrotate
+        systemctl reload rsyslog &gt; /dev/null 2&gt;&amp;1 || true
+    endscript
+}</div>
+          <div class="cmd-output">Ninety days of retention is the practical minimum. Attribution questions routinely arrive weeks after the activity they concern.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable DHCP Snooping on Switches</h3>
+          <div class="config-snippet">
+! Cisco IOS
+ip dhcp snooping
+ip dhcp snooping vlan 10,20,30
+no ip dhcp snooping information option    ! unless the relay expects Option 82
+
+interface GigabitEthernet1/0/1
+ description Uplink to distribution
+ ip dhcp snooping trust
+!
+interface range GigabitEthernet1/0/2 - 48
+ ip dhcp snooping limit rate 15           ! mitigate starvation attacks
+!
+ip dhcp snooping database flash:snooping.db</div>
+          <div class="cmd-output">Only uplinks toward the legitimate DHCP server should be trusted. Any offer arriving on an untrusted access port is dropped and logged, which is the definitive rogue server detection.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Add Option 82 for Port-Level Attribution</h3>
+          <div class="config-snippet">
+! On the relay agent
+ip dhcp relay information option
+ip dhcp relay information policy replace
+
+! ISC dhcpd side, log the circuit ID
+on commit {
+    log(info, concat("PORT circuit=",
+        binary-to-ascii(16,8,":",option agent.circuit-id),
+        " remote=", binary-to-ascii(16,8,":",option agent.remote-id)));
+}</div>
+          <div class="cmd-output">Option 82 records the switch and physical port a request arrived on. This upgrades attribution from an address to a wall socket, which is decisive when tracking an unregistered device.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Windows DHCP audit logging stops entirely when free disk space drops below the <code>MinMBDiskSpace</code> threshold, and the service keeps issuing leases while silently logging nothing. Monitor both the free space on that volume and the age of the newest log entry.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>DHCP Threat Patterns</h2>
+        </div>
+        <p class="description">DHCP abuse is limited in variety but high in impact, because success places the attacker in the path of all victim traffic.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-secret"></i>
+              <h4>Rogue DHCP Server</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>An unauthorised server answering discover broadcasts, supplying itself as gateway and DNS. Achieves a machine in the middle position for every client that accepts its offer.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-battery-empty"></i>
+              <h4>Pool Starvation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Flooding requests with spoofed MAC addresses to exhaust the scope. Denies service to legitimate clients and is usually the setup phase for a rogue server attack.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-mask"></i>
+              <h4>MAC Spoofing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Cloning an authorised device's hardware address to inherit its network access and reservations. Signature: the same MAC appearing on two switch ports, or an abrupt hostname change for one MAC.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-plug"></i>
+              <h4>Unauthorised Devices</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Personal laptops, unmanaged IoT, and attacker hardware requesting leases. The vendor class identifier and hostname frequently identify these immediately.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-exclamation-triangle"></i>
+              <h4>Address Conflicts</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Event 13 on Windows means the server found an address already in use before offering it. Sustained conflicts can indicate a rogue server issuing overlapping addresses or manual static assignment inside the pool.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Investigate</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-random"></i>
+              <h4>MAC Randomisation Noise</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Modern phones and laptops randomise their hardware address per network by default. Not an attack, but it inflates apparent device counts and breaks MAC-based tracking if not accounted for.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Baseline</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Locally administered MAC addresses have the second least significant bit of the first octet set, which shows as a second character of 2, 6, A, or E. This distinguishes randomised or spoofed addresses from real vendor-assigned ones and is a useful first filter when triaging unknown devices.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>DHCP Log Format</h2>
+        <p>The Windows audit log is comma separated with a fixed column order. These are the fields and their ISC dhcpd equivalents.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ID</td>
+                <td>Numeric event code for the DHCP message type</td>
+                <td>Detection</td>
+                <td>10</td>
+              </tr>
+              <tr>
+                <td>Date / Time</td>
+                <td>Local date and time of the event</td>
+                <td>Timestamp</td>
+                <td>07/14/25 09:41:22</td>
+              </tr>
+              <tr>
+                <td>Description</td>
+                <td>Text description of the event code</td>
+                <td>Action</td>
+                <td>Assign</td>
+              </tr>
+              <tr>
+                <td>IP Address</td>
+                <td>Address leased or referenced</td>
+                <td>Target</td>
+                <td>10.30.2.61</td>
+              </tr>
+              <tr>
+                <td>Host Name</td>
+                <td>Client-supplied hostname</td>
+                <td>Identity</td>
+                <td>WKS-FIN-014</td>
+              </tr>
+              <tr>
+                <td>MAC Address</td>
+                <td>Client hardware address</td>
+                <td>Identity</td>
+                <td>00155D8A4C12</td>
+              </tr>
+              <tr>
+                <td>User Name</td>
+                <td>Authenticated user where NAP or 802.1X applies</td>
+                <td>Identity</td>
+                <td>CORP\r.almutairi</td>
+              </tr>
+              <tr>
+                <td>TransactionID</td>
+                <td>Identifier linking the four-message exchange</td>
+                <td>Session</td>
+                <td>1874203911</td>
+              </tr>
+              <tr>
+                <td>QResult</td>
+                <td>NAP quarantine result</td>
+                <td>Policy</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>VendorClass</td>
+                <td>Client vendor class identifier, hex or ASCII</td>
+                <td>Asset</td>
+                <td>MSFT 5.0</td>
+              </tr>
+              <tr>
+                <td>UserClass</td>
+                <td>Client-supplied user class</td>
+                <td>Asset</td>
+                <td>Default Routing Class</td>
+              </tr>
+              <tr>
+                <td>RelayAgentInformation</td>
+                <td>Option 82 circuit and remote identifiers</td>
+                <td>Source</td>
+                <td>0108000600040101</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Event IDs -->
+      <div id="event-ids" class="card">
+        <h2>Critical DHCP Event IDs</h2>
+        <p>Windows DHCP audit event codes are stable and well documented, which makes them precise detection anchors.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">10</td>
+                <td>A new IP address was leased to a client</td>
+                <td>The core attribution record. Every new device joining the network appears here first</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">11</td>
+                <td>A lease was renewed by a client</td>
+                <td>Confirms continued presence. Useful for building device dwell time on the network</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">12</td>
+                <td>A lease was released by a client</td>
+                <td>Marks the end of an address to device binding, closing the attribution window</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">13</td>
+                <td>An IP address was found in use on the network</td>
+                <td>Address conflict. Sustained occurrences suggest a rogue server or unauthorised static addressing</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">14</td>
+                <td>A lease request could not be satisfied, scope exhausted</td>
+                <td>Pool exhaustion, which may be organic growth or an active starvation attack</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">15</td>
+                <td>A lease was denied (NAK)</td>
+                <td>Frequently seen when a client presents a lease from a different, possibly rogue, server</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">20</td>
+                <td>A BOOTP address was leased to a client</td>
+                <td>Legacy protocol usage. Unexpected BOOTP can indicate network boot attacks or old embedded devices</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">31</td>
+                <td>DNS dynamic update failed</td>
+                <td>Leaves stale DNS entries that cause misattribution in every DNS-derived investigation</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">51</td>
+                <td>The server was authorised to start</td>
+                <td>Normal service start within the domain, and the baseline for spotting the failure case below</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">54</td>
+                <td>Authorisation failed, server not authorised in Active Directory</td>
+                <td>Someone stood up a DHCP server inside the domain without approval. Investigate the host immediately</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Active Directory authorisation only restrains Windows DHCP servers that are domain members. A Linux host, a consumer router plugged into a wall port, or an attacker's laptop will happily serve DHCP with no authorisation check at all. Switch-level snooping is the control that actually stops those.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>DHCP Log Analysis Queries</h2>
+        <p>Use these to resolve addresses to devices, find rogue servers, and spot unmanaged hardware on the network.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Resolve an Address to a Device</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dhcp" ip_address="10.30.2.61" earliest=-7d | table _time, event_id, description, mac_address, host_name, vendor_class | sort _time</span>
+              </div>
+              <div class="cmd-output">The fundamental DHCP query. Always bound it by time, because the same address may have served a dozen devices in a week.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">Rogue DHCP Server</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "DHCP_SNOOPING_DENY|DHCP_SNOOPING_UNTRUSTED_PORT|dhcp server.*not authorized" /var/log/network/switches.log | awk '{print $1, $2, $NF}' | sort | uniq -c</span>
+              </div>
+              <div class="cmd-output">DHCP snooping denials name the exact switch port the rogue offer came from, which is enough to physically locate the device.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-battery-empty"></i>
+              <span class="cmd-title">Pool Starvation Attack</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dhcp" event_id=10 | bucket _time span=5m | stats dc(mac_address) as new_devices by _time, scope | where new_devices &gt; 50</span>
+              </div>
+              <div class="cmd-output">Fifty new hardware addresses in five minutes on one scope is not organic. Compare against event 14 to confirm the pool was exhausted.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-mask"></i>
+              <span class="cmd-title">MAC Address Conflict</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dhcp" event_id IN (10,11) | stats dc(host_name) as names, values(host_name), dc(ip_address) as addrs by mac_address | where names &gt; 1</span>
+              </div>
+              <div class="cmd-output">One hardware address presenting two different hostnames is either MAC spoofing or a rebuilt machine. Both warrant a look.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-plug"></i>
+              <span class="cmd-title">Unmanaged Devices</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dhcp" event_id=10 | lookup asset_inventory mac_address OUTPUT owner, asset_tag | where isnull(asset_tag) | stats count, values(host_name), values(vendor_class) by mac_address</span>
+              </div>
+              <div class="cmd-output">Joining leases against the asset inventory turns DHCP into continuous rogue device detection.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-random"></i>
+              <span class="cmd-title">Randomised or Spoofed MACs</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -oP '^10,.*?,\K[0-9A-F]{12}' /var/log/dhcp/DhcpSrvLog-Mon.log | grep -iE '^.[26AE]' | sort -u | wc -l</span>
+              </div>
+              <div class="cmd-output">Filters for locally administered addresses, the marker of randomised or manually set MACs. A rising count usually reflects modern device defaults rather than attack.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-exclamation-circle"></i>
+              <span class="cmd-title">Address Conflicts and Denials</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dhcp" event_id IN (13,14,15) | timechart span=1h count by event_id</span>
+              </div>
+              <div class="cmd-output">A sudden rise in conflicts and NAKs is the fingerprint of a second DHCP server operating on the segment.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-table"></i>
+              <span class="cmd-title">Snooping Binding Table</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">IOS></span>
+                <span class="cmd-line-content">show ip dhcp snooping binding | include 10.30.2.61</span>
+              </div>
+              <div class="cmd-output">Returns the MAC, address, lease time, VLAN, and physical interface in one line. The most direct route from an address to a wall port.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-clipboard-list"></i>
+              <span class="cmd-title">Current Windows Leases</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-DhcpServerv4Scope | Get-DhcpServerv4Lease | Where-Object { $_.AddressState -ne 'Active' } | Select-Object IPAddress, ClientId, HostName, AddressState, LeaseExpiryTime</span>
+              </div>
+              <div class="cmd-output">Non-active lease states such as ActiveReservation or Declined often mark conflicts and devices behaving unexpectedly.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-heartbeat"></i>
+              <span class="cmd-title">Logging Continuity</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dhcp" | timechart span=1h count | where count &lt; 10</span>
+              </div>
+              <div class="cmd-output">Windows silently stops audit logging when disk space runs low while continuing to issue leases. Volume monitoring is the only way to notice.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for DHCP Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so that every other log on the network remains attributable:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Forward Logs Off the Server Immediately</h3>
+              <p>Windows overwrites each audit file on a seven day weekday cycle. Any investigation reaching back further than a week finds nothing unless the logs were shipped elsewhere.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Retain for at Least Ninety Days</h3>
+              <p>Attribution requests arrive long after the event. Retention shorter than the rest of your log estate makes every other network log unattributable for the same period.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Enable DHCP Snooping Everywhere</h3>
+              <p>Active Directory authorisation only restrains domain-joined Windows servers. Snooping is what stops a Linux host or consumer router from serving addresses on an access port.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Capture Vendor Class and Hostname</h3>
+              <p>These fields turn the lease log into a passive asset inventory, identifying device type and operating system without any agent or scan.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Add Option 82 Where Possible</h3>
+              <p>Circuit and remote identifiers record the switch and port a request arrived on, upgrading attribution from an address to a physical location.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Join Leases to the Asset Inventory</h3>
+              <p>Enriching each lease with the registered owner at ingest means unknown devices surface automatically instead of requiring someone to go looking.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Monitor Free Disk Space on the Server</h3>
+              <p>Windows DHCP stops logging when free space falls below the configured minimum, yet continues issuing leases normally. Nothing alerts you that visibility has been lost.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Account for MAC Randomisation</h3>
+              <p>Phones and modern laptops randomise hardware addresses by default. Track devices by certificate or 802.1X identity where accuracy matters, and expect inflated device counts otherwise.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common DHCP Log Examples</h2>
+        <p>Normal allocation, attribution, and the two attacks DHCP logs are best at revealing.</p>
+
+        <div class="implementation-steps">
+          <h3>Windows Audit Log: Normal Lease Assignment</h3>
+          <div class="config-snippet">
+ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name,TransactionID,QResult,Probationtime,CorrelationID,Dhcid,VendorClass(Hex),VendorClass(ASCII),UserClass(Hex),UserClass(ASCII),RelayAgentInformation,DnsRegError
+10,07/14/25,09:41:22,Assign,10.30.2.61,WKS-FIN-014,00155D8A4C12,,1874203911,0,6,,,4D53465420352E30,MSFT 5.0,,,0108000600040101,0</div>
+          <div class="cmd-output">Event 10 binds address 10.30.2.61 to MAC 00155D8A4C12 and hostname WKS-FIN-014. The MSFT 5.0 vendor class confirms Windows, and Option 82 records the originating port.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>ISC dhcpd: The Full Four-Message Exchange</h3>
+          <div class="config-snippet">
+Jul 14 09:41:21 dhcp01 dhcpd[1284]: DHCPDISCOVER from 00:15:5d:8a:4c:12 via eth0
+Jul 14 09:41:21 dhcp01 dhcpd[1284]: DHCPOFFER on 10.30.2.61 to 00:15:5d:8a:4c:12 (WKS-FIN-014) via eth0
+Jul 14 09:41:22 dhcp01 dhcpd[1284]: DHCPREQUEST for 10.30.2.61 (10.10.0.5) from 00:15:5d:8a:4c:12 (WKS-FIN-014) via eth0
+Jul 14 09:41:22 dhcp01 dhcpd[1284]: DHCPACK on 10.30.2.61 to 00:15:5d:8a:4c:12 (WKS-FIN-014) via eth0</div>
+          <div class="cmd-output">The complete handshake. The DHCPACK is the authoritative record: the address is now bound to that hardware address until the lease expires or is released.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Rogue DHCP Server Detected by Snooping</h3>
+          <div class="config-snippet">
+Jul 14 09:52:10 sw-access-03 %DHCP_SNOOPING-5-DHCP_SNOOPING_UNTRUSTED_PORT: DHCP_SNOOPING drop message on untrusted port, message type: DHCPOFFER, MAC sa: 00:0c:29:8f:2a:41
+Jul 14 09:52:10 sw-access-03 %DHCP_SNOOPING-5-DHCP_SNOOPING_UNTRUSTED_PORT: interface GigabitEthernet1/0/24, VLAN 20
+Jul 14 09:52:11 sw-access-03 %DHCP_SNOOPING-5-DHCP_SNOOPING_MATCH_MAC_FAIL: DHCP_SNOOPING drop message because the chaddr doesn't match source mac</div>
+          <div class="cmd-output">An offer arriving on an access port is definitionally a rogue server. The 00:0c:29 prefix belongs to VMware, so this is a virtual machine, likely on a laptop plugged into port Gi1/0/24.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Windows: Unauthorised Server Blocked</h3>
+          <div class="config-snippet">
+ID,Date,Time,Description,IP Address,Host Name,MAC Address
+54,07/14/25,09:52:14,Authorization failed,10.30.7.88,ROGUE-SRV,000C298F2A41
+50,07/14/25,09:52:14,Unreachable domain,,,
+56,07/14/25,09:52:44,Authorization failure stopped servicing,10.30.7.88,ROGUE-SRV,</div>
+          <div class="cmd-output">Event 54 followed by 56 shows a domain-joined Windows server attempting to start DHCP without authorisation and shutting itself down. Note that this control does nothing against non-Windows rogue servers.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Pool Starvation Attack</h3>
+          <div class="config-snippet">
+Jul 14 10:02:44 dhcp01 dhcpd[1284]: DHCPDISCOVER from 3a:1f:7c:04:9e:22 via eth0
+Jul 14 10:02:44 dhcp01 dhcpd[1284]: DHCPDISCOVER from 6e:88:2b:f1:04:c7 via eth0
+Jul 14 10:02:44 dhcp01 dhcpd[1284]: DHCPDISCOVER from a2:41:9d:3e:77:10 via eth0
+Jul 14 10:02:45 dhcp01 dhcpd[1284]: DHCPDISCOVER from ee:03:b4:2a:81:5f via eth0
+Jul 14 10:03:19 dhcp01 dhcpd[1284]: no free leases on subnet 10.30.2.0/24</div>
+          <div class="cmd-output">Randomised hardware addresses arriving in the same second, all locally administered (second character 2, 6, A, or E). The pool exhausts in 35 seconds, clearing the way for a rogue server.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>MAC Spoofing: One Address, Two Identities</h3>
+          <div class="config-snippet">
+10,07/14/25,08:14:02,Assign,10.30.2.61,WKS-FIN-014,00155D8A4C12,,1874203911,0
+12,07/14/25,09:38:41,Release,10.30.2.61,WKS-FIN-014,00155D8A4C12,,1874203911,0
+10,07/14/25,09:39:02,Assign,10.30.2.61,kali,00155D8A4C12,,1874204882,0</div>
+          <div class="cmd-output">The same hardware address releases a lease as WKS-FIN-014 and reclaims it 21 seconds later as kali. The MAC was cloned to inherit the legitimate workstation's network access.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Unmanaged Device Joining the Network</h3>
+          <div class="config-snippet">
+Jul 14 10:18:12 dhcp01 dhcpd[1284]: DHCPACK on 10.30.2.184 to 8a:3f:2c:91:0e:44 (raspberrypi) via eth0
+  vendor-class-identifier = "dhcpcd-9.4.1:Linux-6.1.21-v8+:aarch64:BCM2835"
+Jul 14 10:18:12 dhcp01 dhcpd[1284]: COMMIT lease=10.30.2.184 mac=8a:3f:2c:91:0e:44 host=raspberrypi vendor=dhcpcd-9.4.1:Linux-6.1.21-v8+</div>
+          <div class="cmd-output">The vendor class identifies a Raspberry Pi running Linux on ARM. No asset record exists for this device, and single-board computers are a common drop-box for persistent network access.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Network.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

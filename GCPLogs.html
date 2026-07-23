@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Google Cloud Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Google Cloud Logs</div>
+      <a href="#overview" class="nav-item active">Google Cloud Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Google Cloud Log Types</a>
+      <a href="#log-locations" class="nav-item">Log Storage and Retention</a>
+      <a href="#enable-logging" class="nav-item">Configuring Google Cloud Logging</a>
+      <a href="#threat-patterns" class="nav-item">Google Cloud Threat Patterns</a>
+      <a href="#log-format" class="nav-item">Audit Log Entry Format</a>
+      <a href="#methods" class="nav-item">Critical Methods to Monitor</a>
+      <a href="#analysis-queries" class="nav-item">Google Cloud Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Google Cloud Logging</a>
+      <a href="#log-examples" class="nav-item">Common Google Cloud Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Google Cloud Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Google Cloud Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Google Cloud records administrative activity through <code>Cloud Audit Logs</code>, which are organised into four distinct streams with very different default behaviour. <code>Admin Activity</code> logs capture every operation that modifies configuration or metadata, are always enabled, cannot be disabled, and are retained for 400 days at no charge. <code>System Event</code> logs record Google-initiated actions such as automatic instance migration and are equally unavoidable. Those two guarantees are genuinely useful: unlike AWS CloudTrail, which can be stopped, the core Google Cloud audit trail cannot be turned off by an attacker.</p>
+            <p>The other two streams are where the gaps appear. <code>Data Access</code> logs record reads of user data and non-modifying API calls, and they are disabled by default for every service except BigQuery. Enabling them is a deliberate decision with real cost implications, and the consequence of skipping it is the same as skipping CloudTrail data events in AWS: you can prove a bucket permission changed but not which objects were subsequently downloaded. <code>Policy Denied</code> logs capture requests blocked by VPC Service Controls or organisation policy, and they are generated automatically but charged, which leads some organisations to filter them out.</p>
+            <p>What distinguishes Google Cloud operationally is the centrality of <code>service accounts</code> and impersonation. Rather than long-lived keys, the recommended pattern is short-lived token generation through <code>generateAccessToken</code>, granted by the Service Account Token Creator role. This is better security practice, but it creates impersonation chains that are genuinely difficult to follow: principal A impersonates service account B which impersonates C, and only the <code>authenticationInfo.serviceAccountDelegationInfo</code> field records the full path. Attackers exploit exactly this, and detections that only look at the immediate caller will attribute their actions to a legitimate service account.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Google Cloud Log Types</h2>
+        </div>
+        <p>Four audit log streams plus several supporting sources, each with its own default state and cost model:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Admin Activity Audit Logs</td>
+                <td>Every API call that modifies configuration or metadata: IAM policy changes, resource creation and deletion, service account key creation. Always enabled, cannot be disabled, free, and retained 400 days. The backbone of Google Cloud investigation.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Data Access Audit Logs</td>
+                <td>Reads of user data and non-modifying API calls such as storage.objects.get and bigquery data reads. Disabled by default for all services except BigQuery. Without these you cannot determine what data an attacker actually accessed.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">System Event Audit Logs</td>
+                <td>Google-initiated actions taken without user involvement, such as automatic live migration of an instance or automatic instance termination. Always enabled and free.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Policy Denied Audit Logs</td>
+                <td>Requests rejected by VPC Service Controls, organisation policy, or context-aware access. Generated automatically but billed. Extremely useful because a denied request often reveals an attacker probing a boundary.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">VPC Flow Logs</td>
+                <td>Network metadata sampled from virtual machine interfaces, including source, destination, ports, bytes, and geographic annotation. Enabled per subnet with a configurable sampling rate.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Firewall Rules Logging</td>
+                <td>Records connections allowed or denied by individual firewall rules. Enabled per rule rather than globally, so coverage is easy to leave incomplete.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Security Command Center Findings</td>
+                <td>Managed detection across misconfiguration, vulnerabilities, and threats, including Event Threat Detection which analyses audit logs directly. The Premium tier adds behavioural detections such as anomalous IAM grants.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Access Transparency Logs</td>
+                <td>Records actions taken by Google personnel on your content, available on eligible support tiers. Rarely relevant to attack detection but frequently required for regulatory assurance.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The guarantee that Admin Activity logs cannot be disabled applies to the log generation, not to your copy of it. An attacker with sufficient permissions can still delete a log <em>sink</em>, stopping delivery to your SIEM while the logs continue accumulating in the platform bucket where nobody is watching.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Storage -->
+      <div id="log-locations" class="card">
+        <h2>Log Storage and Retention</h2>
+        <p>Cloud Logging routes entries through the Log Router into buckets and sinks. Understanding the default buckets prevents both surprise costs and surprise gaps.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Destination</th>
+                <th>Characteristics</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">_Required Bucket</td>
+                <td>Holds Admin Activity, System Event, and Access Transparency logs. Retention fixed at 400 days, cannot be changed or deleted, and incurs no charge</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">_Default Bucket</td>
+                <td>Holds everything else including Data Access logs. Default retention 30 days, configurable up to 3650 days, and billed on ingestion</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Custom Log Buckets</td>
+                <td>User-created buckets with independent retention and optional Log Analytics for SQL querying</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">BigQuery Sink</td>
+                <td>Streams logs into datasets for SQL analysis and long term retention. The standard approach for security analytics at scale</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Cloud Storage Sink</td>
+                <td>Archives logs as JSON files to a bucket. Cheapest long term retention, supports Bucket Lock for immutability</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Pub/Sub Sink</td>
+                <td>Streams to an external SIEM in near real time. The standard integration path for Splunk, Chronicle, and similar platforms</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Aggregated Sink</td>
+                <td>Configured at organisation or folder level to capture logs from every project beneath, including projects created later</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The <code>_Default</code> bucket keeps Data Access logs for only 30 days. If you enable Data Access logging without also extending retention or configuring a sink, you gain visibility that expires before most breaches are even discovered.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Google Cloud Logging</h2>
+        <p>These commands enable the streams that are off by default and route everything to a location an attacker in a member project cannot reach.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Enable Data Access Audit Logs</h3>
+          <div class="config-snippet">
+# Fetch the current organisation IAM policy
+gcloud organizations get-iam-policy 123456789012 --format=json &gt; policy.json
+
+# Add an auditConfigs block covering all services
+cat &lt;&lt;'JSON' &gt; audit.json
+{
+  "auditConfigs": [
+    { "service": "allServices",
+      "auditLogConfigs": [
+        { "logType": "ADMIN_READ" },
+        { "logType": "DATA_READ",  "exemptedMembers": ["serviceAccount:noisy-etl@proj.iam.gserviceaccount.com"] },
+        { "logType": "DATA_WRITE" } ] } ]
+}
+JSON
+
+gcloud organizations set-iam-policy 123456789012 policy-with-audit.json</div>
+          <div class="cmd-output">ADMIN_READ, DATA_READ, and DATA_WRITE must each be listed. Setting this at organisation level covers every current and future project, which is the only way to keep coverage complete as the estate grows.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Create an Aggregated Sink to BigQuery</h3>
+          <div class="config-snippet">
+gcloud logging sinks create htl-org-security-sink \
+  bigquery.googleapis.com/projects/htl-security/datasets/cloud_audit \
+  --organization=123456789012 \
+  --include-children \
+  --use-partitioned-tables \
+  --log-filter='logName:"cloudaudit.googleapis.com" OR
+                logName:"compute.googleapis.com%2Fvpc_flows"'
+
+# Grant the sink writer identity permission on the destination
+gcloud projects add-iam-policy-binding htl-security \
+  --member="$(gcloud logging sinks describe htl-org-security-sink \
+              --organization=123456789012 --format='value(writerIdentity)')" \
+  --role=roles/bigquery.dataEditor</div>
+          <div class="cmd-output">The include-children flag captures every project under the organisation, including ones created tomorrow. Without an aggregated sink, each new project starts unmonitored.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Extend Default Bucket Retention</h3>
+          <div class="config-snippet">
+gcloud logging buckets update _Default \
+  --location=global \
+  --retention-days=365 \
+  --project=htl-production
+
+# Confirm both buckets
+gcloud logging buckets list --project=htl-production \
+  --format="table(name, retentionDays, lifecycleState, locked)"</div>
+          <div class="cmd-output">The _Default bucket keeps Data Access logs for only 30 days. Enabling data access logging without extending retention produces visibility that expires before most breaches are discovered.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Lock the Archive Against Tampering</h3>
+          <div class="config-snippet">
+# Cloud Storage sink with Bucket Lock for immutable retention
+gsutil retention set 400d gs://htl-audit-archive
+gsutil retention lock gs://htl-audit-archive
+
+# Restrict who can modify the Log Router itself
+gcloud organizations add-iam-policy-binding 123456789012 \
+  --member="group:cloud-security@corp.com" \
+  --role=roles/logging.configWriter</div>
+          <div class="cmd-output">Bucket Lock is irreversible once applied, which is exactly the property that makes it valuable. Nobody, including an organisation administrator, can shorten the retention afterwards.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable VPC Flow Logs and Firewall Logging</h3>
+          <div class="config-snippet">
+gcloud compute networks subnets update prod-subnet-me1 \
+  --region=me-central1 \
+  --enable-flow-logs \
+  --logging-aggregation-interval=interval-30-sec \
+  --logging-flow-sampling=1.0 \
+  --logging-metadata=include-all
+
+# Firewall logging is enabled per rule, not globally
+gcloud compute firewall-rules update allow-internal \
+  --enable-logging --logging-metadata=include-all</div>
+          <div class="cmd-output">Flow sampling defaults to 0.5, meaning half of all flows are discarded. Set it to 1.0 on sensitive subnets, because a sampled log cannot prove a connection did not happen.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Alert on Sink and Audit Config Changes</h3>
+          <div class="config-snippet">
+gcloud logging metrics create sink_tampering \
+  --description="Log Router or audit config modified" \
+  --log-filter='protoPayload.methodName=(
+      "google.logging.v2.ConfigServiceV2.DeleteSink" OR
+      "google.logging.v2.ConfigServiceV2.UpdateSink" OR
+      "google.logging.v2.ConfigServiceV2.UpdateBucket" OR
+      "SetIamPolicy")
+    AND protoPayload.serviceData.policyDelta.auditConfigDeltas:*'
+
+gcloud alpha monitoring policies create --policy-from-file=sink-alert.yaml</div>
+          <div class="cmd-output">The auditConfigDeltas filter is the important part: it fires when someone disables audit logging for a service, which is otherwise a quiet change buried inside a routine IAM policy update.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Admin Activity logs cannot be disabled, but the delivery of your copy can be. Deleting a sink stops the flow to your SIEM while logs continue accumulating in the platform bucket that nobody monitors. Alert on sink deletion with the same urgency as AWS StopLogging.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Google Cloud Threat Patterns</h2>
+        </div>
+        <p class="description">Google Cloud attacks centre on service accounts and IAM. These are the patterns that account for most real incidents.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-key"></i>
+              <h4>Service Account Key Creation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Creating a long-lived JSON key for a privileged service account. The key never expires, works from anywhere, and is unaffected by any password or session policy. The most common Google Cloud persistence technique.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-secret"></i>
+              <h4>Impersonation Chains</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Using Service Account Token Creator to generate tokens for progressively more privileged accounts. Only serviceAccountDelegationInfo reveals the true origin, so naive detections blame the final service account.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-globe"></i>
+              <h4>Public IAM Binding</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Granting a role to allUsers or allAuthenticatedUsers on a bucket, dataset, or function. Exposes the resource to the entire internet in a single API call.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-level-up-alt"></i>
+              <h4>IAM Privilege Escalation</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Self-granting roles/owner or roles/iam.securityAdmin through setIamPolicy. Also achievable indirectly through actAs on a privileged service account attached to a compute instance.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-cloud-download-alt"></i>
+              <h4>Data Exfiltration</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Bulk object reads, BigQuery extract jobs to external buckets, or Cloud SQL exports. Visible only if Data Access logging is enabled for the relevant service.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-eye-slash"></i>
+              <h4>Logging Evasion</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Deleting a log sink, disabling audit configs for a service, or operating in a project outside the aggregated sink scope. Stops your visibility without stopping log generation.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> The <code>roles/iam.serviceAccountUser</code> and <code>roles/iam.serviceAccountTokenCreator</code> roles are frequently granted casually because they sound benign. Either one lets a principal act as a service account, inheriting all of its permissions, which makes them among the most dangerous grants in Google Cloud.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Audit Log Entry Format</h2>
+        <p>Every Cloud Audit Log entry shares the AuditLog protobuf structure. These are the fields that carry detection value.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>UTC time the request was received</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22.481Z</td>
+              </tr>
+              <tr>
+                <td>protoPayload.methodName</td>
+                <td>The API method invoked</td>
+                <td>Action</td>
+                <td>google.iam.admin.v1.CreateServiceAccountKey</td>
+              </tr>
+              <tr>
+                <td>protoPayload.serviceName</td>
+                <td>Service that handled the request</td>
+                <td>Target</td>
+                <td>iam.googleapis.com</td>
+              </tr>
+              <tr>
+                <td>authenticationInfo.principalEmail</td>
+                <td>Identity that made the call</td>
+                <td>Identity</td>
+                <td>svc-deploy@proj.iam.gserviceaccount.com</td>
+              </tr>
+              <tr>
+                <td>serviceAccountDelegationInfo</td>
+                <td>Full impersonation chain when present</td>
+                <td>Identity</td>
+                <td>firstPartyPrincipal: r.almutairi@corp.com</td>
+              </tr>
+              <tr>
+                <td>requestMetadata.callerIp</td>
+                <td>Source address of the caller</td>
+                <td>Source</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>callerSuppliedUserAgent</td>
+                <td>Client library or tool used</td>
+                <td>Source</td>
+                <td>google-cloud-sdk gcloud/470.0.0</td>
+              </tr>
+              <tr>
+                <td>resourceName</td>
+                <td>Full path of the resource acted upon</td>
+                <td>Target</td>
+                <td>projects/htl-prod/buckets/customer-data</td>
+              </tr>
+              <tr>
+                <td>authorizationInfo.permission</td>
+                <td>IAM permission checked</td>
+                <td>Authorization</td>
+                <td>storage.buckets.setIamPolicy</td>
+              </tr>
+              <tr>
+                <td>authorizationInfo.granted</td>
+                <td>Whether the permission was allowed</td>
+                <td>Result</td>
+                <td>true</td>
+              </tr>
+              <tr>
+                <td>status.code</td>
+                <td>gRPC status, absent or 0 on success</td>
+                <td>Result</td>
+                <td>7 (PERMISSION_DENIED)</td>
+              </tr>
+              <tr>
+                <td>serviceData.policyDelta</td>
+                <td>Exact IAM bindings added or removed</td>
+                <td>Action</td>
+                <td>ADD roles/owner to user:...</td>
+              </tr>
+              <tr>
+                <td>logName</td>
+                <td>Which audit stream produced the entry</td>
+                <td>Metadata</td>
+                <td>cloudaudit.googleapis.com%2Factivity</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Always read <code>serviceAccountDelegationInfo</code> alongside <code>principalEmail</code>. When impersonation is used, principalEmail shows the service account being impersonated, not the human or key that initiated the chain. Detections built on principalEmail alone attribute attacker actions to legitimate automation.
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical Methods -->
+      <div id="methods" class="card">
+        <h2>Critical Methods to Monitor</h2>
+        <p>A short list of API methods accounts for most Google Cloud compromise. These belong on a real-time watchlist.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Stage</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">CreateServiceAccountKey</td>
+                <td>Persistence</td>
+                <td>Produces a non-expiring credential usable from anywhere. Should be rare in a mature environment that uses workload identity federation</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">SetIamPolicy</td>
+                <td>Escalation</td>
+                <td>The universal permission change method. Inspect serviceData.policyDelta to see exactly which binding was added and to whom</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">GenerateAccessToken / SignJwt</td>
+                <td>Lateral Movement</td>
+                <td>Service account impersonation. Legitimate in many pipelines, so baseline the normal chains and alert on new combinations</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">DeleteSink / UpdateSink</td>
+                <td>Evasion</td>
+                <td>Stops log delivery to your SIEM. The Google Cloud equivalent of StopLogging and equally urgent</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">storage.setIamPolicy</td>
+                <td>Exfiltration</td>
+                <td>Granting allUsers on a bucket exposes it publicly. The mechanism behind most Google Cloud data exposure incidents</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">CreateServiceAccount</td>
+                <td>Persistence</td>
+                <td>New service accounts created outside the provisioning pipeline are attacker infrastructure</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">compute.instances.setMetadata</td>
+                <td>Execution</td>
+                <td>Adding an SSH key or startup script to a running instance gives code execution as root without touching the guest OS</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">bigquery.jobs.insert (extract)</td>
+                <td>Exfiltration</td>
+                <td>Exporting a dataset to a bucket the attacker controls copies an entire warehouse in one job</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">SetOrgPolicy</td>
+                <td>Evasion</td>
+                <td>Removing constraints such as the one forbidding service account key creation weakens guardrails across the whole organisation</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">cloudfunctions.functions.create</td>
+                <td>Persistence</td>
+                <td>A function with a privileged service account and an unauthenticated trigger is a durable backdoor reachable from the internet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Google Cloud Log Analysis Queries</h2>
+        <p>These Logging query language and BigQuery statements cover the dominant Google Cloud attack paths.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-key"></i>
+              <span class="cmd-title">Service Account Key Created</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">gcloud></span>
+                <span class="cmd-line-content">gcloud logging read 'protoPayload.methodName="google.iam.admin.v1.CreateServiceAccountKey"' --organization=123456789012 --format="table(timestamp, protoPayload.authenticationInfo.principalEmail, protoPayload.resourceName, protoPayload.requestMetadata.callerIp)" --freshness=7d</span>
+              </div>
+              <div class="cmd-output">Long-lived keys should be rare. Every one is a credential that never expires and works from any address on the internet.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-level-up-alt"></i>
+              <span class="cmd-title">Privileged Role Granted</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT timestamp, protopayload_auditlog.authenticationInfo.principalEmail AS actor, binding.role, member FROM cloud_audit.cloudaudit_googleapis_com_activity, UNNEST(protopayload_auditlog.servicedata_v1_iam.policyDelta.bindingDeltas) AS binding, UNNEST([binding.member]) AS member WHERE binding.action = 'ADD' AND binding.role IN ('roles/owner','roles/editor','roles/iam.securityAdmin','roles/iam.serviceAccountTokenCreator')</span>
+              </div>
+              <div class="cmd-output">Unpacking bindingDeltas is what reveals the exact role and recipient. The role name alone in methodName is not enough.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-globe"></i>
+              <span class="cmd-title">Resource Made Public</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">gcloud></span>
+                <span class="cmd-line-content">gcloud logging read 'protoPayload.methodName:"setIamPolicy" AND (protoPayload.serviceData.policyDelta.bindingDeltas.member="allUsers" OR protoPayload.serviceData.policyDelta.bindingDeltas.member="allAuthenticatedUsers")' --organization=123456789012 --freshness=30d</span>
+              </div>
+              <div class="cmd-output">allUsers means the entire internet. This single query catches the mechanism behind most Google Cloud data exposure incidents.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">Impersonation Chains</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT timestamp, protopayload_auditlog.authenticationInfo.principalEmail AS impersonated, delegate.principalEmail AS origin, protopayload_auditlog.methodName FROM cloud_audit.cloudaudit_googleapis_com_activity, UNNEST(protopayload_auditlog.authenticationInfo.serviceAccountDelegationInfo) AS d, UNNEST([d.firstPartyPrincipal]) AS delegate WHERE delegate.principalEmail IS NOT NULL</span>
+              </div>
+              <div class="cmd-output">Reveals the human or key behind an impersonated service account. Without this join, attacker activity is attributed to legitimate automation.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Logging Tampering</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">gcloud></span>
+                <span class="cmd-line-content">gcloud logging read 'protoPayload.methodName=("google.logging.v2.ConfigServiceV2.DeleteSink" OR "google.logging.v2.ConfigServiceV2.UpdateSink" OR "google.logging.v2.ConfigServiceV2.UpdateBucket")' --organization=123456789012 --freshness=30d</span>
+              </div>
+              <div class="cmd-output">Sink deletion stops delivery to your SIEM while logs keep accumulating unwatched in the platform bucket. Page on this.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-search"></i>
+              <span class="cmd-title">Permission Enumeration</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT protopayload_auditlog.authenticationInfo.principalEmail AS actor, protopayload_auditlog.requestMetadata.callerIp AS ip, COUNT(*) AS denials, COUNT(DISTINCT protopayload_auditlog.serviceName) AS services FROM cloud_audit.cloudaudit_googleapis_com_activity WHERE protopayload_auditlog.status.code = 7 GROUP BY 1,2 HAVING denials &gt; 25</span>
+              </div>
+              <div class="cmd-output">Status code 7 is PERMISSION_DENIED. Many denials across many services is an attacker mapping what a stolen identity can reach.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-server"></i>
+              <span class="cmd-title">Instance Metadata Modified</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">gcloud></span>
+                <span class="cmd-line-content">gcloud logging read 'protoPayload.methodName="v1.compute.instances.setMetadata" OR protoPayload.methodName="v1.compute.projects.setCommonInstanceMetadata"' --organization=123456789012 --freshness=7d</span>
+              </div>
+              <div class="cmd-output">Adding an SSH key or startup script through metadata grants root on the instance without ever touching the guest operating system.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-cloud-download-alt"></i>
+              <span class="cmd-title">BigQuery Data Extraction</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT timestamp, protopayload_auditlog.authenticationInfo.principalEmail, protopayload_auditlog.servicedata_v1_bigquery.jobCompletedEvent.job.jobConfiguration.extract FROM cloud_audit.cloudaudit_googleapis_com_data_access WHERE protopayload_auditlog.servicedata_v1_bigquery.jobCompletedEvent.job.jobConfiguration.extract IS NOT NULL</span>
+              </div>
+              <div class="cmd-output">Extract jobs write dataset contents to Cloud Storage. Check whether the destination bucket belongs to your organisation at all.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-clipboard-check"></i>
+              <span class="cmd-title">Verify Audit Config Coverage</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">gcloud></span>
+                <span class="cmd-line-content">gcloud organizations get-iam-policy 123456789012 --format="json(auditConfigs)"</span>
+              </div>
+              <div class="cmd-output">Run this as a scheduled control check. An empty result means Data Access logging is off everywhere and you cannot prove what was read.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-network-wired"></i>
+              <span class="cmd-title">Outbound Volume from Flow Logs</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SQL></span>
+                <span class="cmd-line-content">SELECT jsonPayload.connection.src_ip, jsonPayload.connection.dest_ip, SUM(CAST(jsonPayload.bytes_sent AS INT64))/1073741824 AS gb FROM vpc_flows.compute_googleapis_com_vpc_flows WHERE jsonPayload.reporter = 'SRC' GROUP BY 1,2 HAVING gb &gt; 10 ORDER BY gb DESC</span>
+              </div>
+              <div class="cmd-output">Finds instances shipping large volumes outbound, catching exfiltration that never involves a storage API call.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Google Cloud Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so Google Cloud logs stay complete, durable, and attributable:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Enable Data Access Logs at Organisation Level</h3>
+              <p>They are off by default everywhere except BigQuery. Setting them once on the organisation policy covers every current and future project rather than leaving each one to be configured individually.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Use an Aggregated Sink with include-children</h3>
+              <p>Project-level sinks leave every newly created project unmonitored. An organisation-level aggregated sink captures projects that do not exist yet.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Extend _Default Bucket Retention</h3>
+              <p>Thirty days is shorter than typical time to detection. Raise it or route to BigQuery, otherwise Data Access logs expire before anyone thinks to look at them.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Always Resolve Impersonation Chains</h3>
+              <p>Read serviceAccountDelegationInfo alongside principalEmail. Without it every impersonated action is attributed to the service account rather than the identity that initiated it.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Alert on Sink Deletion</h3>
+              <p>Admin Activity logs cannot be disabled, but their delivery to you can be. Sink tampering is the Google Cloud equivalent of stopping CloudTrail and deserves the same response.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Ban Service Account Keys by Policy</h3>
+              <p>Apply the constraints/iam.disableServiceAccountKeyCreation organisation policy and use workload identity federation instead. This removes the most common persistence mechanism outright.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Raise Flow Log Sampling on Sensitive Subnets</h3>
+              <p>The default samples half of all flows. A sampled log can never prove a connection did not occur, which matters when the question is whether data left.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Lock the Archive Bucket</h3>
+              <p>Cloud Storage Bucket Lock makes retention irreversible. Once applied, no principal at any level can shorten it, which is what makes the archive genuinely tamper-proof.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Google Cloud Log Examples</h2>
+        <p>A Google Cloud intrusion from compromised pipeline credential to exported dataset.</p>
+
+        <div class="implementation-steps">
+          <h3>Compromised Service Account Enumerating Permissions</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T09:41:22.481Z
+protoPayload.methodName: google.iam.admin.v1.ListServiceAccounts
+protoPayload.authenticationInfo.principalEmail: svc-deploy@htl-prod.iam.gserviceaccount.com
+protoPayload.requestMetadata.callerIp: 203.0.113.44
+protoPayload.requestMetadata.callerSuppliedUserAgent: google-cloud-sdk gcloud/470.0.0 linux/6.1.0
+protoPayload.status.code: 7
+protoPayload.status.message: PERMISSION_DENIED
+logName: projects/htl-prod/logs/cloudaudit.googleapis.com%2Factivity</div>
+          <div class="cmd-output">A deployment service account calling from an external address with the gcloud CLI rather than its usual CI user agent. Status 7 shows the call was denied, but the attempt itself reveals the enumeration.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Impersonation Chain in Action</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T09:47:33.221Z
+protoPayload.methodName: google.iam.credentials.v1.GenerateAccessToken
+protoPayload.authenticationInfo.principalEmail: svc-admin@htl-prod.iam.gserviceaccount.com
+protoPayload.authenticationInfo.serviceAccountDelegationInfo: [
+  { firstPartyPrincipal: { principalEmail: "svc-deploy@htl-prod.iam.gserviceaccount.com" } } ]
+protoPayload.resourceName: projects/-/serviceAccounts/svc-admin@htl-prod.iam.gserviceaccount.com
+protoPayload.requestMetadata.callerIp: 203.0.113.44</div>
+          <div class="cmd-output">principalEmail shows svc-admin, but the delegation info reveals svc-deploy initiated it. Every subsequent action will appear to come from svc-admin unless you follow this chain.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Privilege Escalation via SetIamPolicy</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T09:52:10.774Z
+protoPayload.methodName: SetIamPolicy
+protoPayload.authenticationInfo.principalEmail: svc-admin@htl-prod.iam.gserviceaccount.com
+protoPayload.resourceName: projects/htl-prod
+protoPayload.serviceData.policyDelta.bindingDeltas: [
+  { action: "ADD", role: "roles/owner",
+    member: "serviceAccount:svc-deploy@htl-prod.iam.gserviceaccount.com" } ]
+protoPayload.authorizationInfo: [ { permission: "resourcemanager.projects.setIamPolicy", granted: true } ]</div>
+          <div class="cmd-output">The impersonated admin account grants roles/owner back to the originally compromised account. The bindingDeltas array is what makes the exact change visible.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Persistence: Long-Lived Service Account Key</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T09:55:41.118Z
+protoPayload.methodName: google.iam.admin.v1.CreateServiceAccountKey
+protoPayload.authenticationInfo.principalEmail: svc-deploy@htl-prod.iam.gserviceaccount.com
+protoPayload.resourceName: projects/htl-prod/serviceAccounts/svc-admin@htl-prod.iam.gserviceaccount.com
+protoPayload.response.name: projects/htl-prod/serviceAccounts/svc-admin@.../keys/8f2a1c04e91b7d2
+protoPayload.response.validAfterTime: 2025-07-14T09:55:41Z
+protoPayload.response.validBeforeTime: 9999-12-31T23:59:59Z</div>
+          <div class="cmd-output">The validBeforeTime of year 9999 is the point: this credential never expires, works from any address, and is unaffected by session or password policy.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Bucket Exposed to the Internet</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T10:02:44.229Z
+protoPayload.methodName: storage.setIamPermissions
+protoPayload.authenticationInfo.principalEmail: svc-deploy@htl-prod.iam.gserviceaccount.com
+protoPayload.resourceName: projects/_/buckets/htl-customer-data
+protoPayload.serviceData.policyDelta.bindingDeltas: [
+  { action: "ADD", role: "roles/storage.objectViewer", member: "allUsers" } ]</div>
+          <div class="cmd-output">allUsers grants read access to every anonymous caller on the internet. One API call, and the bucket is public.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Data Exfiltration via BigQuery Extract</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T10:11:03.441Z
+protoPayload.methodName: jobservice.jobcompleted
+protoPayload.authenticationInfo.principalEmail: svc-admin@htl-prod.iam.gserviceaccount.com
+protoPayload.serviceData.jobCompletedEvent.job.jobConfiguration.extract: {
+  sourceTable: { datasetId: "customers", tableId: "pii_master" },
+  destinationUris: [ "gs://exfil-staging-9f2a/customers-*.csv" ],
+  destinationFormat: "CSV" }
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.totalProcessedBytes: 41882219043</div>
+          <div class="cmd-output">A 41 GB extract of a table named pii_master written to a bucket outside the organisation. This appears only in Data Access logs, so an environment without them sees nothing at all.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Code Execution via Instance Metadata</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T10:14:22.008Z
+protoPayload.methodName: v1.compute.instances.setMetadata
+protoPayload.authenticationInfo.principalEmail: svc-deploy@htl-prod.iam.gserviceaccount.com
+protoPayload.resourceName: projects/htl-prod/zones/me-central1-a/instances/prod-app-04
+protoPayload.request.metadata.items: [
+  { key: "ssh-keys", value: "attacker:ssh-rsa AAAAB3NzaC1yc2EAAA... attacker@kali" } ]</div>
+          <div class="cmd-output">An SSH key injected through the metadata service. The guest operating system logs will show a successful key-based login with no preceding failed attempts, because the key was placed by the control plane.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Logging Evasion: Sink Deleted</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T10:18:12.774Z
+protoPayload.methodName: google.logging.v2.ConfigServiceV2.DeleteSink
+protoPayload.authenticationInfo.principalEmail: svc-deploy@htl-prod.iam.gserviceaccount.com
+protoPayload.resourceName: projects/htl-prod/sinks/htl-org-security-sink
+protoPayload.requestMetadata.callerIp: 203.0.113.44
+protoPayload.authorizationInfo: [ { permission: "logging.sinks.delete", granted: true } ]</div>
+          <div class="cmd-output">The sink is gone, so nothing further reaches the SIEM. Admin Activity logs keep accumulating in the _Required bucket, which is why this record still exists and why that bucket matters.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Policy Denied: Attacker Blocked by VPC Service Controls</h3>
+          <div class="config-snippet">
+timestamp: 2025-07-14T10:22:04.118Z
+protoPayload.methodName: storage.objects.get
+protoPayload.authenticationInfo.principalEmail: svc-admin@htl-prod.iam.gserviceaccount.com
+protoPayload.requestMetadata.callerIp: 203.0.113.44
+protoPayload.status.code: 7
+protoPayload.status.details: [ { violations: [ { type: "VPC_SERVICE_CONTROLS",
+    description: "Request is prohibited by organization's policy" } ] } ]
+logName: projects/htl-prod/logs/cloudaudit.googleapis.com%2Fpolicy</div>
+          <div class="cmd-output">The perimeter held. Policy Denied logs are billed and therefore sometimes filtered out, yet they are among the clearest evidence of an attacker probing a boundary and being stopped.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="VirtualizationCloud.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

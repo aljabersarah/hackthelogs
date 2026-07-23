@@ -1,1 +1,918 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - IDS and IPS Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">IDS / IPS Logs</div>
+      <a href="#overview" class="nav-item active">IDS and IPS Log Overview</a>
+      <a href="#log-types" class="nav-item">Key IDS and IPS Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Configuring IDS and IPS Logging</a>
+      <a href="#rule-anatomy" class="nav-item">Anatomy of a Detection Rule</a>
+      <a href="#log-format" class="nav-item">IDS and IPS Log Format</a>
+      <a href="#alert-classes" class="nav-item">Alert Classifications and Priority</a>
+      <a href="#analysis-queries" class="nav-item">IDS and IPS Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for IDS and IPS Logging</a>
+      <a href="#log-examples" class="nav-item">Common IDS and IPS Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> IDS and IPS Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>IDS and IPS Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>An Intrusion Detection System observes traffic and reports what it recognises. An Intrusion Prevention System sits inline and can drop the traffic instead. The distinction is a deployment decision rather than a product one, and it matters enormously when reading the logs: an IDS alert means something was seen, while an IPS alert with a drop action means something was stopped. Confusing the two leads analysts to chase attacks that never landed, or worse, to assume an attack was blocked when the sensor was only watching.</p>
+            <p>The dominant open source engines are <code>Suricata</code> and <code>Snort</code>, and commercial platforms from Cisco, Palo Alto, and Trellix are built on the same signature model. A rule describes traffic to match on, and when a packet or stream matches, the engine emits an alert carrying the rule identifier, a classification, a priority, the five-tuple of the connection, and often the packet payload that triggered it. Suricata additionally produces <code>EVE JSON</code>, a unified structured output that carries not just alerts but protocol transaction records for HTTP, DNS, TLS, SMB, and file transfers. That protocol metadata is frequently more valuable than the alerts themselves, because it provides context for events no signature covers.</p>
+            <p>The persistent operational problem with these systems is signal to noise. A default ruleset on a busy link will generate tens of thousands of alerts a day, the overwhelming majority of them informational or irrelevant to the environment. Tuning is not optional maintenance, it is the difference between a functioning detection capability and an ignored console. Equally important is placement: a sensor that cannot see traffic cannot alert on it, and in networks where most traffic is encrypted, an IDS without TLS inspection or JA3 fingerprinting is blind to the payloads it was bought to inspect.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key IDS and IPS Log Types</h2>
+        </div>
+        <p>Modern sensors produce far more than alerts. Understanding each output stream determines how much value you extract from the deployment:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Alert Log</td>
+                <td>The core output. One record per rule match, containing the signature identifier, revision, message, classification, priority, and the connection five-tuple. In IPS mode it also carries the action taken, which is what tells you whether the traffic was blocked or merely observed.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">EVE JSON</td>
+                <td>Suricata's unified structured output. A single newline-delimited JSON stream carrying alerts plus protocol transaction records for HTTP, DNS, TLS, SSH, SMB, and more. The recommended output for any SIEM integration because every event type shares a common schema.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Protocol Transaction Logs</td>
+                <td>Records of every observed HTTP request, TLS handshake, DNS query, and SMB session, regardless of whether any rule matched. Invaluable for hunting and for reconstructing an intrusion whose technique had no signature at the time.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">File Transaction and Extraction Log</td>
+                <td>Metadata for files observed crossing the sensor, including name, size, MIME type, and hash. With file store enabled the file itself is written to disk, allowing retrospective analysis against threat intelligence.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Flow and NetFlow Records</td>
+                <td>Connection summaries with byte and packet counts in each direction plus duration. The basis for detecting beaconing, long-lived sessions, and asymmetric transfers that indicate exfiltration.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Packet Capture (PCAP)</td>
+                <td>The raw packets that triggered an alert, either the single triggering packet or a full session capture. The definitive evidence for confirming a detection but expensive to retain at scale.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Engine and Statistics Log</td>
+                <td>Sensor health output including packet drop counters, rule load errors, and memory usage. Critical and routinely ignored: a sensor dropping 40 percent of packets is missing 40 percent of attacks silently.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Collect the statistics log and alert on <code>capture.kernel_drops</code>. A sensor under-provisioned for its link produces fewer alerts, which looks exactly like a quiet network. Packet loss is the most common cause of an IDS missing an intrusion it had a valid signature for.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>Paths follow each engine's packaging conventions. Suricata concentrates almost everything into a single log directory.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Suricata EVE JSON</td>
+                <td>/var/log/suricata/eve.json</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Suricata Fast Alert Log</td>
+                <td>/var/log/suricata/fast.log</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Suricata Engine Log</td>
+                <td>/var/log/suricata/suricata.log</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Suricata Statistics</td>
+                <td>/var/log/suricata/stats.log</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Suricata Configuration</td>
+                <td>/etc/suricata/suricata.yaml</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Snort Alert Log</td>
+                <td>/var/log/snort/alert or /var/log/snort/alert_fast.txt</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Snort Configuration</td>
+                <td>/etc/snort/snort.conf (Snort 2) or /etc/snort/snort.lua (Snort 3)</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Rule Files</td>
+                <td>/etc/suricata/rules/ or /etc/snort/rules/, managed by suricata-update or PulledPork</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Extracted Files</td>
+                <td>/var/log/suricata/filestore/</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Give <code>/var/log/suricata</code> its own volume. EVE JSON with protocol logging enabled on a busy link can produce tens of gigabytes per day, and filling the root filesystem takes the sensor down along with everything else on the host.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring IDS and IPS Logging</h2>
+        <p>Suricata's logging is configured in the outputs section of <code>suricata.yaml</code>. These settings produce a stream suitable for SIEM ingestion without overwhelming storage.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Configure EVE JSON Output</h3>
+          <div class="config-snippet">
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      community-id: true          # correlate with Zeek and other tools
+      community-id-seed: 0
+      types:
+        - alert:
+            payload: yes
+            payload-printable: yes
+            http-body: yes
+            metadata: yes
+            tagged-packets: yes
+        - http:
+            extended: yes
+        - dns:
+            version: 2
+        - tls:
+            extended: yes
+        - files:
+            force-magic: yes
+            force-hash: [md5, sha256]
+        - flow
+        - ssh
+        - smb</div>
+          <div class="cmd-output">The community-id field is the single most valuable setting here. It produces a hash of the connection five-tuple that matches Zeek and other tools, making cross-source correlation trivial.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Define Your Network Variables</h3>
+          <div class="config-snippet">
+vars:
+  address-groups:
+    HOME_NET: "[10.0.0.0/8,192.168.0.0/16,172.16.0.0/12]"
+    EXTERNAL_NET: "!$HOME_NET"
+    HTTP_SERVERS: "[10.20.5.0/24]"
+    SQL_SERVERS: "[10.40.1.0/24]"
+    DNS_SERVERS: "[10.10.0.10,10.10.0.11]"
+  port-groups:
+    HTTP_PORTS: "[80,81,8000,8080,8443]"
+    SHELLCODE_PORTS: "!80"</div>
+          <div class="cmd-output">Rules are written in terms of these variables. An incorrect HOME_NET is the most common cause of a sensor generating either no alerts at all or alerting on every internal connection.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Manage Rules with suricata-update</h3>
+          <div class="config-snippet">
+# List and enable rule sources
+suricata-update list-sources
+suricata-update enable-source et/open
+suricata-update enable-source oisf/trafficid
+
+# Fetch, build, and reload without dropping traffic
+suricata-update
+suricatasc -c reload-rules
+
+# Verify what loaded
+grep -c "" /var/lib/suricata/rules/suricata.rules
+tail -20 /var/log/suricata/suricata.log</div>
+          <div class="cmd-output">reload-rules applies new signatures to a running sensor without a restart, which matters when the sensor is inline and a restart means a network outage.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Tune Out Noisy Signatures</h3>
+          <div class="config-snippet">
+# /etc/suricata/disable.conf
+2013028          # ET POLICY curl User-Agent, expected from monitoring
+re:.*Dshield.*   # disable an entire family by regex
+
+# /etc/suricata/threshold.config
+# Alert once per 60 seconds per source rather than per packet
+threshold gen_id 1, sig_id 2001219, type limit, track by_src, count 1, seconds 60
+
+# Suppress a known-good scanner entirely
+suppress gen_id 1, sig_id 2001219, track by_src, ip 10.50.9.14</div>
+          <div class="cmd-output">Prefer threshold over disable. Thresholding keeps the detection alive at reduced volume, whereas disabling removes coverage permanently and silently.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Switch from IDS to IPS Mode</h3>
+          <div class="config-snippet">
+# Inline via NFQUEUE on Linux
+iptables -I FORWARD -j NFQUEUE --queue-num 0
+suricata -c /etc/suricata/suricata.yaml -q 0
+
+# Then convert selected alert rules to drop rules
+# /etc/suricata/modify.conf
+2010935 "alert" "drop"
+
+# Verify actions are being applied
+jq -r 'select(.event_type=="alert") | .alert.action' /var/log/suricata/eve.json | sort | uniq -c</div>
+          <div class="cmd-output">Rules ship with the alert action even in inline mode. Traffic is only blocked once a rule is explicitly converted to drop, which surprises many teams who assume inline deployment means prevention.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Monitor Sensor Health</h3>
+          <div class="config-snippet">
+outputs:
+  - stats:
+      enabled: yes
+      filename: stats.log
+      interval: 30
+
+# Check drop rate on a running sensor
+suricatasc -c "dump-counters" | jq '.message.capture'
+grep -E "kernel_drops|kernel_packets" /var/log/suricata/stats.log | tail -4</div>
+          <div class="cmd-output">Any sustained kernel_drops value above roughly one percent means the sensor is losing visibility. Treat it as an availability incident, not a performance tuning task.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Enabling <code>payload: yes</code> writes the triggering packet contents into your logs. For rules that match on authentication traffic or personal data this means credentials and regulated data land in the SIEM. Scope payload logging to the rule categories that genuinely need it.
+          </div>
+        </div>
+      </div>
+
+      <!-- Anatomy of a Detection Rule -->
+      <div id="rule-anatomy" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Anatomy of a Detection Rule</h2>
+        </div>
+        <p class="description">Reading a signature is what lets an analyst decide whether an alert is a true positive. Every Suricata and Snort rule is built from the same components.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-gavel"></i>
+              <h4>Action</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>alert, drop, reject, or pass. In IDS mode every action behaves as alert. Only inline deployment makes drop and reject meaningful, which is the first thing to check when triaging.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Read First</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-arrows-alt-h"></i>
+              <h4>Header</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Protocol, source, source port, direction, destination, destination port. Written using HOME_NET and EXTERNAL_NET variables, so direction tells you whether this is inbound attack or outbound compromise.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Read First</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-fingerprint"></i>
+              <h4>sid and rev</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>The signature identifier and its revision number. sid is the stable key for tuning, suppression, and tracking a detection over time. Always record it in your case notes.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Read First</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-tags"></i>
+              <h4>classtype and priority</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Categorises the alert and assigns severity from 1 (highest) to 4. trojan-activity and attempted-admin warrant immediate attention, while policy-violation and misc-activity usually do not.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Triage</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-search"></i>
+              <h4>content and pcre</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>The actual match conditions: byte sequences and regular expressions applied to the payload or to protocol buffers such as http.uri. Reading these tells you exactly what the sensor saw.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Verify</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-info-circle"></i>
+              <h4>metadata and reference</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Links the signature to CVE identifiers, MITRE ATT&amp;CK techniques, malware families, and creation dates. The fastest route from an alert to understanding what it actually detects.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Enrich</span>
+                    <span class="audit-success">Medium Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Direction matters more than severity. A high severity alert for an exploit aimed at a service you do not run is noise, while a low severity outbound alert from a workstation to an unknown host can be the first sign of an active compromise.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>IDS and IPS Log Format</h2>
+        <p>These are the fields present in a Suricata EVE JSON alert record and their equivalents in commercial platforms.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>Time the event was generated</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22.481203+0000</td>
+              </tr>
+              <tr>
+                <td>event_type</td>
+                <td>Record type within the EVE stream</td>
+                <td>Metadata</td>
+                <td>alert</td>
+              </tr>
+              <tr>
+                <td>src_ip / src_port</td>
+                <td>Source of the triggering traffic</td>
+                <td>Source</td>
+                <td>203.0.113.44:52144</td>
+              </tr>
+              <tr>
+                <td>dest_ip / dest_port</td>
+                <td>Destination of the triggering traffic</td>
+                <td>Target</td>
+                <td>10.20.5.40:445</td>
+              </tr>
+              <tr>
+                <td>proto</td>
+                <td>Transport protocol</td>
+                <td>Protocol</td>
+                <td>TCP</td>
+              </tr>
+              <tr>
+                <td>alert.signature_id</td>
+                <td>Rule identifier that fired</td>
+                <td>Detection</td>
+                <td>2024897</td>
+              </tr>
+              <tr>
+                <td>alert.rev</td>
+                <td>Revision of the signature</td>
+                <td>Detection</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td>alert.signature</td>
+                <td>Human readable rule message</td>
+                <td>Detection</td>
+                <td>ET EXPLOIT SMB Remote Code Execution Attempt</td>
+              </tr>
+              <tr>
+                <td>alert.category</td>
+                <td>Classification assigned by the rule</td>
+                <td>Detection</td>
+                <td>Attempted Administrator Privilege Gain</td>
+              </tr>
+              <tr>
+                <td>alert.severity</td>
+                <td>Priority from 1 (highest) to 4</td>
+                <td>Severity</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>alert.action</td>
+                <td>allowed or blocked</td>
+                <td>Response</td>
+                <td>blocked</td>
+              </tr>
+              <tr>
+                <td>flow_id</td>
+                <td>Identifier linking all events for one flow</td>
+                <td>Session</td>
+                <td>1874203911402318</td>
+              </tr>
+              <tr>
+                <td>community_id</td>
+                <td>Portable flow hash for cross-tool correlation</td>
+                <td>Session</td>
+                <td>1:LQU9qZlK+B5F3KDmev6m5PMibrg=</td>
+              </tr>
+              <tr>
+                <td>payload_printable</td>
+                <td>Human readable triggering payload</td>
+                <td>Evidence</td>
+                <td>GET /../../etc/passwd HTTP/1.1</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Alert Classifications -->
+      <div id="alert-classes" class="card">
+        <h2>Alert Classifications and Priority</h2>
+        <p>Classtype drives triage. These are the classifications that justify immediate response and those that rarely do.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Classification</th>
+                <th>Priority</th>
+                <th>Triage Guidance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">trojan-activity</td>
+                <td>1</td>
+                <td>Known malware traffic, usually outbound command and control. Treat as active compromise and investigate the source host immediately</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">attempted-admin</td>
+                <td>1</td>
+                <td>Attempted administrator privilege gain. If the target runs the affected service, escalate at once</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">successful-admin</td>
+                <td>1</td>
+                <td>Successful privilege gain observed. Among the highest confidence alerts any sensor produces</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">shellcode-detect</td>
+                <td>1</td>
+                <td>Executable code detected in a payload. High value but prone to false positives on binary file transfers</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">web-application-attack</td>
+                <td>1</td>
+                <td>Injection, traversal, or deserialisation against a web application. Correlate with the WAF and web server logs to confirm the response code</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">attempted-recon</td>
+                <td>2</td>
+                <td>Scanning and enumeration. Low individual value, high value in aggregate as an early indicator of targeting</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">policy-violation</td>
+                <td>2</td>
+                <td>Acceptable use rather than security, such as cleartext credentials or unapproved tooling. Route to IT rather than the SOC</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">protocol-command-decode</td>
+                <td>3</td>
+                <td>Unusual but not inherently malicious protocol usage. Almost always noise on its own</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">misc-activity</td>
+                <td>3</td>
+                <td>Catch-all informational category. Suppress aggressively unless a specific signature has proven value in your environment</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">not-suspicious</td>
+                <td>3</td>
+                <td>Explicitly benign traffic recorded for context. Should never generate a ticket</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Alert on the combination rather than the classification alone. A single attempted-recon event is noise, but attempted-recon followed by web-application-attack followed by trojan-activity from the same source within an hour is an intrusion narrated in three lines.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>IDS and IPS Log Analysis Queries</h2>
+        <p>Use these jq and SIEM queries to triage alert volume, confirm blocking, and find the alerts that actually matter.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-sort-amount-down"></i>
+              <span class="cmd-title">Top Firing Signatures</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="alert") | "\(.alert.signature_id) \(.alert.signature)"' /var/log/suricata/eve.json | sort | uniq -c | sort -rn | head -25</span>
+              </div>
+              <div class="cmd-output">The starting point for every tuning exercise. The top ten signatures usually account for most of the volume and almost none of the value.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-exclamation-circle"></i>
+              <span class="cmd-title">Priority 1 Alerts Only</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="alert" and .alert.severity==1) | [.timestamp, .src_ip, .dest_ip, .alert.category, .alert.signature] | @tsv' /var/log/suricata/eve.json</span>
+              </div>
+              <div class="cmd-output">Strips the stream down to the alerts the ruleset authors considered critical. The correct default view for a triage queue.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-sign-out-alt"></i>
+              <span class="cmd-title">Outbound Trojan Activity</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="suricata" event_type="alert" alert.category="A Network Trojan was detected" src_ip IN (10.0.0.0/8) | stats count, values(alert.signature), dc(dest_ip) by src_ip | sort - count</span>
+              </div>
+              <div class="cmd-output">Filtering to internal sources turns a noisy category into a list of probably-compromised hosts. Outbound direction is what makes this high confidence.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-ban"></i>
+              <span class="cmd-title">Blocked Versus Allowed</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="alert") | "\(.alert.action) \(.alert.signature)"' /var/log/suricata/eve.json | sort | uniq -c | sort -rn | head -20</span>
+              </div>
+              <div class="cmd-output">Confirms which rules are actually preventing traffic. In inline deployments most rules still run in alert mode unless explicitly converted to drop.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-heartbeat"></i>
+              <span class="cmd-title">Sensor Packet Loss</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="stats") | [.timestamp, .stats.capture.kernel_packets, .stats.capture.kernel_drops] | @tsv' /var/log/suricata/eve.json | tail -10</span>
+              </div>
+              <div class="cmd-output">Drops divided by packets is your blind spot percentage. Anything sustained above one percent means the sensor is missing attacks it has signatures for.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-fingerprint"></i>
+              <span class="cmd-title">Suspicious TLS Fingerprints</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="tls") | [.tls.ja3.hash, .tls.sni, .dest_ip] | @tsv' /var/log/suricata/eve.json | sort | uniq -c | sort -rn | head -30</span>
+              </div>
+              <div class="cmd-output">JA3 hashes fingerprint the client TLS stack, identifying malware families inside encrypted traffic without decryption.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-file-download"></i>
+              <span class="cmd-title">Executable Downloads</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.event_type=="fileinfo" and (.fileinfo.magic // "" | test("executable|PE32|ELF"))) | [.timestamp, .src_ip, .dest_ip, .fileinfo.filename, .fileinfo.sha256] | @tsv' /var/log/suricata/eve.json</span>
+              </div>
+              <div class="cmd-output">Every executable observed crossing the sensor with its hash, ready to check against threat intelligence.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-link"></i>
+              <span class="cmd-title">Full Flow Context for an Alert</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">jq -r 'select(.flow_id==1874203911402318) | [.timestamp, .event_type, (.alert.signature // .http.url // .tls.sni // "")] | @tsv' /var/log/suricata/eve.json</span>
+              </div>
+              <div class="cmd-output">Pivoting on flow_id reconstructs every record for a single connection: the alert, the HTTP request, the TLS handshake, and the file transfer.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-crosshairs"></i>
+              <span class="cmd-title">Attack Chain by Source</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="suricata" event_type="alert" | stats dc(alert.category) as stages, values(alert.category), min(_time) as first, max(_time) as last by src_ip | where stages &gt;= 3 | sort - stages</span>
+              </div>
+              <div class="cmd-output">Sources triggering three or more distinct alert categories are progressing through an attack rather than generating incidental noise.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-list-ol"></i>
+              <span class="cmd-title">Verify Loaded Rule Count</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">suricatasc -c "ruleset-stats" ; grep -E "rules successfully loaded|rules failed" /var/log/suricata/suricata.log | tail -3</span>
+              </div>
+              <div class="cmd-output">Rules that fail to load are reported once at startup and never mentioned again. Check this after every ruleset update.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for IDS and IPS Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices to keep a sensor deployment useful rather than ignored:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Set HOME_NET Correctly</h3>
+              <p>Nearly every rule is written in terms of HOME_NET and EXTERNAL_NET. A wrong or default value silently breaks directionality across the entire ruleset, which is the most common serious misconfiguration in the field.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Monitor Packet Drop as an Outage</h3>
+              <p>A saturated sensor produces fewer alerts, which resembles a quiet network. Alert on kernel_drops and treat sustained loss with the same urgency as a sensor being offline.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Threshold Before You Disable</h3>
+              <p>Thresholding keeps a detection alive at lower volume while disabling removes coverage permanently. Record every tuning decision so future analysts know why a signature is quiet.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Keep the Protocol Logs, Not Just Alerts</h3>
+              <p>HTTP, DNS, TLS, and file records let you investigate techniques no signature covers. Most successful hunts use this metadata rather than the alerts.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Enable community_id</h3>
+              <p>A single field that makes Suricata, Zeek, and firewall records join on the same connection. It costs nothing and removes most of the pain from network correlation.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Verify That Blocking Is Actually Blocking</h3>
+              <p>Inline deployment does not mean prevention. Rules ship with the alert action, so audit the ratio of drop to alert actions regularly and confirm it matches your intent.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Place Sensors Where They Can See</h3>
+              <p>A sensor on the perimeter misses all lateral movement. Internal segments, the data centre core, and the VPN concentrator are where post-compromise activity is visible.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Plan for Encryption</h3>
+              <p>Most traffic is TLS, so payload signatures see nothing. Compensate with JA3 fingerprinting, SNI logging, certificate metadata, and flow analysis rather than assuming content inspection still works.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common IDS and IPS Log Examples</h2>
+        <p>Real sensor output from reconnaissance through to command and control, in both fast log and EVE JSON form.</p>
+
+        <div class="implementation-steps">
+          <h3>Fast Log: Exploit Attempt Against SMB</h3>
+          <div class="config-snippet">
+07/14/2025-09:41:22.481203  [**] [1:2024897:3] ET EXPLOIT SMB Remote Code Execution Attempt (EternalBlue) [**] [Classification: Attempted Administrator Privilege Gain] [Priority: 1] {TCP} 203.0.113.44:52144 -&gt; 10.20.5.40:445</div>
+          <div class="cmd-output">The compact format: sid 2024897 revision 3, priority 1, external source to an internal host on SMB. Priority 1 plus attempted-admin means this goes to the top of the queue.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>EVE JSON: The Same Alert with Full Context</h3>
+          <div class="config-snippet">
+{"timestamp":"2025-07-14T09:41:22.481203+0000","flow_id":1874203911402318,"event_type":"alert",
+ "src_ip":"203.0.113.44","src_port":52144,"dest_ip":"10.20.5.40","dest_port":445,"proto":"TCP",
+ "community_id":"1:LQU9qZlK+B5F3KDmev6m5PMibrg=",
+ "alert":{"action":"blocked","gid":1,"signature_id":2024897,"rev":3,
+   "signature":"ET EXPLOIT SMB Remote Code Execution Attempt (EternalBlue)",
+   "category":"Attempted Administrator Privilege Gain","severity":1,
+   "metadata":{"attack_target":["Server"],"mitre_technique_id":["T1210"],"cve":["CVE-2017-0144"]}},
+ "flow":{"pkts_toserver":14,"pkts_toclient":9,"bytes_toserver":4218,"bytes_toclient":1902}}</div>
+          <div class="cmd-output">The action field confirms the traffic was blocked, and the metadata maps directly to CVE-2017-0144 and MITRE technique T1210. This is why EVE JSON is preferred over the fast log.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Reconnaissance: Port Scan Detected</h3>
+          <div class="config-snippet">
+07/14/2025-09:38:02.117441  [**] [1:2010935:3] ET SCAN Suspicious inbound to MSSQL port 1433 [**] [Classification: Potentially Bad Traffic] [Priority: 2] {TCP} 198.51.100.203:44120 -&gt; 10.40.1.15:1433
+07/14/2025-09:38:02.119882  [**] [1:2010936:3] ET SCAN Suspicious inbound to mySQL port 3306 [**] [Classification: Potentially Bad Traffic] [Priority: 2] {TCP} 198.51.100.203:44121 -&gt; 10.40.1.15:3306
+07/14/2025-09:38:02.124019  [**] [1:2002910:5] ET SCAN Potential VNC Scan 5900-5920 [**] [Classification: Attempted Information Leak] [Priority: 2] {TCP} 198.51.100.203:44122 -&gt; 10.40.1.15:5900</div>
+          <div class="cmd-output">Three database and remote access ports probed within seven milliseconds from one source. Individually priority 2 noise, together an unmistakable service sweep.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Web Application Attack: Path Traversal</h3>
+          <div class="config-snippet">
+{"timestamp":"2025-07-14T09:47:33.221004+0000","event_type":"alert",
+ "src_ip":"203.0.113.44","dest_ip":"10.20.5.40","dest_port":443,
+ "alert":{"action":"allowed","signature_id":2006445,"signature":"ET WEB_SERVER Possible Directory Traversal Attempt",
+   "category":"Web Application Attack","severity":1},
+ "http":{"hostname":"portal.example.com","url":"/download?file=../../../../etc/passwd",
+   "http_user_agent":"python-requests/2.31.0","http_method":"GET","status":200,"length":2841},
+ "payload_printable":"GET /download?file=../../../../etc/passwd HTTP/1.1"}</div>
+          <div class="cmd-output">Status 200 with 2841 bytes returned means the traversal succeeded. The action field says allowed, so the sensor watched this happen without stopping it.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Command and Control: Outbound Beacon</h3>
+          <div class="config-snippet">
+{"timestamp":"2025-07-14T10:02:44.881229+0000","event_type":"alert",
+ "src_ip":"10.30.2.61","src_port":52190,"dest_ip":"203.0.113.44","dest_port":443,
+ "alert":{"action":"allowed","signature_id":2033102,
+   "signature":"ET MALWARE Cobalt Strike Beacon Observed","category":"A Network Trojan was detected","severity":1,
+   "metadata":{"mitre_technique_id":["T1071.001"],"malware_family":["CobaltStrike"]}},
+ "tls":{"sni":"cdn-assets.badinfra.top","ja3":{"hash":"a0e9f5d64349fb13191bc781f81f42e1"},
+   "subject":"CN=cdn-assets.badinfra.top","issuerdn":"CN=R3, O=Let's Encrypt"}}</div>
+          <div class="cmd-output">The direction is what matters: an internal workstation initiating this. The JA3 hash identified Cobalt Strike inside TLS without any decryption, and the certificate is a free one issued days ago.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Sensor Health: Packet Loss</h3>
+          <div class="config-snippet">
+{"timestamp":"2025-07-14T10:05:00.000000+0000","event_type":"stats",
+ "stats":{"uptime":86402,
+   "capture":{"kernel_packets":1842119004,"kernel_drops":412887221},
+   "decoder":{"pkts":1429231783,"bytes":1102847119228},
+   "detect":{"alert":18442}}}</div>
+          <div class="cmd-output">412 million drops against 1.84 billion packets is a 22 percent loss rate. Roughly one in five packets was never inspected, so any conclusion drawn from these alerts is unreliable.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Data Exfiltration: Asymmetric Flow</h3>
+          <div class="config-snippet">
+{"timestamp":"2025-07-14T10:18:12.774119+0000","event_type":"flow",
+ "src_ip":"10.30.2.61","src_port":52240,"dest_ip":"203.0.113.91","dest_port":443,"proto":"TCP",
+ "flow":{"pkts_toserver":1284119,"pkts_toclient":42881,
+   "bytes_toserver":1884221904,"bytes_toclient":3218844,
+   "start":"2025-07-14T02:11:04.221000+0000","end":"2025-07-14T10:18:12.774000+0000","age":29228,
+   "state":"established","reason":"timeout"}}</div>
+          <div class="cmd-output">1.88 GB uploaded against 3.2 MB downloaded over an eight hour session. No rule fired at all, yet the flow record alone describes bulk exfiltration. This is why flow logging matters.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Network.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

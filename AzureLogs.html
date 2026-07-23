@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - Microsoft Azure Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">Azure Logs</div>
+      <a href="#overview" class="nav-item active">Azure Log Overview</a>
+      <a href="#log-types" class="nav-item">Key Azure Log Types</a>
+      <a href="#log-locations" class="nav-item">Log Destinations and Retention</a>
+      <a href="#enable-logging" class="nav-item">Configuring Azure Logging</a>
+      <a href="#threat-patterns" class="nav-item">Azure Identity Threat Patterns</a>
+      <a href="#log-format" class="nav-item">Sign-in Log Format</a>
+      <a href="#result-codes" class="nav-item">Critical Sign-in Result Codes</a>
+      <a href="#analysis-queries" class="nav-item">Azure Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for Azure Logging</a>
+      <a href="#log-examples" class="nav-item">Common Azure Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> Microsoft Azure Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>Azure Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Azure logging divides along a line that does not exist in other clouds: the <code>control plane</code> for Azure resources and the <code>identity plane</code> managed by Microsoft Entra ID, formerly Azure Active Directory. The Activity Log records operations against subscriptions and resources, while Entra ID sign-in and audit logs record authentication and directory changes. Because Entra ID also underpins Microsoft 365, an attacker who compromises an identity gains access to mail, files, and Teams alongside Azure infrastructure. That coupling is why identity logs, not resource logs, are where most Azure investigations begin and end.</p>
+            <p>The default retention is the trap that catches most organisations. Activity Log entries are kept for 90 days, Entra ID sign-in and audit logs for 30 days on paid tiers and only 7 days on the free tier, and resource logs are not collected at all until a diagnostic setting is created. Every one of those defaults is shorter than the average time to detect an intrusion. Exporting to a Log Analytics workspace or a storage account is not an optimisation, it is the difference between having evidence and not.</p>
+            <p>Modern attacks against Azure rarely involve exploiting infrastructure. They target tokens and consent. Device code phishing tricks a user into authorising an attacker's session, illicit consent grants give a malicious application standing access to mailboxes without any password, and primary refresh token theft lets an attacker replay authentication from their own machine while satisfying multi-factor requirements. None of these produce a failed login. They produce clean, successful sign-ins with unusual properties, which means detection depends on scrutinising successes rather than counting failures.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key Azure Log Types</h2>
+        </div>
+        <p>Azure separates its telemetry into several distinct streams, each enabled and retained independently:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Entra ID Sign-in Logs</td>
+                <td>Every authentication attempt with the user, application, source address, device, conditional access outcome, and risk assessment. Split into interactive, non-interactive, service principal, and managed identity sign-ins, each collected separately. The most important log in the tenant.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Entra ID Audit Logs</td>
+                <td>Directory changes including role assignments, group membership, application registration, consent grants, and conditional access policy modification. Where privilege escalation and persistence become visible.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Azure Activity Log</td>
+                <td>Control plane operations against subscriptions and resources: creation, deletion, configuration change, and role assignment at the Azure RBAC level. Equivalent in role to AWS CloudTrail management events.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Resource Logs</td>
+                <td>Data plane operations inside individual services such as Key Vault secret retrieval, storage account access, and SQL auditing. Not collected at all until a diagnostic setting is configured per resource.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Microsoft 365 Unified Audit Log</td>
+                <td>Activity across Exchange, SharePoint, OneDrive, and Teams. Shares the Entra ID identity plane, so a compromised account appears here and in Azure logs simultaneously. Searched through Purview or the Office 365 Management API.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Identity Protection Risk Events</td>
+                <td>Managed risk detections such as anonymous IP address use, impossible travel, leaked credentials, and anomalous token issuance. Requires Entra ID P2 licensing for full detail.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">NSG Flow Logs</td>
+                <td>Network metadata for traffic through network security groups, comparable to VPC Flow Logs. Being superseded by virtual network flow logs, which offer better coverage.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Defender for Cloud Alerts</td>
+                <td>Threat detections across Azure workloads, containers, databases, and storage, correlated into incidents. The fastest path to noticing well-known attack patterns without writing detections.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Non-interactive sign-ins are a separate log category and are excluded from the default sign-in view. Token refreshes, service principal authentication, and most automated access appear only there, which is precisely where token replay attacks hide.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Destinations -->
+      <div id="log-locations" class="card">
+        <h2>Log Destinations and Retention</h2>
+        <p>Default retention is short across the board. These are the built-in limits and where each stream can be exported.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Retention and Destination</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">Entra ID Sign-in Logs</td>
+                <td>30 days with P1 or P2, only 7 days on the free tier. Export to Log Analytics, storage, or Event Hub</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Entra ID Audit Logs</td>
+                <td>30 days with P1 or P2, 7 days on free. Same export options</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Azure Activity Log</td>
+                <td>90 days in the platform, not configurable. Export required for anything longer</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Resource Logs</td>
+                <td>Not collected at all by default. Requires a diagnostic setting on each resource</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Microsoft 365 Unified Audit Log</td>
+                <td>180 days on E3, one year on E5 or with an audit add-on. Searchable via Purview</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Log Analytics Workspace</td>
+                <td>Configurable from 30 days to 2 years interactive, with archive up to 12 years</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Microsoft Sentinel</td>
+                <td>Built on Log Analytics with the same retention model plus security analytics</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Storage Account Export</td>
+                <td>Indefinite retention at the lowest cost, but not directly queryable</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Diagnostic settings are configured per resource, not per subscription. A new storage account or Key Vault created next week collects nothing unless Azure Policy applies a setting automatically. Deploy that policy before you need the logs.
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuring Azure Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Configuring Azure Logging</h2>
+        <p>These commands export the critical streams to a Log Analytics workspace and ensure new resources are covered automatically.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Export Entra ID Logs to Log Analytics</h3>
+          <div class="config-snippet">
+az monitor diagnostic-settings create \
+  --name htl-entra-export \
+  --resource /providers/Microsoft.AadIam/diagnosticSettings \
+  --workspace /subscriptions/&lt;sub&gt;/resourceGroups/rg-sec/providers/Microsoft.OperationalInsights/workspaces/htl-sec-law \
+  --logs '[{"category":"SignInLogs","enabled":true},
+           {"category":"AuditLogs","enabled":true},
+           {"category":"NonInteractiveUserSignInLogs","enabled":true},
+           {"category":"ServicePrincipalSignInLogs","enabled":true},
+           {"category":"ManagedIdentitySignInLogs","enabled":true},
+           {"category":"RiskyUsers","enabled":true},
+           {"category":"UserRiskEvents","enabled":true}]'</div>
+          <div class="cmd-output">All five sign-in categories must be listed individually. Enabling only SignInLogs captures interactive logons and misses service principal abuse and token refresh entirely.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Export the Activity Log</h3>
+          <div class="config-snippet">
+az monitor diagnostic-settings subscription create \
+  --name htl-activity-export \
+  --location me-central-1 \
+  --workspace &lt;workspace-resource-id&gt; \
+  --logs '[{"category":"Administrative","enabled":true},
+           {"category":"Security","enabled":true},
+           {"category":"ServiceHealth","enabled":true},
+           {"category":"Alert","enabled":true},
+           {"category":"Policy","enabled":true},
+           {"category":"Autoscale","enabled":false},
+           {"category":"ResourceHealth","enabled":true}]'</div>
+          <div class="cmd-output">The Administrative and Policy categories carry role assignments and policy changes, which is where Azure privilege escalation appears.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Enforce Diagnostic Settings with Azure Policy</h3>
+          <div class="config-snippet">
+az policy assignment create \
+  --name htl-require-diagnostics \
+  --policy-set-definition "Enable allLogs category group resource logging for supported resources to Log Analytics" \
+  --scope /subscriptions/&lt;sub&gt; \
+  --location me-central-1 \
+  --mi-system-assigned \
+  --role Contributor \
+  --identity-scope /subscriptions/&lt;sub&gt; \
+  --params '{"logAnalytics":{"value":"&lt;workspace-resource-id&gt;"}}'
+
+az policy remediation create --name fix-existing \
+  --policy-assignment htl-require-diagnostics</div>
+          <div class="cmd-output">DeployIfNotExists policy applies diagnostic settings to resources as they are created. Without it, coverage decays continuously as the estate grows.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Enable Key Vault and Storage Data Plane Logging</h3>
+          <div class="config-snippet">
+# Key Vault: record every secret and key retrieval
+az monitor diagnostic-settings create --name kv-audit \
+  --resource &lt;keyvault-resource-id&gt; \
+  --workspace &lt;workspace-resource-id&gt; \
+  --logs '[{"category":"AuditEvent","enabled":true},
+           {"category":"AzurePolicyEvaluationDetails","enabled":true}]'
+
+# Storage: record blob read and write operations
+az monitor diagnostic-settings create --name storage-audit \
+  --resource &lt;storage-id&gt;/blobServices/default \
+  --workspace &lt;workspace-resource-id&gt; \
+  --logs '[{"category":"StorageRead","enabled":true},
+           {"category":"StorageWrite","enabled":true},
+           {"category":"StorageDelete","enabled":true}]'</div>
+          <div class="cmd-output">Key Vault AuditEvent is the Azure equivalent of AWS S3 data events: without it you can prove a vault was accessed but not which secrets were read.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable the Microsoft 365 Unified Audit Log</h3>
+          <div class="config-snippet">
+Connect-ExchangeOnline
+Set-AdminAuditLogConfig -UnifiedAuditLogIngestionEnabled $true
+Get-AdminAuditLogConfig | Select-Object UnifiedAuditLogIngestionEnabled
+
+# Enable mailbox auditing for all mailboxes including owner actions
+Set-OrganizationConfig -AuditDisabled $false
+Get-Mailbox -ResultSize Unlimited |
+  Set-Mailbox -AuditEnabled $true -AuditOwner @{Add="MailItemsAccessed","Send","SoftDelete","HardDelete"}</div>
+          <div class="cmd-output">MailItemsAccessed is the only record proving an attacker actually read mail rather than merely having access. It requires E5 or an equivalent add-on licence.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Extend Retention Beyond the Defaults</h3>
+          <div class="config-snippet">
+az monitor log-analytics workspace update \
+  --resource-group rg-sec --workspace-name htl-sec-law \
+  --retention-time 365
+
+# Per-table retention with cheaper long term archive
+az monitor log-analytics workspace table update \
+  --resource-group rg-sec --workspace-name htl-sec-law \
+  --name SigninLogs --retention-time 365 --total-retention-time 2555</div>
+          <div class="cmd-output">Interactive retention is queryable immediately, archive retention is cheaper but requires a restore job. Keeping sign-in logs for a year is the practical minimum for identity investigations.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Entra ID free tier keeps sign-in logs for seven days. Given that the median dwell time for identity compromise is measured in weeks, a tenant on the free tier will have destroyed the evidence of the initial compromise long before anyone notices it happened.
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Azure Identity Threat Patterns</h2>
+        </div>
+        <p class="description">Azure attacks target identity rather than infrastructure. These patterns dominate real incidents and most of them produce successful sign-ins, not failures.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-spray-can"></i>
+              <h4>Password Spraying</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>One password tried against many accounts to avoid lockout. Signature: result code 50126 across dozens of distinct users from one address, often targeting legacy authentication endpoints.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-hand-paper"></i>
+              <h4>Illicit Consent Grant</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>A user is tricked into consenting to a malicious application, granting it standing access to mail and files. Requires no password and survives password reset entirely.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-mobile-alt"></i>
+              <h4>Device Code Phishing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>The attacker initiates a device code flow and persuades the victim to enter the code. The resulting token belongs to the attacker and satisfies MFA. Signature: device code authentication from an unexpected client.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-id-card"></i>
+              <h4>Token and PRT Theft</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Stolen refresh tokens replayed from attacker infrastructure. Produces successful non-interactive sign-ins with a mismatch between the device identity and the source address.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-shield"></i>
+              <h4>Privileged Role Assignment</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Adding an account to Global Administrator, Privileged Role Administrator, or Application Administrator. The last two allow escalation to full tenant control indirectly.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-shield-alt"></i>
+              <h4>Conditional Access Tampering</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Disabling a policy, adding an exclusion for a compromised account, or switching to report-only mode. Silently removes MFA enforcement while the policy still appears to exist.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Adding a credential to an existing service principal, through <code>Update application: Certificates and secrets management</code>, is one of the stealthiest persistence techniques in Entra ID. The application continues to work normally, no user is involved, and the attacker holds a credential that no password reset affects.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Format -->
+      <div id="log-format" class="card">
+        <h2>Sign-in Log Format</h2>
+        <p>These fields appear in the Entra ID SigninLogs table. The device and conditional access fields are what distinguish legitimate access from token replay.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>TimeGenerated</td>
+                <td>UTC time of the sign-in attempt</td>
+                <td>Timestamp</td>
+                <td>2025-07-14T09:41:22Z</td>
+              </tr>
+              <tr>
+                <td>UserPrincipalName</td>
+                <td>Account attempting to authenticate</td>
+                <td>Identity</td>
+                <td>r.almutairi@corp.com</td>
+              </tr>
+              <tr>
+                <td>AppDisplayName</td>
+                <td>Application being accessed</td>
+                <td>Target</td>
+                <td>Microsoft Office 365 Portal</td>
+              </tr>
+              <tr>
+                <td>IPAddress</td>
+                <td>Source address of the request</td>
+                <td>Source</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>LocationDetails</td>
+                <td>Geolocated city and country</td>
+                <td>Source</td>
+                <td>Amsterdam, NL</td>
+              </tr>
+              <tr>
+                <td>ResultType</td>
+                <td>Numeric outcome, 0 means success</td>
+                <td>Result</td>
+                <td>50126</td>
+              </tr>
+              <tr>
+                <td>ResultDescription</td>
+                <td>Text explanation of the outcome</td>
+                <td>Result</td>
+                <td>Invalid username or password</td>
+              </tr>
+              <tr>
+                <td>ClientAppUsed</td>
+                <td>Protocol or client type used</td>
+                <td>Source</td>
+                <td>Other clients (legacy auth)</td>
+              </tr>
+              <tr>
+                <td>ConditionalAccessStatus</td>
+                <td>Whether policies applied, failed, or were not applied</td>
+                <td>Policy</td>
+                <td>notApplied</td>
+              </tr>
+              <tr>
+                <td>AuthenticationRequirement</td>
+                <td>Single or multi factor</td>
+                <td>Authorization</td>
+                <td>singleFactorAuthentication</td>
+              </tr>
+              <tr>
+                <td>RiskLevelDuringSignIn</td>
+                <td>Identity Protection risk assessment</td>
+                <td>Detection</td>
+                <td>high</td>
+              </tr>
+              <tr>
+                <td>DeviceDetail.deviceId</td>
+                <td>Registered device identifier, empty if unmanaged</td>
+                <td>Identity</td>
+                <td>(empty)</td>
+              </tr>
+              <tr>
+                <td>UserAgent</td>
+                <td>Client software string</td>
+                <td>Source</td>
+                <td>python-requests/2.31.0</td>
+              </tr>
+              <tr>
+                <td>AuthenticationProtocol</td>
+                <td>Flow used to obtain the token</td>
+                <td>Authorization</td>
+                <td>deviceCode</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Result Codes -->
+      <div id="result-codes" class="card">
+        <h2>Critical Sign-in Result Codes</h2>
+        <p>Entra ID result codes are stable and precise, which makes them excellent detection anchors. These are the ones that matter most.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type virtualhost-log">0</td>
+                <td>Sign-in succeeded</td>
+                <td>Token theft, consent abuse, and device code phishing all produce this. Successes need scrutiny, not just failures</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">50126</td>
+                <td>Invalid username or password</td>
+                <td>The core failure code. Many distinct users from one address is password spraying</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">50053</td>
+                <td>Account locked by smart lockout</td>
+                <td>Confirms sustained guessing reached the threshold, or an attacker locking a user out deliberately</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">50055 / 50057</td>
+                <td>Password expired or account disabled</td>
+                <td>Attempts against dormant accounts, a common sign that a stale credential list is being tested</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">50074 / 50076</td>
+                <td>Strong authentication required</td>
+                <td>MFA was demanded. A burst followed by a success is the shape of an MFA fatigue attack</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">50140</td>
+                <td>Keep me signed in interrupt</td>
+                <td>Normal in interactive flows, but useful for distinguishing genuine browser sessions from scripted ones</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">53003</td>
+                <td>Blocked by conditional access policy</td>
+                <td>Policy enforcement working. Repeated blocks for one account from an unusual location is an attacker being stopped</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">530032</td>
+                <td>Blocked by security defaults or policy</td>
+                <td>Similar enforcement signal, frequently seen when legacy authentication is attempted</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">50158</td>
+                <td>External security challenge not satisfied</td>
+                <td>A third party MFA or risk challenge failed, often during token replay from an unexpected location</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">65001</td>
+                <td>User or administrator has not consented</td>
+                <td>Precedes consent grant activity. A burst can indicate an application probing for what it can obtain</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> <code>ConditionalAccessStatus</code> of <code>notApplied</code> on a successful sign-in means no policy evaluated that request at all. On a privileged account that is a policy gap worth fixing immediately, because MFA was never actually required.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>Azure Log Analysis Queries</h2>
+        <p>These KQL queries run in Log Analytics or Microsoft Sentinel and cover the dominant Azure attack paths.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-spray-can"></i>
+              <span class="cmd-title">Password Spraying</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">SigninLogs | where ResultType == 50126 | summarize Targets=dcount(UserPrincipalName), Attempts=count() by IPAddress, bin(TimeGenerated, 1h) | where Targets &gt; 20 and Attempts/Targets &lt; 3</span>
+              </div>
+              <div class="cmd-output">Many users with few attempts each is the spray signature, deliberately staying below smart lockout thresholds.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-hand-paper"></i>
+              <span class="cmd-title">Illicit Consent Grant</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AuditLogs | where OperationName has_any ("Consent to application","Add delegated permission grant","Add app role assignment to service principal") | extend perms=tostring(TargetResources[0].modifiedProperties) | where perms has_any ("Mail.Read","Mail.ReadWrite","Files.ReadWrite.All","Directory.ReadWrite.All")</span>
+              </div>
+              <div class="cmd-output">Consent granting mailbox or directory-wide permissions. Survives password reset entirely, so it must be revoked explicitly.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-mobile-alt"></i>
+              <span class="cmd-title">Device Code Phishing</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">SigninLogs | where AuthenticationProtocol == "deviceCode" | summarize Apps=make_set(AppDisplayName), IPs=make_set(IPAddress), count() by UserPrincipalName, Location</span>
+              </div>
+              <div class="cmd-output">Device code flow is legitimate only for input-constrained devices. On a normal workstation account it almost always means phishing.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-user-shield"></i>
+              <span class="cmd-title">Privileged Role Assignment</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AuditLogs | where OperationName == "Add member to role" | extend Role=tostring(TargetResources[0].modifiedProperties[1].newValue) | where Role has_any ("Global Administrator","Privileged Role Administrator","Application Administrator","Cloud Application Administrator") | project TimeGenerated, InitiatedBy, Role, TargetResources</span>
+              </div>
+              <div class="cmd-output">Assignment to any of these four roles is effectively full tenant compromise. Application Administrator escalates indirectly by adding credentials to privileged service principals.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-key"></i>
+              <span class="cmd-title">Service Principal Credential Added</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AuditLogs | where OperationName in ("Update application - Certificates and secrets management","Add service principal credentials") | project TimeGenerated, InitiatedBy, TargetResources, Result</span>
+              </div>
+              <div class="cmd-output">One of the stealthiest persistence techniques in Entra ID. The application keeps working, no user is involved, and no password reset affects it.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-shield-alt"></i>
+              <span class="cmd-title">Conditional Access Tampering</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AuditLogs | where Category == "Policy" and OperationName has_any ("Update conditional access policy","Delete conditional access policy","Add conditional access policy") | project TimeGenerated, InitiatedBy, OperationName, TargetResources</span>
+              </div>
+              <div class="cmd-output">Adding an exclusion or switching a policy to report-only silently removes MFA enforcement while the policy still appears to exist.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-plane"></i>
+              <span class="cmd-title">Impossible Travel</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">SigninLogs | where ResultType == 0 | sort by UserPrincipalName asc, TimeGenerated asc | extend prevCountry=prev(Location), prevTime=prev(TimeGenerated), prevUser=prev(UserPrincipalName) | where prevUser == UserPrincipalName and prevCountry != Location and datetime_diff("minute", TimeGenerated, prevTime) &lt; 240</span>
+              </div>
+              <div class="cmd-output">Two successful sign-ins from different countries within four hours. Whitelist VPN egress points and adjacent-country commuting before deploying.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-history"></i>
+              <span class="cmd-title">Legacy Authentication</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">SigninLogs | where ClientAppUsed in ("Other clients","IMAP4","POP3","SMTP","Exchange ActiveSync","Authenticated SMTP") | summarize count(), Users=dcount(UserPrincipalName) by ClientAppUsed, IPAddress | order by count_ desc</span>
+              </div>
+              <div class="cmd-output">Legacy protocols cannot enforce MFA, which is exactly why attackers target them. Any remaining usage is both a finding and an attack surface.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-id-card"></i>
+              <span class="cmd-title">Token Replay Indicators</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AADNonInteractiveUserSignInLogs | where ResultType == 0 | where isempty(tostring(DeviceDetail.deviceId)) | summarize IPs=dcount(IPAddress), Countries=dcount(tostring(LocationDetails.countryOrRegion)) by UserPrincipalName | where Countries &gt; 1</span>
+              </div>
+              <div class="cmd-output">Non-interactive successes from an unregistered device across multiple countries is the shape of a stolen refresh token being replayed.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-lock"></i>
+              <span class="cmd-title">Key Vault Secret Harvesting</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AzureDiagnostics | where ResourceType == "VAULTS" and OperationName in ("SecretGet","KeyGet","CertificateGet") | summarize Secrets=dcount(id_s), count() by identity_claim_upn_s, CallerIPAddress | where Secrets &gt; 10</span>
+              </div>
+              <div class="cmd-output">One identity pulling many distinct secrets in a short window is credential harvesting, not normal application behaviour.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-user-cog"></i>
+              <span class="cmd-title">Azure RBAC Role Assignments</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">AzureActivity | where OperationNameValue == "MICROSOFT.AUTHORIZATION/ROLEASSIGNMENTS/WRITE" and ActivityStatusValue == "Success" | project TimeGenerated, Caller, CallerIpAddress, Properties</span>
+              </div>
+              <div class="cmd-output">Azure RBAC is separate from Entra ID directory roles. Owner or Contributor at subscription scope grants control of every resource beneath it.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-envelope-open-text"></i>
+              <span class="cmd-title">Mailbox Access and Forwarding</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">KQL></span>
+                <span class="cmd-line-content">OfficeActivity | where Operation in ("New-InboxRule","Set-InboxRule","Set-Mailbox","Add-MailboxPermission") | where Parameters has_any ("ForwardTo","RedirectTo","DeleteMessage") | project TimeGenerated, UserId, Operation, Parameters</span>
+              </div>
+              <div class="cmd-output">Inbox rules that forward externally or delete messages are the classic business email compromise persistence and concealment technique.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for Azure Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices so identity evidence still exists when you finally go looking for it:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Export Entra ID Logs Immediately</h3>
+              <p>Seven days on the free tier and thirty on paid tiers are both shorter than typical dwell time. Exporting to Log Analytics is the single highest value logging change in any Azure tenant.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Enable All Five Sign-in Categories</h3>
+              <p>Interactive sign-ins are only one category. Non-interactive, service principal, and managed identity sign-ins are where token replay and automation abuse appear, and they are excluded by default.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Enforce Diagnostic Settings with Policy</h3>
+              <p>Settings are per resource. Without a DeployIfNotExists policy, every new Key Vault and storage account arrives with no logging, and coverage silently erodes as the estate grows.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Monitor Successful Sign-ins, Not Only Failures</h3>
+              <p>Consent abuse, device code phishing, and token theft all produce clean successes. Failure-based monitoring is blind to the techniques that dominate real Azure intrusions.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Alert on Consent and Service Principal Credentials</h3>
+              <p>Both create access that no password reset revokes. They are low volume and high fidelity, making them ideal candidates for real-time alerting.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Watch Conditional Access Changes Closely</h3>
+              <p>An exclusion added for one account removes MFA for that account while the policy still shows as enabled. Treat every policy modification as a security event requiring review.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Enable Mailbox Auditing Including Owner Actions</h3>
+              <p>MailItemsAccessed is the only evidence proving an attacker actually read mail. Without it you can show access was possible but not what was taken.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Eliminate Legacy Authentication</h3>
+              <p>Legacy protocols bypass conditional access and cannot enforce MFA. Block them outright, then treat any remaining attempts as attack traffic rather than misconfiguration.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common Azure Log Examples</h2>
+        <p>An Entra ID account takeover, from spraying through consent abuse to mailbox exfiltration.</p>
+
+        <div class="implementation-steps">
+          <h3>Password Spraying Against Legacy Authentication</h3>
+          <div class="config-snippet">
+TimeGenerated: 2025-07-14T09:12:04Z  UserPrincipalName: a.alqahtani@corp.com  ResultType: 50126
+  IPAddress: 203.0.113.44  ClientAppUsed: Other clients  AppDisplayName: Exchange ActiveSync
+  ConditionalAccessStatus: notApplied  AuthenticationRequirement: singleFactorAuthentication
+TimeGenerated: 2025-07-14T09:12:09Z  UserPrincipalName: m.alharbi@corp.com   ResultType: 50126
+  IPAddress: 203.0.113.44  ClientAppUsed: Other clients
+TimeGenerated: 2025-07-14T09:12:14Z  UserPrincipalName: r.almutairi@corp.com ResultType: 50126
+  IPAddress: 203.0.113.44  ClientAppUsed: Other clients</div>
+          <div class="cmd-output">Legacy authentication was targeted deliberately: ConditionalAccessStatus is notApplied, meaning no policy evaluated these attempts and MFA could never have been enforced.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Successful Sign-in from an Unmanaged Device</h3>
+          <div class="config-snippet">
+TimeGenerated: 2025-07-14T09:40:53Z  UserPrincipalName: r.almutairi@corp.com  ResultType: 0
+  IPAddress: 203.0.113.44  LocationDetails: {"city":"Amsterdam","countryOrRegion":"NL"}
+  AppDisplayName: Microsoft Office 365 Portal  ClientAppUsed: Browser
+  DeviceDetail: {"deviceId":"","operatingSystem":"Linux","browser":"Chrome 126.0"}
+  RiskLevelDuringSignIn: high  RiskEventTypesV2: ["unfamiliarFeatures","anonymizedIPAddress"]
+  ConditionalAccessStatus: success  AuthenticationRequirement: multiFactorAuthentication</div>
+          <div class="cmd-output">ResultType 0 means this succeeded, and MFA was satisfied. The empty deviceId shows an unmanaged Linux machine, and Identity Protection scored it high risk. A success can still be an intrusion.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Device Code Phishing</h3>
+          <div class="config-snippet">
+TimeGenerated: 2025-07-14T09:38:02Z  UserPrincipalName: r.almutairi@corp.com  ResultType: 0
+  AuthenticationProtocol: deviceCode  AppDisplayName: Microsoft Office
+  ResourceDisplayName: Microsoft Graph  IPAddress: 203.0.113.44
+  LocationDetails: {"city":"Amsterdam","countryOrRegion":"NL"}
+  DeviceDetail: {"deviceId":"","operatingSystem":"","browser":""}
+  IncomingTokenType: none  AuthenticationRequirement: multiFactorAuthentication</div>
+          <div class="cmd-output">Device code flow exists for devices without a keyboard, such as smart TVs. On a finance user's account it means they entered a code an attacker generated, handing over a fully MFA-satisfied token.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Illicit Consent Grant</h3>
+          <div class="config-snippet">
+OperationName: Consent to application
+InitiatedBy: {"user":{"userPrincipalName":"r.almutairi@corp.com","ipAddress":"203.0.113.44"}}
+TargetResources: [{"displayName":"Office365 Document Sync","type":"ServicePrincipal",
+  "modifiedProperties":[{"displayName":"ConsentAction.Permissions",
+    "newValue":"Scope: Mail.Read Mail.ReadWrite Files.ReadWrite.All User.Read offline_access"}]}]
+Result: success</div>
+          <div class="cmd-output">A plausibly named application granted persistent mailbox and file access. The offline_access scope gives it a refresh token, so it retains access indefinitely and a password reset changes nothing.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Privilege Escalation via Role Assignment</h3>
+          <div class="config-snippet">
+OperationName: Add member to role
+InitiatedBy: {"user":{"userPrincipalName":"r.almutairi@corp.com","ipAddress":"203.0.113.44"}}
+TargetResources: [{"userPrincipalName":"svc-sync@corp.com","type":"User",
+  "modifiedProperties":[{"displayName":"Role.DisplayName","newValue":"Global Administrator"}]}]
+Result: success  Category: RoleManagement</div>
+          <div class="cmd-output">The compromised user adding a service account to Global Administrator. That account now controls the entire tenant, including Microsoft 365 and every Azure subscription beneath it.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Persistence via Service Principal Credential</h3>
+          <div class="config-snippet">
+OperationName: Update application - Certificates and secrets management
+InitiatedBy: {"user":{"userPrincipalName":"svc-sync@corp.com","ipAddress":"203.0.113.44"}}
+TargetResources: [{"displayName":"Corp HR Integration","type":"Application",
+  "modifiedProperties":[{"displayName":"KeyDescription",
+    "newValue":"[KeyIdentifier=8f2a1c04,KeyType=Password,KeyUsage=Verify]"}]}]
+Result: success</div>
+          <div class="cmd-output">A new client secret added to an existing privileged application. The application continues functioning normally, no user is involved, and the attacker now holds a credential unaffected by any password reset.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Conditional Access Policy Weakened</h3>
+          <div class="config-snippet">
+OperationName: Update conditional access policy
+InitiatedBy: {"user":{"userPrincipalName":"svc-sync@corp.com","ipAddress":"203.0.113.44"}}
+TargetResources: [{"displayName":"CA001-Require MFA for All Users","type":"Policy",
+  "modifiedProperties":[{"displayName":"ConditionalAccessPolicy",
+    "oldValue":"{state:enabled, users:{excludeUsers:[]}}",
+    "newValue":"{state:enabled, users:{excludeUsers:[r.almutairi@corp.com]}}"}]}]</div>
+          <div class="cmd-output">The policy remains enabled and looks healthy in the portal, but the compromised account is now excluded from MFA entirely. Only the audit log reveals this.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Mailbox Exfiltration and Concealment</h3>
+          <div class="config-snippet">
+Operation: New-InboxRule  UserId: r.almutairi@corp.com  ClientIP: 203.0.113.44
+  Parameters: [{"Name":"Name","Value":"."},{"Name":"ForwardTo","Value":"archive@badinfra.top"},
+               {"Name":"DeleteMessage","Value":"True"},{"Name":"From","Value":"finance@corp.com"}]
+Operation: MailItemsAccessed  UserId: r.almutairi@corp.com  ClientIP: 203.0.113.44
+  OperationProperties: [{"Name":"MailAccessType","Value":"Bind"},{"Name":"IsThrottled","Value":"True"}]
+  Folders: [{"Path":"\Inbox","FolderItems":[{"InternetMessageId":"..."}]}]</div>
+          <div class="cmd-output">An inbox rule named with a single dot, forwarding finance mail externally and deleting the local copy. The MailItemsAccessed record with IsThrottled true means so much mail was read that Microsoft rate limited the auditing.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="VirtualizationCloud.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

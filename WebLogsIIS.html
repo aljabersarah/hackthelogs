@@ -207,35 +207,35 @@
     <tbody>
       <tr>
         <td>200</td>
-        <td>OK – Request succeeded</td>
+        <td>OK: Request succeeded</td>
       </tr>
       <tr>
         <td>301 / 302</td>
-        <td>Redirect – Resource moved</td>
+        <td>Redirect: Resource moved</td>
       </tr>
       <tr>
         <td>400</td>
-        <td>Bad Request – Malformed request</td>
+        <td>Bad Request: Malformed request</td>
       </tr>
       <tr>
         <td>401</td>
-        <td>Unauthorized – Authentication required</td>
+        <td>Unauthorized: Authentication required</td>
       </tr>
       <tr>
         <td>403</td>
-        <td>Forbidden – Access denied</td>
+        <td>Forbidden: Access denied</td>
       </tr>
       <tr>
         <td>404</td>
-        <td>Not Found – Resource unavailable</td>
+        <td>Not Found: Resource unavailable</td>
       </tr>
       <tr>
         <td>405</td>
-        <td>Method Not Allowed – Disallowed HTTP verb</td>
+        <td>Method Not Allowed: Disallowed HTTP verb</td>
       </tr>
       <tr>
         <td>500</td>
-        <td>Internal Server Error – Server-side failure</td>
+        <td>Internal Server Error: Server-side failure</td>
       </tr>
       <tr>
         <td>502 / 503</td>
@@ -275,7 +275,7 @@
                 <span class="cmd-prompt">CMD></span>
                 <span class="cmd-line-content">logparser "SELECT s-ip, COUNT(*) AS Hits FROM u_ex*.log GROUP BY s-ip ORDER BY Hits DESC" -i:IISW3C</span>
               </div>
-              <div class="cmd-output">Shows which server IPs are receiving the most traffic — useful in load-balanced or cloud-hosted environments.</div>
+              <div class="cmd-output">Shows which server IPs are receiving the most traffic, useful in load-balanced or cloud-hosted environments.</div>
             </div>
           </div>
           <!-- POST Requests with 200 Response -->
@@ -289,7 +289,7 @@
                 <span class="cmd-prompt">CMD></span>
                 <span class="cmd-line-content">logparser "SELECT c-ip, cs-uri-stem, COUNT(*) AS Total FROM u_ex*.log WHERE cs-method='POST' AND sc-status=200 GROUP BY c-ip, cs-uri-stem ORDER BY Total DESC" -i:IISW3C</span>
               </div>
-              <div class="cmd-output">Finds IPs that performed successful POST requests — useful for finding form submission abuse or C2 callbacks.</div>
+              <div class="cmd-output">Finds IPs that performed successful POST requests, useful for finding form submission abuse or C2 callbacks.</div>
             </div>
           </div>
           <!-- Suspicious POST Requests -->
@@ -303,7 +303,7 @@
                 <span class="cmd-prompt">CMD></span>
                 <span class="cmd-line-content">logparser "SELECT date, time, c-ip, cs(User-Agent), cs-uri-stem FROM u_ex*.log WHERE cs-method='POST' AND (cs(User-Agent) NOT LIKE '%%Mozilla%%' AND cs(User-Agent) NOT LIKE '%%Chrome%%' AND cs(User-Agent) NOT LIKE '%%Safari%%')" -i:IISW3C</span>
               </div>
-              <div class="cmd-output">Detects POST requests made by suspicious or non-browser clients such as scripts, bots, or exploit tools — useful to identify automation abuse or early attack stages.</div>
+              <div class="cmd-output">Detects POST requests made by suspicious or non-browser clients such as scripts, bots, or exploit tools, useful to identify automation abuse or early attack stages.</div>
             </div>
             <button class="cmd-copy">
               <i class="far fa-copy"></i> Copy </button>
@@ -347,7 +347,7 @@
                 <span class="cmd-prompt">CMD></span>
                 <span class="cmd-line-content">logparser "SELECT TOP 5 cs-uri-stem, COUNT(*) AS Hits FROM u_ex*.log GROUP BY cs-uri-stem ORDER BY Hits DESC" -i:IISW3C</span>
               </div>
-              <div class="cmd-output">Lists the top 5 most frequently accessed resources — a quick view into what attackers or users target.</div>
+              <div class="cmd-output">Lists the top 5 most frequently accessed resources, a quick view into what attackers or users target.</div>
             </div>
           </div>
           <!-- User Agent Frequency per IP -->
@@ -361,7 +361,7 @@
                 <span class="cmd-prompt">CMD></span>
                 <span class="cmd-line-content">logparser "SELECT c-ip, COUNT(DISTINCT cs(User-Agent)) AS UniqueAgents FROM u_ex*.log GROUP BY c-ip ORDER BY UniqueAgents DESC" -i:IISW3C</span>
               </div>
-              <div class="cmd-output">Highlights IPs rotating User Agents — often a sign of obfuscation or botnets.</div>
+              <div class="cmd-output">Highlights IPs rotating User Agents, often a sign of obfuscation or botnets.</div>
             </div>
           </div>
         </div>

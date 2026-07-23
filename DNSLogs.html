@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Hack The Logs - DNS Documentation</title>
+    <link rel="stylesheet" href="css/os.css">
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <script src="js/Endpintcode.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Hack The Logs</div>
+      </div>
+      <div class="section-title">DNS Logs</div>
+      <a href="#overview" class="nav-item active">DNS Log Overview</a>
+      <a href="#log-types" class="nav-item">Key DNS Log Types</a>
+      <a href="#log-locations" class="nav-item">Log File Locations</a>
+      <a href="#enable-logging" class="nav-item">Enabling DNS Logging</a>
+      <a href="#threat-patterns" class="nav-item">DNS Threat Patterns</a>
+      <a href="#log-format" class="nav-item">DNS Log Format</a>
+      <a href="#record-types" class="nav-item">Record Types and Response Codes</a>
+      <a href="#analysis-queries" class="nav-item">DNS Log Analysis Queries</a>
+      <a href="#best-practices" class="nav-item">Best Practices for DNS Logging</a>
+      <a href="#log-examples" class="nav-item">Common DNS Log Examples</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title"> <i id="menuToggle" class="fas fa-bars"></i> DNS Logs</h1>
+        <div class="search-box">
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+
+      <!-- DNS Log Overview -->
+      <div id="overview" class="card event-log-overview">
+        <div class="card-header">
+          <div></div>
+          <h2>DNS Log Overview</h2>
+        </div>
+        <div class="content-wrapper">
+          <div class="overview-content">
+            <p>Almost every action on a network begins with a DNS lookup. Before malware reaches its command and control server, before a user lands on a phishing page, and before data leaves through a tunnel, something has to resolve a name. That property makes DNS the broadest single source of visibility available to a SOC: one log stream that observes nearly every host, every application, and every outbound connection attempt, including the ones that fail.</p>
+            <p>DNS produces two very different kinds of log. <code>Query logging</code> records the questions clients ask and the answers they receive, which is the security-relevant stream. <code>Debug or diagnostic logging</code> records protocol level detail intended for troubleshooting and is far too verbose to keep running. On Windows, the modern approach is the DNS Server Analytical log delivered through Event Tracing for Windows, which replaced the old text-based debug log and can sustain production query rates. On BIND, query logging is a channel configured in <code>named.conf</code>. On endpoints, Sysmon event ID 22 captures the resolving process, which is the one thing server-side DNS logs can never tell you.</p>
+            <p>The gap that matters most in modern environments is encrypted DNS. DNS over HTTPS and DNS over TLS move resolution off port 53 and out of the view of your internal resolver entirely, and every major browser now supports it. A host configured to use a public DoH resolver produces no useful DNS log at all. Blocking outbound port 53 to anything other than approved resolvers, disabling browser DoH through policy, and monitoring for connections to known DoH endpoints are prerequisites for DNS logging to remain meaningful.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key DNS Log Types -->
+      <div id="log-types" class="card event-log-locations">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>Key DNS Log Types</h2>
+        </div>
+        <p>DNS visibility can be collected at the server, at the endpoint, or on the wire. Each vantage point answers a different question, and a mature deployment uses more than one:</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Windows DNS Analytical Log</td>
+                <td>An ETW-based channel introduced in Windows Server 2012 R2 that records every query, response, recursion, and dynamic update handled by the server. Designed for production use with roughly 5 percent overhead at 100,000 queries per second, and the correct replacement for the legacy debug log.</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Windows DNS Audit Log</td>
+                <td>Enabled by default on Windows Server 2012 R2 and later. Records administrative changes such as zone creation and deletion, record additions and removals, and configuration changes. This is the tamper-detection stream, distinct from query activity.</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">BIND Query Log</td>
+                <td>Configured as a logging channel with the queries category in named.conf. Records the client address, query name, class, type, and flags for every request. The response is logged separately through the querylog and resolver categories.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">Sysmon Event ID 22</td>
+                <td>DNSEvent, generated on the endpoint rather than the server. Uniquely records the process image that performed the lookup, which is the difference between knowing a host resolved a malicious domain and knowing which binary did it.</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">Passive DNS</td>
+                <td>Resolution data captured from network traffic and stored historically, either by a sensor such as Zeek or by a commercial feed. Enables retrospective questions such as which internal hosts ever resolved a domain that has only now been identified as malicious.</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Zeek dns.log</td>
+                <td>Protocol-aware network monitoring output containing the query, response, record types, response code, and round-trip time for every DNS transaction observed on the wire. Independent of server configuration, so it captures lookups sent to unauthorised resolvers.</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Windows DNS Debug Log</td>
+                <td>The legacy text-based packet log configured through the DNS Manager console. Extremely verbose and a significant performance cost. Superseded by the analytical log and generally only appropriate for short troubleshooting windows.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Server-side DNS logs attribute a query to an IP address, not to a process or a user. Pair them with Sysmon event 22 for process attribution and with DHCP leases for device attribution, otherwise an alert on a malicious domain leaves you with an address and no owner.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log File Locations -->
+      <div id="log-locations" class="card">
+        <h2>Log File Locations</h2>
+        <p>DNS log destinations differ substantially between platforms, and on Windows the analytical channel is written as an ETL file rather than a normal event log.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Log</th>
+                <th>Default Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type site-log">Windows Analytical Log</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Microsoft-Windows-DNSServer%4Analytical.etl</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">Windows Audit Log</td>
+                <td>%SystemRoot%\System32\Winevt\Logs\Microsoft-Windows-DNSServer%4Audit.evtx</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">Windows Debug Log</td>
+                <td>%SystemRoot%\System32\dns\dns.log (path configurable in DNS Manager)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">BIND Query Log</td>
+                <td>/var/log/named/query.log or /var/named/data/named.run, set by the channel definition</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">BIND Configuration</td>
+                <td>/etc/named.conf (RHEL) or /etc/bind/named.conf.options (Debian)</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">Zeek DNS Log</td>
+                <td>/opt/zeek/logs/current/dns.log</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">Sysmon Event 22</td>
+                <td>Microsoft-Windows-Sysmon/Operational channel on each endpoint</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">dnsmasq</td>
+                <td>/var/log/dnsmasq.log or the system journal when no log-facility is set</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> The Windows analytical log is an ETL trace, not an EVTX file, so it cannot be opened directly in Event Viewer while the trace is running. Stop the channel first, or read it with <code>Get-WinEvent -Path ... -Oldest</code>, which handles ETL correctly.
+          </div>
+        </div>
+      </div>
+
+      <!-- Enabling DNS Logging -->
+      <div id="enable-logging" class="card">
+        <h2>Enabling DNS Logging</h2>
+        <p>Query logging is disabled by default on every major DNS platform because of its volume. These are the correct commands to turn it on in a way production can sustain.</p>
+
+        <div class="implementation-steps">
+          <h3>Step 1: Enable the Windows DNS Analytical Log</h3>
+          <div class="config-snippet">
+# Confirm the channel exists and check its current state
+Get-WinEvent -ListLog "Microsoft-Windows-DNSServer/Analytical" | Format-List *
+
+# Enable it with a bounded file size
+$log = New-Object System.Diagnostics.Eventing.Reader.EventLogConfiguration `
+       "Microsoft-Windows-DNSServer/Analytical"
+$log.LogFilePath = "C:\DNSLogs\Analytical.etl"
+$log.MaximumSizeInBytes = 2GB
+$log.IsEnabled = $true
+$log.SaveChanges()</div>
+          <div class="cmd-output">The analytical channel must be disabled before its properties can be changed. Setting IsEnabled last is what actually starts the trace.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 2: Verify Windows DNS Audit Logging</h3>
+          <div class="config-snippet">
+# Audit logging is on by default, but confirm it
+Get-WinEvent -ListLog "Microsoft-Windows-DNSServer/Audit" |
+  Select-Object LogName, IsEnabled, MaximumSizeInBytes, LogMode
+
+# Raise retention so a busy server does not overwrite weeks of changes
+wevtutil sl "Microsoft-Windows-DNSServer/Audit" /ms:1073741824 /rt:false</div>
+          <div class="cmd-output">The audit channel records zone and record modifications. Because it is low volume and high value, it should be sized generously and forwarded without filtering.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 3: Configure BIND Query Logging</h3>
+          <div class="config-snippet">
+// /etc/named.conf
+logging {
+    channel query_channel {
+        file "/var/log/named/query.log" versions 30 size 500m;
+        severity info;
+        print-time yes;
+        print-category yes;
+        print-severity yes;
+    };
+    category queries        { query_channel; };
+    category query-errors   { query_channel; };
+    category security       { query_channel; };
+    category client         { query_channel; };
+};</div>
+          <div class="cmd-output">The versions and size arguments give BIND its own rotation, retaining 30 files of 500 MB. Without them the log grows until the filesystem fills.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 4: Toggle BIND Query Logging at Runtime</h3>
+          <div class="config-snippet">
+# Turn query logging on or off without restarting named
+rndc querylog on
+rndc querylog off
+
+# Check the current state
+rndc status | grep -i querylog</div>
+          <div class="cmd-output">rndc querylog is a runtime toggle, useful for enabling full query capture during an investigation without a service restart or configuration change.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 5: Enable Sysmon DNS Logging on Endpoints</h3>
+          <div class="config-snippet">
+&lt;Sysmon schemaversion="4.90"&gt;
+  &lt;EventFiltering&gt;
+    &lt;RuleGroup name="DNS" groupRelation="or"&gt;
+      &lt;DnsQuery onmatch="exclude"&gt;
+        &lt;!-- Exclude high volume, low value internal noise --&gt;
+        &lt;QueryName condition="end with"&gt;.corp.local&lt;/QueryName&gt;
+        &lt;QueryName condition="end with"&gt;.in-addr.arpa&lt;/QueryName&gt;
+        &lt;Image condition="is"&gt;C:\Windows\System32\svchost.exe&lt;/Image&gt;
+      &lt;/DnsQuery&gt;
+    &lt;/RuleGroup&gt;
+  &lt;/EventFiltering&gt;
+&lt;/Sysmon&gt;</div>
+          <div class="cmd-output">Sysmon event 22 is the only DNS source that names the resolving process. Use exclude rules rather than include rules so that unexpected lookups are captured by default.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Step 6: Close the Encrypted DNS Bypass</h3>
+          <div class="config-snippet">
+# Block outbound DNS to anything except approved resolvers (firewall policy)
+deny udp any any eq 53 unless dst in {10.10.0.10, 10.10.0.11}
+deny tcp any any eq 853                    # DNS over TLS
+
+# Disable DoH in Microsoft Edge and Chrome via Group Policy
+HKLM\Software\Policies\Microsoft\Edge\DnsOverHttpsMode = "off"
+HKLM\Software\Policies\Google\Chrome\DnsOverHttpsMode  = "off"</div>
+          <div class="cmd-output">Without these controls a single browser setting removes a host from DNS monitoring entirely, and the absence of logs looks identical to a quiet endpoint.</div>
+        </div>
+
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> Never enable the legacy Windows DNS debug log on a busy domain controller as a monitoring solution. It writes synchronously to a text file and has been documented to cause noticeable query latency. The analytical channel exists specifically to solve this problem.
+          </div>
+        </div>
+      </div>
+
+      <!-- DNS Threat Patterns -->
+      <div id="threat-patterns" class="card owasp-overview">
+        <div class="card-header">
+          <div class="header-icon"></div>
+          <h2>DNS Threat Patterns</h2>
+        </div>
+        <p class="description">DNS abuse follows a small number of recognisable shapes. Each has a distinct statistical signature, which is what makes DNS such a productive detection surface.</p>
+        <div class="audit-categories-grid">
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-stream"></i>
+              <h4>DNS Tunnelling</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Data encoded into subdomain labels and carried out through TXT or NULL records. Signature: very long query names, high entropy, huge query volume to one parent domain, and TXT records dominating.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-dice"></i>
+              <h4>Domain Generation Algorithms</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Malware algorithmically generates candidate domains until one resolves. Signature: a burst of NXDOMAIN responses for random-looking names from a single host, followed by one successful resolution.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-satellite-dish"></i>
+              <h4>Command and Control Beaconing</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Regular check-in intervals to a controller. Signature: highly consistent timing between lookups of the same domain, often with very low TTL values and few distinct clients.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">Critical</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-clock"></i>
+              <h4>Newly Registered Domains</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Phishing and malware infrastructure is typically used within days of registration. Any lookup of a domain registered in the last 30 days is disproportionately likely to be malicious.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-sync-alt"></i>
+              <h4>Fast Flux</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>A single domain rotating rapidly through many IP addresses to resist takedown. Signature: very low TTL combined with a high count of distinct answers over a short window.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="audit-category-box">
+            <div class="category-box-header">
+              <i class="fas fa-user-secret"></i>
+              <h4>Resolver Bypass</h4>
+            </div>
+            <table class="subcategory-table">
+              <tbody>
+                <tr>
+                  <td>Hosts querying external resolvers directly, or using DoH and DoT. Signature: outbound port 53 or 853 to non-approved addresses, or TLS connections to known DoH providers.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="audit-success">Detect</span>
+                    <span class="audit-failure">High Risk</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Security Note:</strong> A sudden drop in DNS log volume from a host is itself a detection. It usually means the host has switched to an external or encrypted resolver, which is exactly what an attacker wants before starting command and control traffic.
+          </div>
+        </div>
+      </div>
+
+      <!-- DNS Log Format -->
+      <div id="log-format" class="card">
+        <h2>DNS Log Format</h2>
+        <p>These are the fields available across the major DNS log sources. Normalising to a common schema is what allows one detection to run against Windows, BIND, and Zeek data at the same time.</p>
+        <div class="log-locations-table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timestamp</td>
+                <td>Time the query was received</td>
+                <td>Timestamp</td>
+                <td>2025-07-14 09:41:22.481</td>
+              </tr>
+              <tr>
+                <td>client_ip</td>
+                <td>Address of the host that issued the query</td>
+                <td>Source</td>
+                <td>10.30.2.61</td>
+              </tr>
+              <tr>
+                <td>query_name</td>
+                <td>The fully qualified name requested</td>
+                <td>Target</td>
+                <td>a7f3c19e.tunnel.example.com</td>
+              </tr>
+              <tr>
+                <td>query_type</td>
+                <td>Record type requested</td>
+                <td>Request Type</td>
+                <td>TXT</td>
+              </tr>
+              <tr>
+                <td>query_class</td>
+                <td>Protocol class, almost always IN</td>
+                <td>Request Type</td>
+                <td>IN</td>
+              </tr>
+              <tr>
+                <td>response_code</td>
+                <td>Result status of the query</td>
+                <td>Result</td>
+                <td>NXDOMAIN</td>
+              </tr>
+              <tr>
+                <td>answers</td>
+                <td>Records returned in the response</td>
+                <td>Response</td>
+                <td>203.0.113.44</td>
+              </tr>
+              <tr>
+                <td>ttl</td>
+                <td>Time to live of the returned record</td>
+                <td>Response</td>
+                <td>60</td>
+              </tr>
+              <tr>
+                <td>recursion_desired</td>
+                <td>Whether the client requested recursion</td>
+                <td>Flags</td>
+                <td>true</td>
+              </tr>
+              <tr>
+                <td>transport</td>
+                <td>UDP or TCP</td>
+                <td>Protocol</td>
+                <td>UDP</td>
+              </tr>
+              <tr>
+                <td>process_image</td>
+                <td>Resolving process, Sysmon event 22 only</td>
+                <td>Identity</td>
+                <td>C:\Users\public\svc.exe</td>
+              </tr>
+              <tr>
+                <td>query_length</td>
+                <td>Character length of the query name</td>
+                <td>Detection</td>
+                <td>214</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Record Types and Response Codes -->
+      <div id="record-types" class="card">
+        <h2>Record Types and Response Codes</h2>
+        <p>Certain record types and response codes carry far more security weight than their share of traffic would suggest.</p>
+        <div class="log-locations-table-container">
+          <table class="log-locations-table">
+            <thead>
+              <tr>
+                <th>Type / Code</th>
+                <th>Meaning</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="log-type error-log">TXT</td>
+                <td>Arbitrary text record</td>
+                <td>The preferred carrier for DNS tunnelling and for staged payload delivery, because it holds arbitrary data. Normal TXT volume is low, so spikes stand out</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">NULL</td>
+                <td>Undefined record type</td>
+                <td>Almost never used legitimately. Its presence is a strong tunnelling indicator, notably used by Iodine</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">CNAME</td>
+                <td>Canonical name alias</td>
+                <td>Long CNAME chains are used for tunnelling and for cloaking the true destination of phishing infrastructure</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-log">ANY</td>
+                <td>Request for all records</td>
+                <td>Deprecated for normal use. Appears in reconnaissance and in DNS amplification reflection attacks</td>
+              </tr>
+              <tr>
+                <td class="log-type config-log">AXFR</td>
+                <td>Full zone transfer</td>
+                <td>An unauthorised AXFR hands an attacker a complete map of internal hostnames and addresses in one request</td>
+              </tr>
+              <tr>
+                <td class="log-type error-log">NXDOMAIN</td>
+                <td>Name does not exist</td>
+                <td>Bursts of NXDOMAIN from one host is the defining signature of domain generation algorithm malware searching for its controller</td>
+              </tr>
+              <tr>
+                <td class="log-type site-log">SERVFAIL</td>
+                <td>Server failure</td>
+                <td>Can indicate DNSSEC validation failure, which may mean tampering, or a poorly configured attacker-controlled zone</td>
+              </tr>
+              <tr>
+                <td class="log-type custom-site-log">REFUSED</td>
+                <td>Server refused to answer</td>
+                <td>Frequently the response to an attempted zone transfer or to recursion requested by an unauthorised client</td>
+              </tr>
+              <tr>
+                <td class="log-type virtualhost-log">SRV</td>
+                <td>Service location record</td>
+                <td>Queries for _ldap._tcp and _kerberos._tcp are how an attacker locates domain controllers immediately after landing on a network</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tip-content">
+            <strong>Pro Tip:</strong> Baseline your normal NXDOMAIN rate per host before alerting on it. Misconfigured applications and search-domain suffixes generate steady background NXDOMAIN traffic, so a static threshold produces constant false positives while a per-host deviation does not.
+          </div>
+        </div>
+      </div>
+
+      <!-- DNS Log Analysis Queries -->
+      <div id="analysis-queries" class="card">
+        <h2>DNS Log Analysis Queries</h2>
+        <p>These queries surface tunnelling, algorithmic domains, beaconing, and resolver bypass from DNS logs in a SIEM or directly on disk.</p>
+        <div class="cmd-grid">
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-stream"></i>
+              <span class="cmd-title">Long Query Names (Tunnelling)</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dns" | eval qlen=len(query_name) | where qlen &gt; 100 | stats count, avg(qlen) as avg_len, dc(query_name) as unique by client_ip, parent_domain | sort - count</span>
+              </div>
+              <div class="cmd-output">Normal DNS names are short. Sustained queries over 100 characters to one parent domain is tunnelling until proven otherwise.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-dice"></i>
+              <span class="cmd-title">NXDOMAIN Burst (DGA)</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dns" response_code="NXDOMAIN" | bucket _time span=5m | stats dc(query_name) as failed_domains by client_ip, _time | where failed_domains &gt; 50</span>
+              </div>
+              <div class="cmd-output">Fifty or more distinct failed lookups in five minutes from one host is the classic domain generation algorithm pattern.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-file-alt"></i>
+              <span class="cmd-title">Excessive TXT Queries</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dns" query_type IN ("TXT","NULL") | stats count by client_ip, parent_domain | where count &gt; 100 | sort - count</span>
+              </div>
+              <div class="cmd-output">TXT is normally a trickle used for SPF and domain verification. High volume to a single domain is data transfer, not lookups.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-satellite-dish"></i>
+              <span class="cmd-title">Beacon Interval Detection</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dns" | sort client_ip, query_name, _time | streamstats current=f last(_time) as prev by client_ip, query_name | eval gap=_time-prev | stats count, stdev(gap) as jitter, avg(gap) as interval by client_ip, query_name | where count &gt; 20 AND jitter &lt; 5</span>
+              </div>
+              <div class="cmd-output">Very low jitter across many lookups means a machine, not a human. This is the single most reliable beacon detection available from DNS.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-sync-alt"></i>
+              <span class="cmd-title">Fast Flux and Low TTL</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dns" ttl&lt;120 | stats dc(answers) as distinct_ips, values(answers) by query_name | where distinct_ips &gt; 10</span>
+              </div>
+              <div class="cmd-output">A domain resolving to more than ten addresses with a TTL under two minutes is either a large CDN or fast flux infrastructure. Whitelist the former.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card error">
+            <div class="cmd-header">
+              <i class="fas fa-database"></i>
+              <span class="cmd-title">Zone Transfer Attempts</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">bash></span>
+                <span class="cmd-line-content">grep -iE "AXFR|IXFR" /var/log/named/query.log | grep -v "10.10.0.1[01]" | awk '{print $6, $8}' | sort | uniq -c | sort -rn</span>
+              </div>
+              <div class="cmd-output">Any zone transfer request from an address other than your authorised secondaries is reconnaissance against your internal namespace.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-user-secret"></i>
+              <span class="cmd-title">Resolver Bypass</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="firewall" dest_port IN (53,853) NOT dest_ip IN ("10.10.0.10","10.10.0.11") action="allowed" | stats count by src_ip, dest_ip, dest_port</span>
+              </div>
+              <div class="cmd-output">Detects hosts talking DNS directly to the internet, bypassing your logging and filtering entirely.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-cogs"></i>
+              <span class="cmd-title">Read the Windows Analytical Log</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">PS></span>
+                <span class="cmd-line-content">Get-WinEvent -Path "C:\DNSLogs\Analytical.etl" -Oldest | Where-Object { $_.Id -eq 257 } | Select-Object TimeCreated, @{n='Query';e={$_.Properties[6].Value}}, @{n='Client';e={$_.Properties[1].Value}} | Select-Object -First 50</span>
+              </div>
+              <div class="cmd-output">Event ID 257 is RESPONSE_SUCCESS in the analytical channel. The -Oldest switch is mandatory when reading ETL files.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card warning">
+            <div class="cmd-header">
+              <i class="fas fa-code-branch"></i>
+              <span class="cmd-title">Process Attribution via Sysmon</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=22 | stats dc(QueryName) as domains by Image, Computer | where NOT Image IN ("*\chrome.exe","*\msedge.exe","*\svchost.exe") | sort - domains</span>
+              </div>
+              <div class="cmd-output">Reveals which binaries resolve names. A process in a user profile or temp directory performing many lookups is malware.</div>
+            </div>
+          </div>
+
+          <div class="cmd-card info">
+            <div class="cmd-header">
+              <i class="fas fa-server"></i>
+              <span class="cmd-title">Domain Controller Discovery</span>
+            </div>
+            <div class="cmd-content">
+              <div class="cmd-line">
+                <span class="cmd-prompt">SIEM></span>
+                <span class="cmd-line-content">source="dns" query_type="SRV" query_name IN ("_ldap._tcp*","_kerberos._tcp*","_gc._tcp*") | stats count by client_ip | sort - count</span>
+              </div>
+              <div class="cmd-output">Domain-joined machines do this at boot. A non-domain host or a server that never normally does it is performing Active Directory reconnaissance.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best Practices -->
+      <div id="best-practices" class="card best-practices-card">
+        <div class="card-header">
+          <div></div>
+          <h2>Best Practices for DNS Logging</h2>
+        </div>
+        <p class="intro-text">Apply these practices to turn DNS from a high volume nuisance into the most productive detection source you have:</p>
+        <div class="practices-container">
+          <div class="practice-item">
+            <div class="practice-number">01</div>
+            <div class="practice-content">
+              <h3>Log at the Internal Resolver</h3>
+              <p>Collect on the server your clients actually query, not at the forwarder. Once queries leave your recursive resolver they are aggregated and the originating client address is lost forever.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">02</div>
+            <div class="practice-content">
+              <h3>Force All DNS Through Approved Resolvers</h3>
+              <p>Block outbound port 53 and 853 at the perimeter except from your resolvers, and disable browser DoH by policy. Logging is worthless if a host can simply opt out of it.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">03</div>
+            <div class="practice-content">
+              <h3>Use the Analytical Channel on Windows</h3>
+              <p>The legacy debug log writes synchronously to text and measurably slows a domain controller. The ETW analytical channel was built for production query rates and is the supported approach.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">04</div>
+            <div class="practice-content">
+              <h3>Add Process Attribution</h3>
+              <p>Deploy Sysmon event 22 alongside server logging. Knowing that a host resolved a malicious domain is useful, knowing which executable did it turns an alert into an investigation.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">05</div>
+            <div class="practice-content">
+              <h3>Enrich with Domain Age and Reputation</h3>
+              <p>Join lookups against newly registered domain feeds and threat intelligence at ingest. Domain age alone is one of the strongest single predictors of maliciousness available.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">06</div>
+            <div class="practice-content">
+              <h3>Filter at Collection, Not at Detection</h3>
+              <p>Exclude reverse lookups, internal zones, and known-good telemetry domains before they reach the SIEM. DNS volume is the main reason teams abandon DNS logging, and most of it carries no signal.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">07</div>
+            <div class="practice-content">
+              <h3>Retain Long Enough to Look Backwards</h3>
+              <p>Threat intelligence arrives after the fact. Ninety days of DNS history lets you answer which hosts contacted a domain that was only identified as malicious last week.</p>
+            </div>
+          </div>
+          <div class="practice-item">
+            <div class="practice-number">08</div>
+            <div class="practice-content">
+              <h3>Alert on Missing Logs</h3>
+              <p>Monitor query volume per host. A machine that stops producing DNS logs has usually switched resolvers or been taken off the corporate path, and both warrant investigation.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common DNS Log Examples -->
+      <div id="log-examples" class="card">
+        <h2>Common DNS Log Examples</h2>
+        <p>The same intrusion viewed through BIND, Windows, Sysmon, and Zeek, showing what each source contributes.</p>
+
+        <div class="implementation-steps">
+          <h3>BIND Query Log: Normal Activity</h3>
+          <div class="config-snippet">
+14-Jul-2025 09:38:02.117 queries: info: client @0x7f2a1c0 10.30.2.61#51422 (portal.corp.local): query: portal.corp.local IN A + (10.10.0.10)
+14-Jul-2025 09:38:02.119 queries: info: client @0x7f2a1c0 10.30.2.61#51423 (www.example.com): query: www.example.com IN A +E(0) (10.10.0.10)</div>
+          <div class="cmd-output">A baseline query pair. The plus sign indicates recursion desired, and the trailing address in parentheses is the resolver interface that answered.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>DNS Tunnelling via TXT Records</h3>
+          <div class="config-snippet">
+14-Jul-2025 09:41:22.481 queries: info: client 10.30.2.61#52144 (a7f3c19e4b2d8f01.tunnel.example.com): query: a7f3c19e4b2d8f01.tunnel.example.com IN TXT + (10.10.0.10)
+14-Jul-2025 09:41:22.902 queries: info: client 10.30.2.61#52145 (b8e4d20af5c391a2.tunnel.example.com): query: b8e4d20af5c391a2.tunnel.example.com IN TXT + (10.10.0.10)
+14-Jul-2025 09:41:23.334 queries: info: client 10.30.2.61#52146 (c9f5e31bg6d4a2b3.tunnel.example.com): query: c9f5e31bg6d4a2b3.tunnel.example.com IN TXT + (10.10.0.10)</div>
+          <div class="cmd-output">Hex-like subdomains of constant length, all TXT, all to one parent domain, hundreds of milliseconds apart. This is encoded data leaving the network, not name resolution.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Domain Generation Algorithm Activity</h3>
+          <div class="config-snippet">
+14-Jul-2025 09:44:07.229 queries: info: client 10.30.2.61#52190 (kjhsdfuiwer.biz): query: kjhsdfuiwer.biz IN A + (10.10.0.10)
+14-Jul-2025 09:44:07.244 query-errors: info: client 10.30.2.61#52190: query failed (NXDOMAIN) for kjhsdfuiwer.biz/IN/A
+14-Jul-2025 09:44:07.301 queries: info: client 10.30.2.61#52191 (pqwoeirutyx.info): query: pqwoeirutyx.info IN A + (10.10.0.10)
+14-Jul-2025 09:44:07.318 query-errors: info: client 10.30.2.61#52191: query failed (NXDOMAIN) for pqwoeirutyx.info/IN/A
+14-Jul-2025 09:44:09.882 queries: info: client 10.30.2.61#52204 (zmxncbvlkjh.top): query: zmxncbvlkjh.top IN A + (10.10.0.10)</div>
+          <div class="cmd-output">Consonant-heavy random names across cheap TLDs, resolved milliseconds apart, nearly all returning NXDOMAIN. The one that eventually resolves is the live controller.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Windows Analytical Log: Query Received</h3>
+          <div class="config-snippet">
+Log Name:      Microsoft-Windows-DNSServer/Analytical
+Source:        Microsoft-Windows-DNSServer
+Event ID:      257
+Task Category: RESPONSE_SUCCESS
+Description:
+  TCP=0; InterfaceIP=10.10.0.10; Destination=10.30.2.61; AA=0; AD=0; QNAME=tunnel.example.com;
+  QTYPE=16; XID=45182; DNSSEC=0; RCODE=0; Port=52144; Flags=33152</div>
+          <div class="cmd-output">QTYPE 16 is TXT and RCODE 0 is NOERROR, so this tunnelling query succeeded. Event 258 would indicate a failure and 259 a dropped query.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Sysmon Event 22: Process Attribution</h3>
+          <div class="config-snippet">
+EventID: 22
+UtcTime: 2025-07-14 09:41:22.481
+ProcessGuid: {a1b2c3d4-1122-6874-0000-0010f4e21b00}
+ProcessId: 7412
+QueryName: a7f3c19e4b2d8f01.tunnel.example.com
+QueryStatus: 0
+QueryResults: type: 16 dnstunnel-payload-response;
+Image: C:\Users\Public\Libraries\update_svc.exe
+User: CORP\r.almutairi</div>
+          <div class="cmd-output">This is the record the server-side log cannot produce. An unsigned binary in a public library folder is performing the tunnelling, and it is running as a named user.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Attempted Zone Transfer</h3>
+          <div class="config-snippet">
+14-Jul-2025 09:52:10.774 security: info: client 198.51.100.203#44120: zone transfer 'corp.local/AXFR/IN' denied
+14-Jul-2025 09:52:11.008 security: info: client 198.51.100.203#44121: zone transfer 'corp.local/IXFR/IN' denied</div>
+          <div class="cmd-output">An external address attempting both a full and an incremental zone transfer. Denied here, but a successful AXFR would have handed over every internal hostname and address.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>Zeek dns.log: Fast Flux Infrastructure</h3>
+          <div class="config-snippet">
+#fields ts  uid  id.orig_h  id.resp_h  query  qtype_name  rcode_name  answers  TTLs
+1752486721.883  CxT1  10.30.2.61  10.10.0.10  cdn-node.badinfra.top  A  NOERROR  203.0.113.44,198.51.100.7,203.0.113.91  60,60,60
+1752486781.114  CxT2  10.30.2.61  10.10.0.10  cdn-node.badinfra.top  A  NOERROR  192.0.2.55,203.0.113.12,198.51.100.44  60,60,60</div>
+          <div class="cmd-output">The same name returning a completely different address set sixty seconds later, with a sixty second TTL. Legitimate CDNs return stable pools, this does not.</div>
+        </div>
+
+        <div class="implementation-steps">
+          <h3>DNS Audit Log: Record Tampering</h3>
+          <div class="config-snippet">
+Log Name:      Microsoft-Windows-DNSServer/Audit
+Event ID:      516
+Task Category: RECORD_DELETE
+Description:
+  A record was deleted from zone corp.local.
+  Zone=corp.local; Node=fileserver01; Type=1 (A); RDATA=10.20.5.40;
+  User=CORP\svc_backup; ClientIP=10.30.2.61</div>
+          <div class="cmd-output">Event 515 is record creation and 516 is deletion. A service account deleting or repointing an A record for a file server is a redirection attack, sending clients to an attacker-controlled host.</div>
+        </div>
+      </div>
+
+      <div class="back-button-container">
+        <a href="Network.html" class="explore-button">
+          <i class="fas fa-arrow-left"></i> Back </a>
+      </div>
+    </div>
+  </body>
+</html>

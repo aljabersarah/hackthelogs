@@ -393,7 +393,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" (event_category="*compliance*" OR event_category="*security*") status="*fail*" OR status="*non-compliant*" | stats count by device_id, user, compliance_reason | sort -count</span>
         </div>
-        <div class="cmd-output">Identifies devices failing security compliance checks — prioritizes remediation efforts based on frequency and severity of compliance failures.</div>
+        <div class="cmd-output">Identifies devices failing security compliance checks, prioritizes remediation efforts based on frequency and severity of compliance failures.</div>
       </div>
     </div>
     <!-- Jailbroken/Rooted Devices -->
@@ -407,7 +407,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" (event_message="*jailbreak*" OR event_message="*root*" OR event_type="*tamper*" OR compliance_reason="*system integrity*") | dedup device_id | table device_id, user, os_version, last_check_in</span>
         </div>
-        <div class="cmd-output">Detects potentially compromised devices with bypassed security controls — critical for identifying high-risk devices requiring immediate action.</div>
+        <div class="cmd-output">Detects potentially compromised devices with bypassed security controls, critical for identifying high-risk devices requiring immediate action.</div>
       </div>
     </div>
     <!-- Suspicious Device Enrollment -->
@@ -421,7 +421,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" event_category="*enroll*" | bucket span=1h | stats count by user, _time | where count > 3</span>
         </div>
-        <div class="cmd-output">Identifies users enrolling multiple devices in short timeframes — helps detect potential unauthorized bulk enrollments or account compromise.</div>
+        <div class="cmd-output">Identifies users enrolling multiple devices in short timeframes, helps detect potential unauthorized bulk enrollments or account compromise.</div>
       </div>
     </div>
     <!-- Unmanaged Applications -->
@@ -435,7 +435,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" event_category="*app*" (event_type="*install*" OR event_type="*detected*") NOT app_name IN (approved_app_list) | stats count by app_name, device_id, user | sort -count</span>
         </div>
-        <div class="cmd-output">Tracks installation of unapproved applications — helps identify policy violations and potential shadow IT on mobile devices.</div>
+        <div class="cmd-output">Tracks installation of unapproved applications, helps identify policy violations and potential shadow IT on mobile devices.</div>
       </div>
     </div>
     <!-- Remote Wipe Events -->
@@ -449,7 +449,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" (action="*wipe*" OR action="*reset*" OR action="*erase*") | stats count by admin_user, device_id, reason, status | sort -_time</span>
         </div>
-        <div class="cmd-output">Monitors device wipe commands — provides audit trail of critical data destruction actions for lost/stolen device scenarios.</div>
+        <div class="cmd-output">Monitors device wipe commands, provides audit trail of critical data destruction actions for lost/stolen device scenarios.</div>
       </div>
     </div>
     <!-- Administrative Configuration Changes -->
@@ -463,7 +463,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" (event_category="*policy*" OR event_category="*profile*" OR event_category="*config*") (action="*create*" OR action="*modify*" OR action="*delete*" OR action="*update*") | stats count by admin_user, policy_name, action | sort -_time</span>
         </div>
-        <div class="cmd-output">Tracks policy and configuration changes — maintains audit trail of security policy modifications for compliance and troubleshooting.</div>
+        <div class="cmd-output">Tracks policy and configuration changes, maintains audit trail of security policy modifications for compliance and troubleshooting.</div>
       </div>
     </div>
     <!-- Unusual Geographic Access -->
@@ -477,7 +477,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" | lookup geoip device_ip | where NOT Country IN ("United States") | stats count by Country, user, device_id</span>
         </div>
-        <div class="cmd-output">Identifies devices connecting from unusual locations — helps detect potential device theft or unauthorized use in restricted regions.</div>
+        <div class="cmd-output">Identifies devices connecting from unusual locations, helps detect potential device theft or unauthorized use in restricted regions.</div>
       </div>
     </div>
     <!-- Device Connectivity Patterns -->
@@ -491,7 +491,7 @@
           <span class="cmd-prompt">SIEM></span>
           <span class="cmd-line-content">source="mdm*" event_category="*checkin*" | stats latest(_time) as last_seen by device_id | eval time_diff=now()-last_seen | where time_diff > 604800</span>
         </div>
-        <div class="cmd-output">Finds devices that haven't checked in recently — identifies potentially lost devices or those avoiding security policies.</div>
+        <div class="cmd-output">Finds devices that haven't checked in recently, identifies potentially lost devices or those avoiding security policies.</div>
       </div>
     </div>
   
