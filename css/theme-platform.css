@@ -1,0 +1,802 @@
+/* =========================================================================
+   THEME: PLATFORM
+   Engineering platform language. Near black canvas, oversized tight display
+   type, monospace micro labels, numbered sections, hairline grid and corner
+   bracket motifs, accent used sparingly.
+
+   No pure white is used anywhere. The lightest ink is #DCE7E1.
+   ========================================================================= */
+
+:root {
+  /* Canvas */
+  --dark-bg: #080A0D;
+  --nav-bg: #0B0E12;
+  --panel: #0E1216;
+  --panel-2: #12171C;
+  --panel-3: #171D23;
+
+  /* Ink, deliberately never #FFFFFF */
+  --ink-100: #DCE7E1;
+  --ink-200: #B4C4BC;
+  --ink-300: #8B9E96;
+  --ink-400: #64756E;
+
+  /* Accent */
+  --accent: #01C38D;
+  --accent-bright: #35E3AB;
+  --accent-dim: rgba(1, 195, 141, 0.12);
+  --amber: #E0A458;
+  --red: #E8695E;
+  --cyan: #4FC3D9;
+
+  /* Lines, tinted rather than white */
+  --line: rgba(150, 190, 175, 0.11);
+  --line-2: rgba(150, 190, 175, 0.2);
+
+  --text-light: var(--ink-100);
+  --text-white: var(--ink-100);
+  --text-muted: var(--ink-300);
+
+  --mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  --r-lg: 20px;
+  --r: 14px;
+  --r-sm: 10px;
+}
+
+body {
+  background-color: var(--dark-bg);
+  color: var(--ink-200);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hairline engineering grid across the whole canvas. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(150, 190, 175, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 190, 175, 0.032) 1px, transparent 1px);
+  background-size: 68px 68px;
+}
+
+/* ---- sidebar ------------------------------------------------------------ */
+
+.sidebar {
+  background-color: var(--nav-bg);
+  border-right: 1px solid var(--line);
+  width: 288px;
+  position: relative;
+  z-index: 2;
+}
+
+.logo {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+}
+
+.logo-icon {
+  background: linear-gradient(140deg, var(--accent), #018F68);
+  border-radius: 10px;
+  color: #06231A;
+  box-shadow: 0 8px 22px rgba(1, 195, 141, 0.26);
+}
+
+.logo-text {
+  color: var(--ink-100);
+  font-size: 17px;
+  letter-spacing: -0.2px;
+}
+
+.sidebar .section-title {
+  color: var(--ink-400);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2.2px;
+  padding: 0 24px 12px;
+  text-transform: uppercase;
+}
+
+/* Numbered navigation, an engineering index. */
+.sidebar { counter-reset: htl-nav; }
+
+.nav-item {
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  color: var(--ink-300);
+  counter-increment: htl-nav;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 10px 20px 10px 18px;
+  position: relative;
+  transition: color .18s ease, background-color .18s ease, border-color .18s ease;
+}
+
+.nav-item::before {
+  content: counter(htl-nav, decimal-leading-zero);
+  color: var(--ink-400);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .5px;
+  margin-right: 11px;
+  opacity: .75;
+}
+
+.nav-item:hover {
+  background-color: rgba(150, 190, 175, 0.04);
+  color: var(--ink-100);
+}
+
+.nav-item.active {
+  background: linear-gradient(90deg, var(--accent-dim), transparent 85%);
+  border-left-color: var(--accent);
+  color: var(--accent-bright);
+}
+
+.nav-item.active::before { color: var(--accent); opacity: 1; }
+
+/* ---- page shell --------------------------------------------------------- */
+
+.main-content {
+  padding: 34px 46px 90px;
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 36px;
+  padding-bottom: 22px;
+  position: relative;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -1px;
+  width: 76px; height: 2px;
+  background: var(--accent);
+}
+
+.page-title {
+  color: var(--ink-100);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.search-box input {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink-100);
+  font-size: 13.5px;
+  padding: 11px 16px;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.search-box input::placeholder { color: var(--ink-400); }
+
+.search-box input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  outline: none;
+}
+
+/* ---- panels with corner brackets ---------------------------------------- */
+
+.card {
+  background-color: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  margin-bottom: 30px;
+  padding: 32px 34px;
+  position: relative;
+}
+
+/*
+ * Corner ticks trace the card's own rounded corners rather than floating
+ * inside the padding, where they collided with heading rows.
+ */
+.card::before,
+.card::after {
+  content: '';
+  position: absolute;
+  width: 26px; height: 26px;
+  border-color: var(--accent);
+  border-style: solid;
+  opacity: .45;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+.card::before {
+  top: -1px; left: -1px;
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: var(--r-lg);
+}
+
+.card::after {
+  bottom: -1px; right: -1px;
+  border-width: 0 1px 1px 0;
+  border-bottom-right-radius: var(--r-lg);
+}
+
+.card:hover::before,
+.card:hover::after { opacity: .9; }
+
+/*
+ * One heading treatment, everywhere.
+ *
+ * The base sheet gave .card h2 a full bleed tinted band built from negative
+ * margins sized to the old 20px card padding, and two card variants added
+ * their own gradient header on top. With different padding that produced
+ * several different looking headings on the same page. All of it is stripped
+ * back to a single flat heading.
+ */
+.card h2,
+.card-header h2 {
+  background: none;
+  background-color: transparent;
+  border-bottom: none;
+  color: var(--ink-100);
+  display: block;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+  margin: 0;
+  padding: 0;
+  width: auto;
+}
+
+.card .card-header,
+.best-practices-card .card-header,
+.audit-policies-card .card-header {
+  align-items: center;
+  background: none;
+  background-color: transparent;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  gap: 13px;
+  margin: 0 0 22px;
+  padding: 0 0 16px;
+  width: auto;
+}
+
+/* These two variants carry their own surface and clip the corner ticks. */
+.event-log-overview,
+.event-log-locations {
+  background-color: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: visible;
+}
+
+.card h3 {
+  color: var(--ink-100);
+  font-size: 16px;
+  letter-spacing: -.1px;
+}
+
+/* Body copy runs the full width of the card. */
+.card p,
+.card li {
+  color: var(--ink-200);
+  font-size: 15px;
+  line-height: 1.8;
+  max-width: none;
+}
+
+.overview-content,
+.overview-content p {
+  max-width: none;
+  width: 100%;
+}
+
+.card-header {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  gap: 13px;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+}
+
+.card-header h2 { margin-bottom: 0; }
+
+/*
+ * Several pages carry an empty <div class="header-icon"></div>. Styling it
+ * unconditionally rendered a bare coloured slab next to the heading, so the
+ * treatment only applies when the element actually holds an icon.
+ */
+.header-icon:empty {
+  display: none;
+}
+
+.header-icon:not(:empty) {
+  background: var(--accent-dim);
+  border: 1px solid rgba(1, 195, 141, .25);
+  border-radius: 9px;
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.card code,
+.tip-content code {
+  background: rgba(1, 195, 141, .1);
+  border: 1px solid rgba(1, 195, 141, .18);
+  border-radius: 5px;
+  color: var(--accent-bright);
+  font-family: var(--mono);
+  font-size: .87em;
+  padding: 1px 6px;
+}
+
+/* ---- tables as spec sheets ---------------------------------------------- */
+
+.log-locations-table-container {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: none;
+  overflow: auto;
+}
+
+.log-locations-table thead,
+.log-table thead,
+.subcategory-table thead { background-color: var(--panel-3); }
+
+.log-locations-table th,
+.log-table th {
+  background-color: var(--panel-3);
+  border-bottom: 1px solid var(--line-2);
+  color: var(--ink-300);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  padding: 14px 17px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.log-locations-table td,
+.log-table td {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-200);
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 14px 17px;
+  vertical-align: top;
+}
+
+.log-locations-table tbody tr:nth-child(even),
+.log-table tbody tr:nth-child(even) { background-color: rgba(150, 190, 175, .014); }
+
+.log-locations-table tr:hover td,
+.log-table tr:hover td { background-color: var(--accent-dim); }
+
+/*
+ * Log type labels. Boxed pills looked ragged here because the column holds
+ * labels of very different lengths, and several pages use variant classes
+ * that carry no colour of their own. This is a flat label with a small
+ * colour marker instead, so every row lines up regardless of text length.
+ */
+/* Applied directly to <td>, so display and padding are left alone. */
+.log-type {
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--ink-100);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+
+/* Generic variants used across most pages. */
+.site-log        { color: var(--accent-bright); }
+.error-log       { color: var(--red); }
+.virtualhost-log { color: var(--cyan); }
+.custom-log      { color: #B79CF0; }
+.config-log      { color: var(--amber); }
+.custom-site-log { color: #6FD8C4; }
+
+/* Page specific variants that would otherwise inherit a flat grey. */
+.application-log { color: var(--cyan); }
+.security-log    { color: var(--red); }
+.system-log      { color: var(--accent-bright); }
+.setup-log       { color: var(--amber); }
+.forwarded-log,
+.forwarded-events-log { color: #B79CF0; }
+.access-log      { color: var(--accent-bright); }
+.audit-log       { color: var(--amber); }
+.ftp-log         { color: var(--cyan); }
+
+/* ---- command cards ------------------------------------------------------ */
+
+.cmd-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: none;
+  color: var(--ink-200);
+  padding: 20px 22px;
+  position: relative;
+  transition: border-color .22s ease, transform .22s ease;
+}
+
+.cmd-card::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: -1px;
+  width: 18px; height: 18px;
+  border: solid var(--accent);
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: var(--r);
+  opacity: .4;
+  pointer-events: none;
+}
+
+.cmd-card:hover {
+  border-color: rgba(1, 195, 141, .34);
+  transform: translateY(-2px);
+}
+
+.cmd-card.info    { border-top: 2px solid var(--cyan); }
+.cmd-card.warning { border-top: 2px solid var(--amber); }
+.cmd-card.error   { border-top: 2px solid var(--red); }
+
+.cmd-header {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.cmd-header i { color: var(--accent); }
+
+.cmd-title {
+  color: var(--ink-100);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.cmd-line {
+  background: #05070A;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+  padding: 12px 14px;
+}
+
+.cmd-prompt {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  user-select: none;
+}
+
+.cmd-line-content {
+  color: #C6DAD1;
+  font-family: var(--mono);
+  font-size: 12.6px;
+  line-height: 1.65;
+}
+
+.cmd-output {
+  background: transparent;
+  border-left: 2px solid var(--line-2);
+  border-radius: 0;
+  color: var(--ink-300);
+  font-size: 13.5px;
+  line-height: 1.7;
+  margin-top: 13px;
+  padding: 1px 0 1px 13px;
+}
+
+.cmd-copy { color: var(--ink-400); }
+.cmd-copy:hover { color: var(--accent); }
+
+/* ---- snippets and steps ------------------------------------------------- */
+
+.config-snippet {
+  background-color: #05070A;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-sm);
+  color: #C6DAD1;
+  font-family: var(--mono);
+  font-size: 12.8px;
+  line-height: 1.75;
+  padding: 18px 20px;
+  tab-size: 2;
+}
+
+.implementation-steps {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  margin: 22px 0;
+  padding: 24px 26px;
+  position: relative;
+}
+
+.implementation-steps h3 {
+  color: var(--ink-100);
+  font-size: 15px;
+  letter-spacing: -.1px;
+  margin-bottom: 14px;
+}
+
+/* ---- callouts ----------------------------------------------------------- */
+
+.tip-content {
+  background: var(--accent-dim);
+  border: 1px solid rgba(1, 195, 141, .22);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  color: var(--ink-200);
+  font-size: 14px;
+  line-height: 1.75;
+  margin-top: 20px;
+  padding: 16px 19px;
+}
+
+.tip-content strong { color: var(--accent-bright); }
+
+.alert-warning {
+  background-color: rgba(224, 164, 88, .07);
+  border: 1px solid rgba(224, 164, 88, .26);
+  border-left: 2px solid var(--amber);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  color: var(--ink-200);
+  font-size: 14px;
+  line-height: 1.75;
+  padding: 17px 19px;
+}
+
+.alert-warning i,
+.alert-warning strong { color: var(--amber); }
+
+/* ---- practices ---------------------------------------------------------- */
+
+.practice-item {
+  background-color: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-sm);
+  padding: 22px 24px;
+  transition: border-color .22s ease, transform .22s ease;
+}
+
+.practice-item:hover {
+  border-color: rgba(1, 195, 141, .4);
+  box-shadow: none;
+  transform: translateY(-3px);
+}
+
+.practice-number {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 20px;
+  opacity: .45;
+}
+
+.practice-content h3 { color: var(--ink-100); font-size: 15.5px; }
+.practice-content p  { color: var(--ink-300); font-size: 14px; line-height: 1.75; }
+
+/* ---- audit boxes and mitre --------------------------------------------- */
+
+.audit-category-box {
+  background-color: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: none;
+}
+
+.audit-category-box:hover {
+  border-color: rgba(1, 195, 141, .35);
+  box-shadow: none;
+  transform: translateY(-3px);
+}
+
+.category-box-header {
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--line);
+  gap: 11px;
+  padding: 14px 17px;
+}
+
+.category-box-header i { color: var(--accent); }
+.category-box-header h4 { color: var(--ink-100); }
+
+.subcategory-table td {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-200);
+}
+
+.audit-success,
+.audit-failure {
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  padding: 3px 9px;
+  text-transform: uppercase;
+}
+
+.audit-success { color: var(--accent-bright); background: rgba(1, 195, 141, .07); }
+.audit-failure { color: var(--red);           background: rgba(232, 105, 94, .07); }
+
+.mitre-event-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.mitre-event-id { color: var(--accent); font-family: var(--mono); }
+.mitre-event-description { color: var(--ink-200); }
+
+/* ---- buttons ------------------------------------------------------------ */
+
+.explore-button {
+  background-color: var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(1, 195, 141, .2);
+  color: #06231A;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  padding: 12px 22px;
+  transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+
+.explore-button:hover {
+  background-color: var(--accent-bright);
+  box-shadow: 0 14px 32px rgba(1, 195, 141, .3);
+  color: #06231A;
+  transform: translateY(-2px);
+}
+
+/* ---- category pages ----------------------------------------------------- */
+
+.main-header h1 {
+  background: none !important;
+  -webkit-text-fill-color: var(--ink-100) !important;
+  color: var(--ink-100) !important;
+  font-size: 52px;
+  letter-spacing: -1.5px;
+}
+
+.header-description { color: var(--ink-300); }
+.creator-credit     { color: var(--ink-400); }
+
+.nav-box,
+.os-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: none;
+}
+
+.nav-box::before,
+.os-box::before {
+  content: '';
+  position: absolute;
+  top: 12px; left: 12px;
+  width: 12px; height: 12px;
+  border: solid var(--accent);
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: 4px;
+  opacity: .5;
+  z-index: 2;
+}
+
+.nav-box:hover,
+.os-box:hover {
+  border-color: rgba(1, 195, 141, .4);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, .5);
+  transform: translateY(-6px);
+}
+
+.nav-box i, .os-box i     { color: var(--accent); }
+.nav-box span, .os-box span, .os-box h2 { color: var(--ink-100); }
+.nav-box-blurb, .os-box p { color: var(--ink-300); }
+.nav-box-count            { color: var(--accent); font-family: var(--mono); }
+
+/* ---- main page search --------------------------------------------------- */
+
+.htl-search-field {
+  background: var(--panel);
+  border-color: var(--line);
+  border-radius: var(--r);
+  backdrop-filter: none;
+}
+
+.htl-search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-dim), 0 20px 40px rgba(0, 0, 0, .4);
+}
+
+#htl-search-input { color: var(--ink-100); }
+#htl-search-input::placeholder { color: var(--ink-400); }
+
+.htl-search-kbd span { background: var(--panel-3); border-color: var(--line); }
+.htl-search-hint, .htl-status { color: var(--ink-400); }
+
+.htl-chip {
+  background: var(--panel);
+  border-color: var(--line);
+  border-radius: 8px;
+  color: var(--ink-300);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.htl-chip span { background: rgba(150, 190, 175, .08); }
+.htl-chip.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-bright);
+}
+
+.htl-results {
+  background: var(--panel);
+  border-color: var(--line);
+  border-radius: var(--r);
+  backdrop-filter: none;
+}
+
+.htl-results-meta {
+  background: var(--panel-2);
+  border-color: var(--line);
+  color: var(--ink-400);
+  font-family: var(--mono);
+}
+
+.htl-result { border-bottom-color: var(--line); }
+.htl-result:hover, .htl-result.is-active { background: var(--accent-dim); }
+.htl-result-page    { color: var(--ink-100); }
+.htl-result-section { color: var(--accent-bright); }
+.htl-result-snippet { color: var(--ink-300); }
+.htl-result-cat     { background: var(--panel-3); color: var(--ink-400); }
+.htl-result mark, .htl-result-snippet mark {
+  background: rgba(1, 195, 141, .2);
+  color: var(--accent-bright);
+}
+.htl-empty { color: var(--ink-300); }
+.htl-empty strong { color: var(--ink-100); }
+
+/* ---- misc --------------------------------------------------------------- */
+
+a:focus-visible, button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection { background: rgba(1, 195, 141, .3); color: var(--ink-100); }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--dark-bg); }
+::-webkit-scrollbar-thumb { background: rgba(150, 190, 175, .16); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(1, 195, 141, .45); }

@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -53,7 +54,7 @@
       <div class="card event-log-locations">
         <div class="card-header">
           <div class="header-icon"></div>
-          <h2>Key Apache Log Locations</h2>
+          <h2 id="key-apache-log-locations">Key Apache Log Locations</h2>
         </div>
         <p>Apache stores logs based on the server configuration. Below are common default paths and locations for Apache access and error logs:</p>
         <div class="log-locations-table-container">
@@ -105,7 +106,7 @@
       </div>
       <!-- Apache Access Log Format-->
       <div class="card">
-        <h2>Apache Access Log Format</h2>
+        <h2 id="apache-access-log-format">Apache Access Log Format</h2>
         <div class="log-locations-table-container">
           <table class="log-table">
             <thead>
@@ -183,7 +184,7 @@
       </div>
       <!-- HTTP Response Codes in Apache Logs -->
 <div class="card">
-  <h2>Apache Response Code Reference</h2>
+  <h2 id="apache-response-code-reference">Apache Response Code Reference</h2>
   <p>This table lists common HTTP status codes as seen in Apache access logs.</p>
   <table class="log-table">
     <thead>
@@ -239,7 +240,7 @@
 
       <!-- Apache Log Analysis Commands -->
       <div class="card">
-        <h2>Apache Log Analysis Commands</h2>
+        <h2 id="apache-log-analysis-commands">Apache Log Analysis Commands</h2>
         <p>Use these Linux CLI commands to analyze Apache access logs, detect abuse, and uncover suspicious patterns in web traffic.</p>
         <div class="cmd-grid">
           <!-- List All User Agents -->
@@ -360,7 +361,7 @@
       <div class="card best-practices-card">
         <div class="card-header">
           <div></div>
-          <h2>Best Practices for Apache Log Management</h2>
+          <h2 id="best-practices-for-apache-log-management">Best Practices for Apache Log Management</h2>
         </div>
         <p class="intro-text">Follow these practices to enhance visibility, improve security detection, and support forensic investigations using Apache access and error logs:</p>
         <div class="practices-container">
@@ -428,7 +429,7 @@
           <!-- <div class="header-icon">
             <i class="fas fa-shield-alt"></i>
           </div> -->
-          <h2>OWASP Top 10 Web Application Security Risks</h2>
+          <h2 id="owasp-top-10-web-application-security-risks">OWASP Top 10 Web Application Security Risks</h2>
         </div>
         <p class="description"> The OWASP Top 10 is a standard awareness document for developers and web application security practitioners. It represents a broad consensus about the most critical security risks to web applications based on frequency of discovery, severity, and potential impact. </p>
         <div class="audit-categories-grid">

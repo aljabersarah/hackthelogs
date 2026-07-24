@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -54,7 +55,7 @@
       <div class="card event-log-locations">
         <div class="card-header">
           <div class="header-icon"></div>
-          <h2>Key Event Log Locations</h2>
+          <h2 id="key-event-log-locations">Key Event Log Locations</h2>
         </div>
         <p>Windows stores its event logs in several key locations depending on the log type:</p>
         <div class="log-locations-table-container">
@@ -117,7 +118,7 @@
     <div>
       
     </div>
-    <h2>Windows Advanced Audit Policies</h2>
+    <h2 id="windows-advanced-audit-policies">Windows Advanced Audit Policies</h2>
   </div>
   
   <p class="intro-text">Windows audit policy defines what types of events are written to the Security logs of your Windows servers. Establishing an effective audit policy helps you spot potential security problems, ensure user accountability and provide evidence in the event of a security breach. The recommended audit policy settings provided here are intended as a baseline for system administrators starting to define AD audit policies. You should be sure to consider the cybersecurity risks and compliance requirements of your organization. In addition, test and refine your policies before implementing them in your production environment.</p>
@@ -370,7 +371,7 @@
     <div>
       
     </div>
-    <h2>How to implement audit policy</h2>
+    <h2 id="how-to-implement-audit-policy">How to implement audit policy</h2>
   </div>
  
  
@@ -426,7 +427,7 @@
 
 
       <div class="card">
-        <h2>Critical Windows Event IDs</h2>
+        <h2 id="critical-windows-event-ids">Critical Windows Event IDs</h2>
         <div class="button-container">
           <button class="install-button">Install list</button>
         </div>
@@ -1574,7 +1575,7 @@
         </div>
       </div>
       <div class="card">
-        <h2>PowerShell Commands for Log Analysis</h2>
+        <h2 id="powershell-commands-for-log-analysis">PowerShell Commands for Log Analysis</h2>
         <p>Common PowerShell commands for querying and managing Windows Event Logs. These examples demonstrate how to retrieve, filter, and export event logs for system monitoring and troubleshooting.</p>
         <div class="cmd-grid">
           <!-- Basic Event Log Query -->
@@ -1774,7 +1775,7 @@
       <div class="card best-practices-card">
         <div class="card-header">
           <div></div>
-          <h2>Best Practices for Windows Event Logging</h2>
+          <h2 id="best-practices-for-windows-event-logging">Best Practices for Windows Event Logging</h2>
         </div>
         <p class="intro-text">Follow these guidelines to ensure effective event logging in Windows environments:</p>
         <div class="practices-container">
@@ -1840,7 +1841,7 @@
       <div class="card">
         <div class="card-header">
           <div class="header-icon"></div>
-          <h2>MITRE ATT&CK Navigator</h2>
+          <h2 id="mitre-att-ck-navigator">MITRE ATT&CK Navigator</h2>
         </div>
         <section class="section" id="mitre-framework">
           <div class="mitre-section-title">

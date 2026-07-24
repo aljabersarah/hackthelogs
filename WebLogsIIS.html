@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -53,7 +54,7 @@
       <div class="card event-log-locations">
         <div class="card-header">
           <div class="header-icon"></div>
-          <h2>Key IIS Log Locations</h2>
+          <h2 id="key-iis-log-locations">Key IIS Log Locations</h2>
         </div>
         <p>IIS stores log files based on the site and configuration. Below are the default paths and common directories where you can find IIS logs:</p>
         <div class="log-locations-table-container">
@@ -105,7 +106,7 @@
       </div>
       <!-- IIS Log Format -->
       <div class="card">
-        <h2>IIS Log Format</h2>
+        <h2 id="iis-log-format">IIS Log Format</h2>
         <div class="log-locations-table-container">
           <table class="log-table">
             <thead>
@@ -195,7 +196,7 @@
       </div>
       <!-- HTTP Response Codes in IIS Logs -->
 <div class="card">
-  <h2>IIS Response Code Reference</h2>
+  <h2 id="iis-response-code-reference">IIS Response Code Reference</h2>
   <p>This table lists common HTTP response codes as seen in IIS logs (fields like <code>sc-status</code>).</p>
   <table class="log-table">
     <thead>
@@ -247,7 +248,7 @@
 
       <!-- IIS Log Parser Commands -->
       <div class="card">
-        <h2>IIS Log Parser Commands </h2>
+        <h2 id="iis-log-parser-commands">IIS Log Parser Commands </h2>
         <p>Use these Log Parser commands to uncover hidden threats, misuse of HTTP methods, abnormal behavior patterns, and attacker-controlled user agents in IIS logs.</p>
         <div class="cmd-grid">
           <!-- List All User Agents -->
@@ -370,7 +371,7 @@
       <div class="card best-practices-card">
         <div class="card-header">
           <div></div>
-          <h2>Best Practices for IIS Log Management</h2>
+          <h2 id="best-practices-for-iis-log-management">Best Practices for IIS Log Management</h2>
         </div>
         <p class="intro-text">Follow these practices to maximize the forensic value, performance insights, and detection capabilities of your IIS log data:</p>
         <div class="practices-container">
@@ -438,7 +439,7 @@
           <div >
             
           </div>
-          <h2>OWASP Top 10 Web Application Security Risks</h2>
+          <h2 id="owasp-top-10-web-application-security-risks">OWASP Top 10 Web Application Security Risks</h2>
         </div>
         <p class="description"> The OWASP Top 10 is a standard awareness document for developers and web application security practitioners. It represents a broad consensus about the most critical security risks to web applications based on frequency of discovery, severity, and potential impact. </p>
         <div class="audit-categories-grid">

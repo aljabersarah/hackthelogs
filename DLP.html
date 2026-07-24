@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -52,7 +53,7 @@
 <div class="card event-log-locations">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>Key DLP Solution Components</h2>
+    <h2 id="key-dlp-solution-components">Key DLP Solution Components</h2>
   </div>
   <p>Enterprise DLP solutions incorporate several critical components that work in concert to provide comprehensive data protection across all organizational touchpoints. Understanding these components is essential for implementing effective data loss prevention strategies:</p>
   <div class="log-locations-table-container">
@@ -99,7 +100,7 @@
 </div>
     <!-- DLP Activity Log Types -->
 <div class="card">
-  <h2>DLP Activity Log Types</h2>
+  <h2 id="dlp-activity-log-types">DLP Activity Log Types</h2>
   <p>DLP solutions generate comprehensive logs that help organizations monitor data protection activities, investigate security incidents, and maintain compliance. Understanding these log types is crucial for effective data governance and security monitoring:</p>
   <div class="log-locations-table-container">
     <table class="log-table">
@@ -166,7 +167,7 @@
 </div>
 <!-- DLP Vendor Log Differences -->
 <div class="card">
-  <h2>DLP Vendor Log Differences</h2>
+  <h2 id="dlp-vendor-log-differences">DLP Vendor Log Differences</h2>
   <p>Different DLP vendors implement logging with varying approaches, creating challenges when consolidating logs for security operations. Understanding these differences is critical for effective SIEM integration and cross-platform analysis.</p>
   <div class="log-locations-table-container">
     <table class="log-table">
@@ -290,7 +291,7 @@
 </div>
     <!-- DLP Log Analysis Queries -->
 <div class="card">
-  <h2>DLP Log Analysis Queries</h2>
+  <h2 id="dlp-log-analysis-queries">DLP Log Analysis Queries</h2>
   <p>Use these generic SIEM query patterns to analyze DLP logs, detect data exfiltration attempts, monitor policy compliance, and investigate data security incidents across any DLP solution. Field names will vary by vendor - adapt queries by substituting your system's specific field names.</p>
   <div class="cmd-grid">
     <!-- Data Exfiltration Detection -->

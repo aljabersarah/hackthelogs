@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -59,7 +60,7 @@ Services such as PostgreSQL or Apache create their own log files in subdirectori
 <div class="card event-log-locations">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>Key Linux Log File Locations</h2>
+    <h2 id="key-linux-log-file-locations">Key Linux Log File Locations</h2>
   </div>
   <p>Linux systems store logs in structured files across the filesystem. Here's a breakdown of common log files:</p>
   <div class="log-locations-table-container">
@@ -174,7 +175,7 @@ Services such as PostgreSQL or Apache create their own log files in subdirectori
     <div >
        
     </div>
-    <h2>Linux Logging Systems</h2>
+    <h2 id="linux-logging-systems">Linux Logging Systems</h2>
   </div>
 
   <p class="intro-text">
@@ -308,7 +309,7 @@ Services such as PostgreSQL or Apache create their own log files in subdirectori
   <div class="card-header">
     <div >
     </div>
-    <h2>Rsyslog Configuration</h2>
+    <h2 id="rsyslog-configuration">Rsyslog Configuration</h2>
   </div>
   <p>
     The rsyslog daemon is configured through <code>/etc/rsyslog.conf</code> and additional files in <code>/etc/rsyslog.d/</code>. The configuration consists of modules, global directives, templates, and rules.
@@ -351,7 +352,7 @@ auth,authpriv.*                 /var/log/auth.log
   <div class="card-header">
     <div >
     </div>
-    <h2>Systemd Journal</h2>
+    <h2 id="systemd-journal">Systemd Journal</h2>
   </div>
   <p>
     The systemd journal provides structured logging for systems using systemd. Unlike traditional syslog, journald stores logs in a binary format with indexed fields for efficient searching and filtering.
@@ -431,7 +432,7 @@ ForwardToSyslog=yes          # Send to syslog in parallel</pre>
   <div class="card-header">
     <div >
     </div>
-    <h2>Comparison of Linux Logging Systems</h2>
+    <h2 id="comparison-of-linux-logging-systems">Comparison of Linux Logging Systems</h2>
   </div>
     
     <div class="table-container">
@@ -503,7 +504,7 @@ ForwardToSyslog=yes          # Send to syslog in parallel</pre>
   <div class="card-header">
     <div >
     </div>
-    <h2>Essential Log Analysis Commands</h2>
+    <h2 id="essential-log-analysis-commands">Essential Log Analysis Commands</h2>
   </div>
     <div class="cmd-grid">
       <!-- Basic log viewing -->
@@ -673,7 +674,7 @@ ForwardToSyslog=yes          # Send to syslog in parallel</pre>
   <div class="card-header">
     <div >
     </div>
-    <h2>Linux Logging Best Practices</h2>
+    <h2 id="linux-logging-best-practices">Linux Logging Best Practices</h2>
   </div>
     <div class="recommended-settings">
       <div class="setting-category">

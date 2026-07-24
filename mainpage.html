@@ -6,8 +6,10 @@
     <title>Hack The Logs - Navigation</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/search.css">
     <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme-platform.css">
 </head>
 <body>
 
@@ -17,34 +19,74 @@
                 <img src="logo.svg" alt="Logo">
                 <h1>HACK THE LOGS</h1>
                 <p class="header-description">
-                    Explore the logs and uncover the stories they tell. Each log contains important information that can be used to find patterns, look into events, or make sense of the data. Go in, examine, and determine what is important. 
+                    Explore the logs and uncover the stories they tell. Each log contains important information that can be used to find patterns, look into events, or make sense of the data. Go in, examine, and determine what is important.
                 </p>
             </header>
 
+            <!-- Site wide search -->
+            <div class="htl-search">
+                <div class="htl-search-field">
+                    <i class="fas fa-search"></i>
+                    <input
+                        type="text"
+                        id="htl-search-input"
+                        placeholder="Search every page by keyword, field, or query"
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-label="Search all documentation">
+                    <button class="htl-search-clear" id="htl-search-clear" type="button" aria-label="Clear search">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="htl-search-kbd">
+                        <span>/</span> to focus
+                    </div>
+                </div>
+
+                <div class="htl-search-hint">
+                    Searches 29 log pages across every section. Try <em>brute force</em>, <em>sysmon</em>, <em>exfiltration</em>, or <em>4625</em>.
+                </div>
+
+                <div class="htl-status" id="htl-search-status"></div>
+                <div class="htl-chips" id="htl-search-chips"></div>
+                <div class="htl-results" id="htl-search-results"></div>
+            </div>
+
             <div class="navigation-container">
-                <a href="endpoint.html" class="nav-box">
+                <a href="endpoint.html" class="nav-box" data-category="0">
                     <i class="fas fa-desktop"></i>
                     <span>Endpoint</span>
+                    <div class="nav-box-blurb">Windows, Linux, and macOS host logs</div>
+                    <div class="nav-box-count">3 pages</div>
                 </a>
-                <a href="Web.html" class="nav-box">
+                <a href="Web.html" class="nav-box" data-category="1">
                     <i class="fas fa-globe"></i>
                     <span>Web</span>
+                    <div class="nav-box-blurb">Apache and IIS access and error logs</div>
+                    <div class="nav-box-count">2 pages</div>
                 </a>
-                <a href="Databaseslogs.html" class="nav-box">
+                <a href="Databaseslogs.html" class="nav-box" data-category="2">
                     <i class="fas fa-database"></i>
                     <span>Databases</span>
+                    <div class="nav-box-blurb">MySQL, PostgreSQL, MSSQL, Oracle, MongoDB</div>
+                    <div class="nav-box-count">5 pages</div>
                 </a>
-                <a href="SecuritySolutions.html" class="nav-box">
+                <a href="SecuritySolutions.html" class="nav-box" data-category="3">
                     <i class="fas fa-lock"></i>
                     <span>Security Solutions</span>
+                    <div class="nav-box-blurb">Firewall, WAF, DLP, PAM, MDM, NAC, email</div>
+                    <div class="nav-box-count">7 pages</div>
                 </a>
-                <a href="Network.html" class="nav-box">
+                <a href="Network.html" class="nav-box" data-category="4">
                     <i class="fas fa-network-wired"></i>
                     <span>Network</span>
+                    <div class="nav-box-blurb">DNS, DHCP, VPN, proxy, IDS/IPS, devices</div>
+                    <div class="nav-box-count">6 pages</div>
                 </a>
-                <a href="VirtualizationCloud.html" class="nav-box">
+                <a href="VirtualizationCloud.html" class="nav-box" data-category="5">
                     <i class="fas fa-cloud"></i>
-                    <span>Virtualization & Cloud</span>
+                    <span>Virtualization &amp; Cloud</span>
+                    <div class="nav-box-blurb">AWS, Azure, GCP, VMware, Hyper-V, Kubernetes</div>
+                    <div class="nav-box-count">6 pages</div>
                 </a>
             </div>
 
@@ -61,6 +103,7 @@
         </div>
     </div>
 
+    <script src="js/search.js"></script>
 </body>
 
 </html>

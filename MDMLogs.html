@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -52,7 +53,7 @@
 <div class="card event-log-locations">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>Key MDM Solution Components</h2>
+    <h2 id="key-mdm-solution-components">Key MDM Solution Components</h2>
   </div>
   <p>Enterprise MDM solutions incorporate several essential components that work together to secure and manage mobile devices across the organization. Understanding these components is crucial for implementing comprehensive mobile device security controls:</p>
   <div class="log-locations-table-container">
@@ -109,7 +110,7 @@
 <div class="card">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>MDM Event Logs</h2>
+    <h2 id="mdm-event-logs">MDM Event Logs</h2>
   </div>
   <p>Events are records of administrative and device actions that the MDM console stores in logs. Export event logs as CSV files. You can also configure the MDM console to send the event logs to your Security Information and Event Management tools or Business Intelligence systems.</p>
   
@@ -249,7 +250,7 @@
 </div>
 <!-- MDM Vendor Log Differences -->
 <div class="card">
-  <h2>MDM Vendor Log Differences</h2>
+  <h2 id="mdm-vendor-log-differences">MDM Vendor Log Differences</h2>
   <p>Different MDM vendors implement logging in unique ways, creating challenges when normalizing logs for security monitoring. Understanding these differences is essential for effective SIEM integration.</p>
   <div class="log-locations-table-container">
     <table class="log-table">
@@ -379,7 +380,7 @@
 </div>
  <!-- MDM Log Analysis Queries -->
 <div class="card">
-  <h2>MDM Log Analysis Queries</h2>
+  <h2 id="mdm-log-analysis-queries">MDM Log Analysis Queries</h2>
   <p>Use these generic SIEM query patterns to analyze MDM logs, detect suspicious mobile device activities, and monitor mobile security compliance across any MDM solution. Field names will vary by vendor - adapt queries by substituting your system's specific field names.</p>
   <div class="cmd-grid">
     <!-- Non-Compliant Devices -->

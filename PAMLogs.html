@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -52,7 +53,7 @@
 <div class="card event-log-locations">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>Key PAM Solution Components</h2>
+    <h2 id="key-pam-solution-components">Key PAM Solution Components</h2>
   </div>
   <p>Enterprise PAM solutions incorporate several essential components that work together to secure privileged access across the organization. Understanding these components is crucial for implementing comprehensive privileged access controls:</p>
   <div class="log-locations-table-container">
@@ -99,7 +100,7 @@
 </div>
     <!-- PAM Activity Log Types -->
 <div class="card">
-  <h2>PAM Activity Log Types</h2>
+  <h2 id="pam-activity-log-types">PAM Activity Log Types</h2>
   <p>PAM solutions generate various types of logs that help organizations monitor privileged activities and maintain compliance. Understanding these log types is essential for effective security monitoring and auditing:</p>
   <div class="log-locations-table-container">
     <table class="log-table">
@@ -170,7 +171,7 @@
 </div>
 <!-- PAM Vendor Log Differences -->
 <div class="card">
-  <h2>PAM Vendor Log Differences</h2>
+  <h2 id="pam-vendor-log-differences">PAM Vendor Log Differences</h2>
   <p>Different PAM vendors implement logging in unique ways, creating challenges when normalizing logs for security monitoring. Understanding these differences is essential for effective SIEM integration.</p>
   <div class="log-locations-table-container">
     <table class="log-table">
@@ -300,7 +301,7 @@
 </div>
     <!-- PAM Log Analysis Queries -->
 <div class="card">
-  <h2>PAM Log Analysis Queries</h2>
+  <h2 id="pam-log-analysis-queries">PAM Log Analysis Queries</h2>
   <p>Use these generic SIEM query patterns to analyze PAM logs, detect suspicious privileged account usage, and monitor critical PAM operations across any PAM solution. Field names will vary by vendor - adapt queries by substituting your system's specific field names.</p>
   <div class="cmd-grid">
     <!-- Privileged User Activity Monitoring -->

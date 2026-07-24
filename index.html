@@ -3,60 +3,129 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hack the Logs - Unlock the story of your logs</title>
-    <!-- Link to External CSS File -->
-    <link rel="stylesheet" href="css\style.css">
+    <title>Hack The Logs - Turn noise into evidence</title>
+    <link rel="stylesheet" href="css/theme-platform.css">
+    <link rel="stylesheet" href="css/landing.css">
     <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Prompt:wght@700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   </head>
   <body>
     <div class="container">
-      <div class="content-wrapper">
-        <div class="text-content">
-          <div class="logo">
-            <div class="logo-placeholder">
-              <span></span>
+
+      <!-- Top bar -->
+      <header class="lp-topbar">
+        <a href="index.html" class="lp-brand">
+          <span class="lp-brand-mark">H</span>
+          <span class="lp-brand-text">HACK THE LOGS</span>
+        </a>
+        <nav class="lp-topbar-meta">
+          <span>29 log sources</span>
+          <a href="mainpage.html">Documentation</a>
+          <a href="https://www.linkedin.com/in/sarah-aljaber-mba-195b3717a" target="_blank" rel="noopener noreferrer">Contact</a>
+        </nav>
+      </header>
+
+      <!-- Hero -->
+      <main class="lp-hero">
+        <div class="lp-hero-text">
+          <div class="lp-eyebrow">Documentation Platform</div>
+
+          <h1>
+            Turn noise
+            <span class="lp-accent">into evidence.</span>
+          </h1>
+
+          <p class="lp-lede">
+            <strong>Hack The Logs</strong> is a central reference for logs across every system you run.
+            What each log records, where to find it, how the format breaks down, and the queries that
+            surface the events worth investigating.
+          </p>
+
+          <div class="lp-standards">
+            <span class="lp-standard">NCA Aligned</span>
+            <span class="lp-standard">NIST SP 800-92</span>
+            <span class="lp-standard">Free &amp; Open</span>
+          </div>
+
+          <div class="lp-actions">
+            <a href="mainpage.html" class="lp-cta">
+              Explore the docs
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"></path>
+                <path d="M12 5l7 7-7 7"></path>
+              </svg>
+            </a>
+            <a href="https://x.com/S4O_O" class="lp-social" target="_blank" rel="noopener noreferrer" title="Follow on X">𝕏</a>
+            <a href="https://www.linkedin.com/in/sarah-aljaber-mba-195b3717a" class="lp-social" target="_blank" rel="noopener noreferrer" title="Connect on LinkedIn">in</a>
+          </div>
+
+          <div class="lp-stats">
+            <div class="lp-stat">
+              <div class="lp-stat-value">29</div>
+              <div class="lp-stat-label">Log Sources</div>
+            </div>
+            <div class="lp-stat">
+              <div class="lp-stat-value">6</div>
+              <div class="lp-stat-label">Categories</div>
+            </div>
+            <div class="lp-stat">
+              <div class="lp-stat-value">250<span>+</span></div>
+              <div class="lp-stat-label">Sections</div>
             </div>
           </div>
-          <div class="subtitle">Unlock the story of your logs</div>
-          <h1>HACK THE LOGS</h1>
-          <p class="description"> Welcome to <strong>Hack The Logs,</strong> a dedicated documentation platform and central hub for learning about logs across different systems and platforms. This resource mostly explains the different types of logs, their formats, and how they can help improve cybersecurity. The log baselines and advice follow the Saudi National Cybersecurity Authority (NCA) and NIST SP 800-92 . </p>
-          <div class="social-buttons">
-            <!-- Twitter/X -->
-            <a href="https://x.com/S4O_O" class="social-icon-text twitter" target="_blank" rel="noopener noreferrer" title="Follow on X">
-              <span>𝕏</span>
-            </a>
-            <!-- LinkedIn -->
-            <a href="www.linkedin.com/in/sarah-aljaber-mba-195b3717a" class="social-icon-text linkedin" target="_blank" rel="noopener noreferrer" title="Connect on LinkedIn">
-              <span>in</span>
-            </a>
-          </div>
-          <a href="mainpage.html" class="explore-button"> EXPLORE MORE <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"></path>
-              <path d="M12 5l7 7-7 7"></path>
-            </svg>
-          </a>
-          <div class="creator-credit"> Made with <span class="heart">❤️</span> by Sarah AlJaber
+        </div>
 
-           </div>
-           
-          
-        </div>
-        <div class="image-side">
-          <div class="image-area">
-            <img src="Landingpage.svg" alt="Hack the Logs">
+        <!-- Hero visual: a running log stream -->
+        <div class="lp-visual">
+          <div class="lp-console">
+            <div class="lp-console-bar">
+              <span class="lp-console-dot is-live"></span>
+              <span class="lp-console-dot"></span>
+              <span class="lp-console-dot"></span>
+              <span class="lp-console-title">live stream</span>
+              <span class="lp-console-count">ingest 4.2k/s</span>
+            </div>
+
+            <div class="lp-stream">
+              <div class="lp-stream-inner">
+                <!-- The list is duplicated once so the scroll loops seamlessly. -->
+                <div class="lp-log crit"><span class="lp-log-time">09:41:22</span><span class="lp-log-level">crit</span><span class="lp-log-msg">SMB exploit attempt <b>CVE-2017-0144</b> blocked at perimeter</span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:41:19</span><span class="lp-log-level">warn</span><span class="lp-log-msg">4625 failed logon burst, <b>18 attempts</b> from 198.51.100.203</span></div>
+                <div class="lp-log info"><span class="lp-log-time">09:40:58</span><span class="lp-log-level">info</span><span class="lp-log-msg">DNS query <b>cdn-assets.badinfra.top</b> resolved via 10.10.0.10</span></div>
+                <div class="lp-log ok"><span class="lp-log-time">09:40:44</span><span class="lp-log-level">ok</span><span class="lp-log-msg">Sysmon channel healthy, drop rate <b>0.02%</b></span></div>
+                <div class="lp-log crit"><span class="lp-log-time">09:40:12</span><span class="lp-log-level">crit</span><span class="lp-log-msg">Outbound beacon to <b>203.0.113.44:443</b>, JA3 matches Cobalt Strike</span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:39:51</span><span class="lp-log-level">warn</span><span class="lp-log-msg">S3 bucket policy changed by <b>svc-deploy</b> outside change window</span></div>
+                <div class="lp-log info"><span class="lp-log-time">09:39:30</span><span class="lp-log-level">info</span><span class="lp-log-msg">VPN session established, user <b>a.rahman</b>, 02:14 local</span></div>
+                <div class="lp-log crit"><span class="lp-log-time">09:39:02</span><span class="lp-log-level">crit</span><span class="lp-log-msg">1.88 GB uploaded vs 3.2 MB down, flow age <b>8h 07m</b></span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:38:47</span><span class="lp-log-level">warn</span><span class="lp-log-msg">MSSQL login failure for <b>sa</b>, error 18456 state 8</span></div>
+                <div class="lp-log info"><span class="lp-log-time">09:38:20</span><span class="lp-log-level">info</span><span class="lp-log-msg">Kubernetes pod <b>api-7d9f</b> exec into container by cluster-admin</span></div>
+                <div class="lp-log ok"><span class="lp-log-time">09:38:02</span><span class="lp-log-level">ok</span><span class="lp-log-msg">Ruleset reloaded, <b>41,208</b> signatures active</span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:37:41</span><span class="lp-log-level">warn</span><span class="lp-log-msg">Directory traversal <b>/../../etc/passwd</b> returned 200</span></div>
+
+                <div class="lp-log crit"><span class="lp-log-time">09:41:22</span><span class="lp-log-level">crit</span><span class="lp-log-msg">SMB exploit attempt <b>CVE-2017-0144</b> blocked at perimeter</span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:41:19</span><span class="lp-log-level">warn</span><span class="lp-log-msg">4625 failed logon burst, <b>18 attempts</b> from 198.51.100.203</span></div>
+                <div class="lp-log info"><span class="lp-log-time">09:40:58</span><span class="lp-log-level">info</span><span class="lp-log-msg">DNS query <b>cdn-assets.badinfra.top</b> resolved via 10.10.0.10</span></div>
+                <div class="lp-log ok"><span class="lp-log-time">09:40:44</span><span class="lp-log-level">ok</span><span class="lp-log-msg">Sysmon channel healthy, drop rate <b>0.02%</b></span></div>
+                <div class="lp-log crit"><span class="lp-log-time">09:40:12</span><span class="lp-log-level">crit</span><span class="lp-log-msg">Outbound beacon to <b>203.0.113.44:443</b>, JA3 matches Cobalt Strike</span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:39:51</span><span class="lp-log-level">warn</span><span class="lp-log-msg">S3 bucket policy changed by <b>svc-deploy</b> outside change window</span></div>
+                <div class="lp-log info"><span class="lp-log-time">09:39:30</span><span class="lp-log-level">info</span><span class="lp-log-msg">VPN session established, user <b>a.rahman</b>, 02:14 local</span></div>
+                <div class="lp-log crit"><span class="lp-log-time">09:39:02</span><span class="lp-log-level">crit</span><span class="lp-log-msg">1.88 GB uploaded vs 3.2 MB down, flow age <b>8h 07m</b></span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:38:47</span><span class="lp-log-level">warn</span><span class="lp-log-msg">MSSQL login failure for <b>sa</b>, error 18456 state 8</span></div>
+                <div class="lp-log info"><span class="lp-log-time">09:38:20</span><span class="lp-log-level">info</span><span class="lp-log-msg">Kubernetes pod <b>api-7d9f</b> exec into container by cluster-admin</span></div>
+                <div class="lp-log ok"><span class="lp-log-time">09:38:02</span><span class="lp-log-level">ok</span><span class="lp-log-msg">Ruleset reloaded, <b>41,208</b> signatures active</span></div>
+                <div class="lp-log warn"><span class="lp-log-time">09:37:41</span><span class="lp-log-level">warn</span><span class="lp-log-msg">Directory traversal <b>/../../etc/passwd</b> returned 200</span></div>
+              </div>
+            </div>
           </div>
-          <div class="diagonal-overlay"></div>
         </div>
-      </div>
-      <div class="geometric-elements">
-        <div class="geo-element geo-diamond-1"></div>
-        <div class="geo-element geo-diamond-2"></div>
-        <div class="geo-element geo-circle-1"></div>
-        <div class="geo-element geo-circle-2"></div>
-        <div class="geo-element geo-diamond-large"></div>
-      </div>
+      </main>
+
+      <footer class="lp-footer">
+        <span>&copy; 2025 Hack The Logs</span>
+        <span>Made with <span class="heart">&#10084;</span> by Sarah AlJaber</span>
+      </footer>
+
     </div>
-
   </body>
 </html>

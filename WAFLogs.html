@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -53,7 +54,7 @@
 <div class="card event-log-locations">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>Key WAF Threat Types</h2>
+    <h2 id="key-waf-threat-types">Key WAF Threat Types</h2>
   </div>
   <p>Web Application Firewalls are designed to detect and block a wide variety of web-based attacks. Below are common threat types that WAFs help protect against:</p>
   <div class="log-locations-table-container">
@@ -109,7 +110,7 @@
 
       <!-- WAF Log Format -->
 <div class="card">
-  <h2>WAF Log Format</h2>
+  <h2 id="waf-log-format">WAF Log Format</h2>
   <div class="log-locations-table-container">
     <table class="log-table">
       <thead>
@@ -201,7 +202,7 @@
 
       <!-- WAF SIEM Queries -->
 <div class="card">
-  <h2>WAF SIEM Queries</h2>
+  <h2 id="waf-siem-queries">WAF SIEM Queries</h2>
   <p>Use these queries to detect abnormal activity, exploitation attempts, automated threats, and user agent misuse from WAF or HTTP logs in your SIEM.</p>
   <div class="cmd-grid">
     <!-- List All User Agents -->
@@ -333,7 +334,7 @@
           <div class="header-icon">
             
           </div>
-          <h2>OWASP Top 10 Web Application Security Risks</h2>
+          <h2 id="owasp-top-10-web-application-security-risks">OWASP Top 10 Web Application Security Risks</h2>
         </div>
         <p class="description"> The OWASP Top 10 is a standard awareness document for developers and web application security practitioners. It represents a broad consensus about the most critical security risks to web applications based on frequency of discovery, severity, and potential impact. </p>
         <div class="audit-categories-grid">

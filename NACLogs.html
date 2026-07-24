@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Anta&display=swap" rel="stylesheet">
     <script src="js\Endpintcode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/theme-platform.css">
   </head>
   <body>
     <!-- Sidebar -->
@@ -52,7 +53,7 @@
 <div class="card event-log-locations">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>Key NAC Solution Capabilities</h2>
+    <h2 id="key-nac-solution-capabilities">Key NAC Solution Capabilities</h2>
   </div>
   <p>NAC solutions help organizations control access to their networks through the following capabilities:</p>
   <div class="log-locations-table-container">
@@ -101,7 +102,7 @@
 <div class="card">
   <div class="card-header">
     <div class="header-icon"></div>
-    <h2>NAC Event Logs</h2>
+    <h2 id="nac-event-logs">NAC Event Logs</h2>
   </div>
   <p>Events are records of administrative and network access actions that the NAC solution stores in logs. Export event logs as CSV files. You can also configure the NAC solution to send the event logs to your Security Information and Event Management tools or Business Intelligence systems.</p>
   
@@ -236,7 +237,7 @@
 
 <!-- NAC Log Standards and Integration -->
 <div class="card">
-  <h2>NAC Logging Standards and Integration</h2>
+  <h2 id="nac-logging-standards-and-integration">NAC Logging Standards and Integration</h2>
   <p>NAC solutions implement logging in various ways, creating challenges when normalizing logs for security monitoring. Understanding logging standards is essential for effective SIEM integration and security operations.</p>
   <div class="log-locations-table-container">
     <table class="log-table">
@@ -373,7 +374,7 @@
 </div>
  <!-- NAC Log Analysis Queries -->
 <div class="card">
-  <h2>NAC Log Analysis Queries</h2>
+  <h2 id="nac-log-analysis-queries">NAC Log Analysis Queries</h2>
   <p>Use these generic SIEM query patterns to analyze NAC logs, detect suspicious network access activities, and monitor security compliance across any NAC solution. Field names will vary by implementation - adapt queries by substituting your system's specific field names.</p>
   <div class="cmd-grid">
     <!-- Failed Authentication Events -->
