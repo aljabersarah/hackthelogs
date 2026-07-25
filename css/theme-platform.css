@@ -676,12 +676,23 @@ body::before {
 
 /* ---- category pages ----------------------------------------------------- */
 
+/*
+ * logo.svg is 400x400 with no display size set anywhere, so it rendered at
+ * full width and dominated narrow screens. Constrain it and let it scale down.
+ */
+.main-header img {
+  width: 88px;
+  height: auto;
+  max-width: 40vw;
+}
+
 .main-header h1 {
   background: none !important;
   -webkit-text-fill-color: var(--ink-100) !important;
   color: var(--ink-100) !important;
-  font-size: 52px;
+  font-size: clamp(30px, 8vw, 52px);
   letter-spacing: -1.5px;
+  word-break: break-word;
 }
 
 .header-description { color: var(--ink-300); }
