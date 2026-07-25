@@ -800,3 +800,91 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 ::-webkit-scrollbar-track { background: var(--dark-bg); }
 ::-webkit-scrollbar-thumb { background: rgba(150, 190, 175, .16); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(1, 195, 141, .45); }
+
+/* =========================================================================
+   RESPONSIVE
+   The base sheet (os.css) already slides the sidebar off canvas below 992px
+   and shows a hamburger. The desktop .sidebar rule above set position:relative
+   with no media query, which — loading after os.css — overrode that at every
+   width and left the 288px sidebar wedged into phone layouts. These rules
+   restore the drawer (width independent via transform) and tighten spacing.
+   ========================================================================= */
+
+/* Never allow a sideways scroll on any page. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+@media (max-width: 992px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform .3s ease;
+    z-index: 1000;
+    box-shadow: 0 0 40px rgba(0, 0, 0, .5);
+  }
+
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-overlay.active {
+    display: block;
+    background: rgba(4, 6, 9, .6);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100%;
+    padding: 24px 22px 70px;
+  }
+
+  /* The base sheet uses this to nudge content when the drawer opens; with an
+     overlay drawer the content should stay put. */
+  .main-content.shifted { margin-left: 0 !important; }
+
+  .page-title #menuToggle { display: inline-block; cursor: pointer; }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .search-box,
+  .search-box input { width: 100%; }
+
+  .page-title { font-size: 26px; }
+
+  .card { padding: 22px 18px; }
+  .card::before, .card::after { width: 18px; height: 18px; }
+
+  .card h2, .card-header h2 { font-size: 20px; }
+
+  /* Any grid of boxes collapses to a single column. */
+  .audit-categories-grid,
+  .cmd-grid,
+  .practices-container,
+  .policy-categories,
+  .file-extensions-grid,
+  .comparison-container { grid-template-columns: 1fr !important; }
+
+  /* Long code and command lines scroll inside their box instead of the page. */
+  .config-snippet,
+  .cmd-line { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 480px) {
+  .main-content { padding: 20px 14px 60px; }
+  .page-title { font-size: 22px; }
+  .card { padding: 18px 14px; }
+  .card h2, .card-header h2 { font-size: 18px; }
+
+  .log-locations-table th,
+  .log-locations-table td,
+  .log-table th,
+  .log-table td { padding: 10px 12px; font-size: 12.8px; }
+}
